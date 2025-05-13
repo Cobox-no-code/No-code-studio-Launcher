@@ -1,0 +1,1 @@
+export const  backend_url = "http://34.228.195.218/api"

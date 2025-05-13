@@ -1,0 +1,810 @@
+'use client'
+import React, { ChangeEvent, useEffect, useState } from 'react'
+import { useDispatch } from 'react-redux'
+import { AppDispatch } from '@/redux/store'
+import { useGetItemsQuery, useGetCategoriesQuery, useGetUnitsQuery, useGetUnitConversionsQuery, useDeleteItemMutation } from '@/redux/api'
+
+// UI Components
+import { Button } from '@/components/ui/button'
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+
+// Icons
+import {
+  EllipsisVertical,
+  AlertCircle,
+  Plus,
+  SlidersVertical,
+  Search,
+  Package2,
+  ArrowUpDown,
+  Calendar,
+  CreditCard,
+  Tag,
+  BarChart3,
+  History,
+  Loader2,
+  X,
+  FileText,
+  TrendingUp,
+  ShoppingCart,
+  ArrowDownRight,
+  ArrowUpRight,
+} from 'lucide-react'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { useAppDispatch } from '@/redux/hooks'
+import { openCreateForm, openEditForm } from '@/redux/slices/itemsSlice'
+
+// Helper to format currency
+const formatCurrency = (amount: string | number | bigint) => {
+  const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2,
+  }).format(numericAmount)
+}
+
+// Helper to format dates
+const formatDate = (dateString: string) => {
+  if (!dateString) return '—'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+const Items = () => {
+  const dispatch = useDispatch<AppDispatch>()
+
+  // State management
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [filterProduct, setFilterProduct] = useState('')
+  const [filterTransaction, setFilterTransaction] = useState('')
+  const [currentTab, setCurrentTab] = useState('all')
+
+  // Use RTK Query to fetch items, categories, and units
+  const { data: items, isLoading, isError, error } = useGetItemsQuery({})
+  const { data: categories, isLoading: isLoadingCategories } = useGetCategoriesQuery()
+  const { data: units, isLoading: isLoadingUnits } = useGetUnitsQuery()
+  const { data: unitConversions, isLoading: isLoadingConversions } = useGetUnitConversionsQuery()
+ const [deleteItem, { isLoading: isCreatingItem }] = useDeleteItemMutation()
+  // Helper functions to get names from IDs
+  const getCategoryName = (categoryId: string | undefined) => {
+    if (!categoryId || !categories) return '—'
+    const category = categories.find(cat => cat.id === categoryId)
+    return category ? category.name : '—'
+  }
+  
+  // Get unit details based on unitId or unit_conversionId
+  const getUnitInfo = (item:any) => {
+    if (!units) return { name: '—', shortName: '' }
+    
+    // First try to get unit from unit_conversionId
+    if (item.unit_conversionId && unitConversions) {
+      const conversion = unitConversions.find(uc => uc.id === item.unit_conversionId)
+      if (conversion) {
+        const unit = units.find(u => u.id === conversion.primaryUnitId)
+        return {
+          name: unit ? unit.fullname : '—',
+          shortName: unit ? unit.shortname : '',
+          secondaryUnitId: conversion.secondaryUnitId,
+          conversionRate: conversion.conversionRate || 1
+        }
+      }
+    }
+    
+    // Fallback to unitId for backward compatibility
+    if (item.unitId) {
+      const unit = units.find(u => u.id === item.unitId)
+      return {
+        name: unit ? unit.fullname : '—',
+        shortName: unit ? unit.shortname : '',
+        conversionRate: 1
+      }
+    }
+    
+    return { name: '—', shortName: '', conversionRate: 1 }
+  }
+  
+  // Get secondary unit info
+  const getSecondaryUnitInfo = (secondaryUnitId:any) => {
+    if (!secondaryUnitId || !units) return { name: '—', shortName: '' }
+    const unit = units.find(u => u.id === secondaryUnitId)
+    return {
+      name: unit ? unit.fullname : '—',
+      shortName: unit ? unit.shortname : ''
+    }
+  }
+
+  // Calculate stock value considering both primary and secondary quantities
+  const calculateStockValue = (item:any) => {
+    if (!item || !item.purchasePrice) return '—'
+    
+    let totalValue = 0
+    
+    // Add primary quantity value
+    if (item.primaryQuantity) {
+      totalValue += item.primaryQuantity * item.purchasePrice
+    }
+    
+    // Add secondary quantity value if exists
+    if (item.secondaryQuantity && item.unit_conversionId) {
+      const unitInfo = getUnitInfo(item)
+      if (unitInfo.conversionRate) {
+        // Convert secondary units to primary units for value calculation
+        const primaryEquivalent = item.secondaryQuantity / unitInfo.conversionRate
+        totalValue += primaryEquivalent * item.purchasePrice
+      }
+    }
+    
+    return totalValue > 0 ? formatCurrency(totalValue) : '—'
+  }
+
+  // Handle item selection
+  const handleSelectItem = (id: string) => {
+    setSelectedId(id)
+  }
+
+  // Open modals
+  const openCreateModal = () => {
+    dispatch(openCreateForm())
+  }
+  
+  const openEditModal = (itemId: string) => {
+    dispatch(openEditForm(itemId))
+  }
+
+  // Get the selected item details
+  const selectedItem = selectedId
+    ? items?.find((item) => item.id === selectedId)
+    : null
+
+  // Filter products based on search and tab
+  const filteredItems = items?.filter((item) => {
+    const matchesSearch = item.name
+      .toLowerCase()
+      .includes(filterProduct.toLowerCase())
+
+    if (currentTab === 'all') return matchesSearch
+    if (currentTab === 'products' && item.type === 'PRODUCT')
+      return matchesSearch
+    if (currentTab === 'services' && item.type === 'SERVICE')
+      return matchesSearch
+    if (
+      currentTab === 'lowStock' &&
+      item.type === 'PRODUCT' &&
+      'primaryOpeningQuantity' in item &&
+      'minStockLevel' in item &&
+      item.primaryOpeningQuantity <= (item.minStockLevel || 0)
+    )
+      return matchesSearch
+
+    return false
+  })
+
+  // Items summary
+  const totalItems = items?.length || 0
+  const totalProducts =
+    items?.filter((item) => item.type === 'PRODUCT').length || 0
+  const totalServices =
+    items?.filter((item) => item.type === 'SERVICE').length || 0
+  const lowStockItems =
+    items?.filter(
+      (item) =>
+        item.type === 'PRODUCT' &&
+        'primaryOpeningQuantity' in item &&
+        'minStockLevel' in item &&
+        item.primaryOpeningQuantity <= (item.minStockLevel || 0)
+    ).length || 0
+
+  // Get transaction history data (mock data)
+  const transactionHistory = selectedItem
+    ? [
+        {
+          id: '1',
+          type: 'Sale',
+          invoiceNo: 'INV-001',
+          date: '2025-04-15',
+          quantity: 5,
+          pricePerUnit: selectedItem.salePrice,
+          direction: 'out',
+        },
+        {
+          id: '2',
+          type: 'Purchase',
+          invoiceNo: 'PO-002',
+          date: '2025-04-10',
+          quantity: 10,
+          pricePerUnit:
+            'purchasePrice' in selectedItem ? selectedItem.purchasePrice : 0,
+          direction: 'in',
+        },
+      ]
+    : []
+
+  // Filter transactions
+  const filteredTransactions = transactionHistory.filter(
+    (transaction) =>
+      transaction.type
+        .toLowerCase()
+        .includes(filterTransaction.toLowerCase()) ||
+      transaction.invoiceNo
+        .toLowerCase()
+        .includes(filterTransaction.toLowerCase())
+  )
+
+  return (
+    <div className="p-4 space-y-4 bg-gray-50 min-h-screen">
+      {/* Header with stats */}
+      <div className="flex flex-wrap gap-4">
+        <Card className="w-full md:w-[calc(25%-12px)]">
+          <CardContent className="flex items-center justify-between p-6">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Items</p>
+              <p className="text-2xl font-bold">{totalItems}</p>
+            </div>
+            <Package2 className="h-8 w-8 text-primary opacity-80" />
+          </CardContent>
+        </Card>
+
+        <Card className="w-full md:w-[calc(25%-12px)]">
+          <CardContent className="flex items-center justify-between p-6">
+            <div>
+              <p className="text-sm text-muted-foreground">Products</p>
+              <p className="text-2xl font-bold">{totalProducts}</p>
+            </div>
+            <ShoppingCart className="h-8 w-8 text-green-500 opacity-80" />
+          </CardContent>
+        </Card>
+
+        <Card className="w-full md:w-[calc(25%-12px)]">
+          <CardContent className="flex items-center justify-between p-6">
+            <div>
+              <p className="text-sm text-muted-foreground">Services</p>
+              <p className="text-2xl font-bold">{totalServices}</p>
+            </div>
+            <FileText className="h-8 w-8 text-blue-500 opacity-80" />
+          </CardContent>
+        </Card>
+
+        <Card className="w-full md:w-[calc(25%-12px)]">
+          <CardContent className="flex items-center justify-between p-6">
+            <div>
+              <p className="text-sm text-muted-foreground">Low Stock</p>
+              <p className="text-2xl font-bold">{lowStockItems}</p>
+            </div>
+            <AlertCircle className="h-8 w-8 text-red-500 opacity-80" />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-4">
+        {/* Left panel - Items List */}
+        <Card className="w-full md:w-1/3">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle>Item Inventory</CardTitle>
+              <Button onClick={() => openCreateModal()}>
+                <Plus className="h-4 w-4 mr-1" /> Add Item
+              </Button>
+            </div>
+
+            <div className="relative mt-2">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search items..."
+                value={filterProduct}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setFilterProduct(e.target.value)
+                }
+                className="pl-9 pr-9"
+              />
+              {filterProduct && (
+                <button
+                  onClick={() => setFilterProduct('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                >
+                  <X className="h-4 w-4 text-gray-400" />
+                </button>
+              )}
+            </div>
+
+            <Tabs
+              defaultValue="all"
+              className="mt-2"
+              onValueChange={(value) => setCurrentTab(value)}
+            >
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="products">Products</TabsTrigger>
+                <TabsTrigger value="services">Services</TabsTrigger>
+                <TabsTrigger value="lowStock">Low Stock</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </CardHeader>
+
+          <CardContent className="p-0 overflow-hidden">
+            <div className="h-[calc(100vh-400px)] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="pl-4">Item</TableHead>
+                    <TableHead className="text-right">Primary Qty</TableHead>
+                    <TableHead className="text-right">Secondary Qty</TableHead>
+                    <TableHead className="w-10"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading || isLoadingUnits || isLoadingConversions ? (
+                    Array(5)
+                      .fill(0)
+                      .map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell>
+                            <Skeleton className="h-5 w-full" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-5 w-16 ml-auto" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-5 w-16 ml-auto" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-5 w-5 ml-auto" />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                  ) : isError ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-4">
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Error</AlertTitle>
+                          <AlertDescription>
+                            {error?.toString() || 'Failed to load items'}
+                          </AlertDescription>
+                        </Alert>
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredItems?.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No items found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredItems?.map((item) => {
+                      const unitInfo = getUnitInfo(item);
+                      return (
+                        <TableRow
+                          key={item.id}
+                          className={`cursor-pointer hover:bg-gray-50 ${
+                            selectedId === item.id ? 'bg-primary/5' : ''
+                          }`}
+                          onClick={() => handleSelectItem(item.id)}
+                        >
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{item.name}</span>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge
+                                  variant={
+                                    item.type === 'PRODUCT'
+                                      ? 'outline'
+                                      : 'secondary'
+                                  }
+                                  className="text-xs"
+                                >
+                                  {item.type === 'PRODUCT'
+                                    ? 'Product'
+                                    : 'Service'}
+                                </Badge>
+                                {item.categoryId && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {getCategoryName(item.categoryId)}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {item.type === 'PRODUCT' &&
+                            'primaryQuantity' in item ? (
+                              <span
+                                className={
+                                  'minStockLevel' in item &&
+                                  (item.primaryQuantity ?? 0) <=
+                                    (item.minStockLevel || 0)
+                                    ? 'text-red-600 font-medium'
+                                    : ''
+                                }
+                              >
+                                {item.primaryQuantity}{' '}
+                                {unitInfo.shortName}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {item.type === 'PRODUCT' &&
+                            'secondaryQuantity' in item &&
+                            (item.secondaryQuantity ?? 0) > 0 &&
+                            unitInfo.secondaryUnitId ? (
+                              <span>
+                                {item.secondaryQuantity }{' '}
+                                {getSecondaryUnitInfo(unitInfo.secondaryUnitId).shortName}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right w-10">
+                            <Popover>
+                              <PopoverTrigger>
+                                <EllipsisVertical className="h-4 w-4 text-gray-500" />
+                              </PopoverTrigger>
+                              <PopoverContent className="w-40">
+                                <div className="flex flex-col space-y-1">
+                                  <button
+                                    className="text-left px-2 py-1 hover:bg-gray-100 rounded-md text-sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      openEditModal(item.id)
+                                    }}
+                                  >
+                                    Edit Item
+                                  </button>
+                                  <button
+                                    className="text-left px-2 py-1 hover:bg-gray-100 rounded-md text-sm"
+                                    onClick={(e) => {
+                                  deleteItem(item.id)
+                                    }}
+                                  >
+                                    Delete Item
+                                  </button>
+                                  <button
+                                    className="text-left px-2 py-1 hover:bg-gray-100 rounded-md text-sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      // Add your delete or other actions here
+                                    }}
+                                  >
+                                    View Details
+                                  </button>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Right panel - Item Details */}
+        <div className="flex flex-col gap-4 w-full md:w-2/3">
+          {/* Item Details Card */}
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle>
+                  {selectedItem ? (
+                    <div className="flex items-center gap-2">
+                      {selectedItem.name}
+                      <Badge
+                        variant={
+                          selectedItem.type === 'PRODUCT'
+                            ? 'outline'
+                            : 'secondary'
+                        }
+                        className="ml-2"
+                      >
+                        {selectedItem.type === 'PRODUCT'
+                          ? 'Product'
+                          : 'Service'}
+                      </Badge>
+                    </div>
+                  ) : (
+                    'Item Details'
+                  )}
+                </CardTitle>
+                {selectedItem && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEditModal(selectedItem.id)}
+                  >
+                    Edit Item
+                  </Button>
+                  
+                )}
+
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!selectedItem ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Package2 className="h-16 w-16 text-gray-300 mb-2" />
+                  <p className="text-lg font-medium text-gray-500">
+                    Select an item to view details
+                  </p>
+                  <p className="text-sm text-gray-400 max-w-md mt-1">
+                    Click on any item from the list to view its detailed
+                    information and transaction history
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <Card className="border-0 shadow-none bg-gray-50">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Tag className="h-4 w-4 text-primary" />
+                          <h3 className="font-medium text-sm">
+                            Pricing Information
+                          </h3>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 mt-4">
+                          <div>
+                            <p className="text-xs text-muted-foreground">
+                              Sale Price
+                            </p>
+                            <p className="text-lg font-semibold text-green-600">
+                              {formatCurrency(selectedItem.salePrice)}
+                            </p>
+                           
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">
+                              Wholesale Price
+                            </p>
+                            <p className="text-lg font-semibold">
+                              {selectedItem.wholesalePrice
+                                ? formatCurrency(selectedItem.wholesalePrice)
+                                : '—'}
+                            </p>
+                          </div>
+                          {selectedItem.type === 'PRODUCT' && (
+                            <>
+                              <div>
+                                <p className="text-xs text-muted-foreground">
+                                  Purchase Price
+                                </p>
+                                <p className="text-lg font-semibold">
+                                  {'purchasePrice' in selectedItem &&
+                                  selectedItem.purchasePrice
+                                    ? formatCurrency(selectedItem.purchasePrice)
+                                    : '—'}
+                                </p>
+                              
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground">
+                                  Tax Rate
+                                </p>
+                                <p className="text-lg font-semibold">
+                                  {selectedItem.taxRate
+                                    ? `${selectedItem.taxRate}`
+                                    : 'No Tax'}
+                                </p>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {selectedItem.type === 'PRODUCT' && (
+                      <Card className="border-0 shadow-none bg-gray-50">
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <BarChart3 className="h-4 w-4 text-primary" />
+                            <h3 className="font-medium text-sm">
+                              Stock Information
+                            </h3>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 mt-4">
+                            {(() => {
+                              const unitInfo = getUnitInfo(selectedItem);
+                              const secondaryUnitInfo = unitInfo.secondaryUnitId 
+                                ? getSecondaryUnitInfo(unitInfo.secondaryUnitId) 
+                                : null;
+                              
+                              return (
+                                <>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Primary Opening Quantity
+                                    </p>
+                                    <p
+                                      className={`text-lg font-semibold ${
+                                        'minStockLevel' in selectedItem &&
+                                        selectedItem.primaryOpeningQuantity <=
+                                          (selectedItem.minStockLevel || 0)
+                                          ? 'text-red-600'
+                                          : ''
+                                      }`}
+                                    >
+                                      {'primaryOpeningQuantity' in selectedItem
+                                        ? `${selectedItem.primaryOpeningQuantity || 0} ${unitInfo.shortName}`
+                                        : '—'}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Secondary Opening Quantity
+                                    </p>
+                                    <p className="text-lg font-semibold">
+                                      {'secondaryOpeningQuantity' in selectedItem && 
+                                       selectedItem.secondaryOpeningQuantity > 0 &&
+                                       secondaryUnitInfo
+                                        ? `${selectedItem.secondaryOpeningQuantity} ${secondaryUnitInfo.shortName}`
+                                        : '—'}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Minimum Stock Level
+                                    </p>
+                                    <p className="text-lg font-semibold">
+                                      {'minStockLevel' in selectedItem
+                                        ? `${selectedItem.minStockLevel || 0} ${unitInfo.shortName}`
+                                        : '—'}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Stock Value
+                                    </p>
+                                    <p className="text-lg font-semibold">
+                                      {calculateStockValue(selectedItem)}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Storage Location
+                                    </p>
+                                    <p className="text-lg font-semibold">
+                                      {'location' in selectedItem &&
+                                      selectedItem.location
+                                        ? selectedItem.location
+                                        : '—'}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Price per Unit
+                                    </p>
+                                    <p className="text-lg font-semibold">
+                                      {'pricePerUnit' in selectedItem && selectedItem.pricePerUnit
+                                        ? `${formatCurrency(selectedItem.pricePerUnit)} / ${unitInfo.name}`
+                                        : '—'}
+                                    </p>
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+
+                  <div>
+                    <Card className="border-0 shadow-none bg-gray-50 h-full">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <h3 className="font-medium text-sm">
+                            Additional Details
+                          </h3>
+                        </div>
+                        <div className="space-y-4 mt-4">
+                          <div>
+                            <p className="text-xs text-muted-foreground">
+                              Item Code
+                            </p>
+                            <p className="text-base font-medium">
+                              {selectedItem.itemCode || '—'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">
+                              HSN Code
+                            </p>
+                            <p className="text-base font-medium">
+                              {selectedItem.hsnCode || '—'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">
+                              Category
+                            </p>
+                            <p className="text-base font-medium">
+                              {getCategoryName(selectedItem.categoryId)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">
+                              Unit
+                            </p>
+                            <p className="text-base font-medium">
+                              {(() => {
+                                const unitInfo = getUnitInfo(selectedItem);
+                                return `${unitInfo.name} (${unitInfo.shortName})`;
+                              })()}
+                            </p>
+                          </div>
+                          
+                          {selectedItem.unit_conversionId && unitConversions && (
+                            <div>
+                              <p className="text-xs text-muted-foreground">
+                                Unit Conversion
+                              </p>
+                              <p className="text-base font-medium">
+                                {(() => {
+                                  const unitInfo = getUnitInfo(selectedItem);
+                                  const secondaryUnitInfo = unitInfo.secondaryUnitId
+                                    ? getSecondaryUnitInfo(unitInfo.secondaryUnitId)
+                                    : null;
+                                  
+                                  return secondaryUnitInfo
+                                    ? `1 ${unitInfo.name} = ${unitInfo.conversionRate} ${secondaryUnitInfo.name}`
+                                    : '—';
+                                })()}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+    
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default Items

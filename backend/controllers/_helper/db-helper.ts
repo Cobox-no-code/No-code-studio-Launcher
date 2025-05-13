@@ -1,0 +1,333 @@
+// lib/db-helpers.ts
+import { Document } from '../../models/document/document.model';
+import { db } from './../../lib/db';
+import { v4 as uuidv4 } from 'uuid';
+
+/**
+ * Safely inserts a document into the database
+ */
+export async function insertDocument(documentData: any, firmId: string) {
+  const now = new Date().toISOString();
+  const id = uuidv4();
+  
+  // Ensure required fields
+  const dataToInsert:any = {
+    id,
+    firmId,
+    documentType: documentData.documentType || 'sale_invoice',
+    documentNumber: documentData.documentNumber || '',
+    documentDate: documentData.documentDate || now.split('T')[0],
+    partyName: documentData.partyName || '',
+    partyType: documentData.partyType || 'customer',
+    transactionType: documentData.transactionType || 'cash',
+    status: documentData.status || 'draft',
+    roundOff: documentData.roundOff || 0,
+    total: documentData.total || 0,
+    balanceAmount: documentData.balanceAmount || 0,
+    paidAmount: documentData.paidAmount || 0,
+    paymentType: documentData.paymentType || 'cash',
+    createdAt: now,
+    updatedAt: now
+  };
+  
+  // Optional fields
+  if (documentData.partyId) dataToInsert.partyId = documentData.partyId;
+  if (documentData.phone) dataToInsert.phone = documentData.phone;
+  if (documentData.billingAddress) dataToInsert.billingAddress = documentData.billingAddress;
+  if (documentData.billingName) dataToInsert.billingName = documentData.billingName;
+  if (documentData.ewaybill) dataToInsert.ewaybill = documentData.ewaybill;
+  if (documentData.poNumber) dataToInsert.poNumber = documentData.poNumber;
+  if (documentData.poDate) dataToInsert.poDate = documentData.poDate;
+  if (documentData.stateOfSupply) dataToInsert.stateOfSupply = documentData.stateOfSupply;
+  if (documentData.documentTime) dataToInsert.documentTime = documentData.documentTime;
+  if (documentData.bankId) dataToInsert.bankId = documentData.bankId;
+  if (documentData.chequeNumber) dataToInsert.chequeNumber = documentData.chequeNumber;
+  if (documentData.chequeDate) dataToInsert.chequeDate = documentData.chequeDate;
+  if (documentData.discountAmount) dataToInsert.discountAmount = documentData.discountAmount;
+  if (documentData.discountPercentage) dataToInsert.discountPercentage = documentData.discountPercentage;
+  if (documentData.taxAmount) dataToInsert.taxAmount = documentData.taxAmount;
+  if (documentData.taxPercentage) dataToInsert.taxPercentage = documentData.taxPercentage;
+  if (documentData.shipping) dataToInsert.shipping = documentData.shipping;
+  if (documentData.packaging) dataToInsert.packaging = documentData.packaging;
+  if (documentData.adjustment) dataToInsert.adjustment = documentData.adjustment;
+  if (documentData.transportName) dataToInsert.transportName = documentData.transportName;
+  if (documentData.vehicleNumber) dataToInsert.vehicleNumber = documentData.vehicleNumber;
+  if (documentData.deliveryDate) dataToInsert.deliveryDate = documentData.deliveryDate;
+  if (documentData.deliveryLocation) dataToInsert.deliveryLocation = documentData.deliveryLocation;
+  if (documentData.description) dataToInsert.description = documentData.description;
+  if (documentData.image) dataToInsert.image = documentData.image;
+  
+  // Create placeholders and values array for the SQL query
+  const columns = Object.keys(dataToInsert).join(', ');
+  const placeholders = Object.keys(dataToInsert).map(() => '?').join(', ');
+  const values = Object.values(dataToInsert);
+  
+  // Insert using raw SQL to avoid issues with the query builder
+  const insertSql = `INSERT INTO documents (${columns}) VALUES (${placeholders})`;
+  await db.raw(insertSql, values);
+  
+  return id;
+}
+
+/**
+ * Safely inserts document items
+ */
+export async function insertDocumentItems(items: any[], documentId: string, firmId: string) {
+  const now = new Date().toISOString();
+  
+  if (!items || items.length === 0) return;
+  
+  for (const item of items) {
+    const itemId = uuidv4();
+    
+    // Prepare item data
+    const itemData :any = {
+      id: itemId,
+      firmId,
+      documentId,
+      itemId: item.itemId || '',
+      itemName: item.itemName || '',
+      primaryQuantity: item.primaryQuantity || 0,
+      primaryUnitId: item.primaryUnitId || '',
+      primaryUnitName: item.primaryUnitName || '',
+      pricePerUnit: item.pricePerUnit || 0,
+      amount: item.amount || 0,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    // Optional fields
+    if (item.hsnCode) itemData.hsnCode = item.hsnCode;
+    if (item.secondaryQuantity) itemData.secondaryQuantity = item.secondaryQuantity;
+    if (item.secondaryUnitId) itemData.secondaryUnitId = item.secondaryUnitId;
+    if (item.secondaryUnitName) itemData.secondaryUnitName = item.secondaryUnitName;
+    if (item.conversionRate) itemData.conversionRate = item.conversionRate;
+    if (item.mfgDate) itemData.mfgDate = item.mfgDate;
+    if (item.batchNo) itemData.batchNo = item.batchNo;
+    if (item.expDate) itemData.expDate = item.expDate;
+    if (item.serialNo) itemData.serialNo = item.serialNo;
+    if (item.taxType) itemData.taxType = item.taxType;
+    if (item.taxRate) itemData.taxRate = item.taxRate;
+    if (item.taxAmount) itemData.taxAmount = item.taxAmount;
+    if (item.discountPercent) itemData.discountPercent = item.discountPercent;
+    if (item.discountAmount) itemData.discountAmount = item.discountAmount;
+    
+    // Create placeholders and values array
+    const columns = Object.keys(itemData).join(', ');
+    const placeholders = Object.keys(itemData).map(() => '?').join(', ');
+    const values = Object.values(itemData);
+    
+    // Insert using raw SQL
+    const insertSql = `INSERT INTO document_items (${columns}) VALUES (${placeholders})`;
+    await db.raw(insertSql, values);
+  }
+}
+
+/**
+ * Safely inserts document charges
+ */
+export async function insertDocumentCharges(charges: any[], documentId: string, firmId: string) {
+  const now = new Date().toISOString();
+  
+  if (!charges || charges.length === 0) return;
+  
+  for (const charge of charges) {
+    const chargeId = uuidv4();
+    
+    // Prepare charge data
+    const chargeData = {
+      id: chargeId,
+      firmId,
+      documentId,
+      name: charge.name || '',
+      amount: charge.amount || 0,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    // Create placeholders and values array
+    const columns = Object.keys(chargeData).join(', ');
+    const placeholders = Object.keys(chargeData).map(() => '?').join(', ');
+    const values = Object.values(chargeData);
+    
+    // Insert using raw SQL
+    const insertSql = `INSERT INTO document_charges (${columns}) VALUES (${placeholders})`;
+    await db.raw(insertSql, values);
+  }
+}
+
+/**
+ * Safely inserts document transportation details
+ */
+export async function insertDocumentTransportation(transportation: any[], documentId: string, firmId: string) {
+  const now = new Date().toISOString();
+  
+  if (!transportation || transportation.length === 0) return;
+  
+  for (const transport of transportation) {
+    const transportId = uuidv4();
+    
+    // Prepare transportation data
+    const transportData:any = {
+      id: transportId,
+      firmId,
+      documentId,
+      type: transport.type || '',
+      detail: transport.detail || '',
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    // Optional fields
+    if (transport.amount) transportData.amount = transport.amount;
+    
+    // Create placeholders and values array
+    const columns = Object.keys(transportData).join(', ');
+    const placeholders = Object.keys(transportData).map(() => '?').join(', ');
+    const values = Object.values(transportData);
+    
+    // Insert using raw SQL
+    const insertSql = `INSERT INTO document_transportation (${columns}) VALUES (${placeholders})`;
+    await db.raw(insertSql, values);
+  }
+}
+
+
+// Modified updateStockQuantities to support reversal
+export async function updateStockQuantities(
+  documentType: string,
+  items: any[],
+  firmId: string,
+  reverse: boolean = false
+) {
+  // Document types that actually affect stock
+  const stockChangeTypes = [
+    'purchase_invoice',
+    'purchase_return',
+    'sale',
+    'sale_return',
+    'sale_invoice',
+    'delivery_challan',
+  ]
+
+  for (const item of items) {
+    // Skip documents like quotations/orders that don't affect stock
+    if (!stockChangeTypes.includes(documentType)) continue
+
+    const currentItem = await db.raw(
+      'SELECT primaryQuantity, secondaryQuantity FROM items WHERE id = ? AND firmId = ?',
+      [item.itemId, firmId]
+    )
+
+    if (!currentItem || currentItem.length === 0) continue
+
+    let primaryQtyChange = Number(item.primaryQuantity) || 0
+    let secondaryQtyChange = Number(item.secondaryQuantity) || 0
+
+    let operator = '+'
+
+    // Decrease stock for sales, returns, challans
+    if (
+      ['sale', 'sale_invoice', 'purchase_return', 'delivery_challan'].includes(
+        documentType
+      )
+    ) {
+      operator = '-'
+    }
+
+    // Increase stock for purchase and sale return
+    if (['purchase_invoice', 'sale_return'].includes(documentType)) {
+      operator = '+'
+    }
+    
+    // Reverse the operator if we're undoing previous stock changes
+    if (reverse) {
+      operator = operator === '+' ? '-' : '+'
+    }
+
+    // Apply stock update
+    await db.raw(
+      `UPDATE items SET 
+        primaryQuantity = primaryQuantity ${operator} ?,
+        secondaryQuantity = secondaryQuantity ${operator} ?
+       WHERE id = ? AND firmId = ?`,
+      [primaryQtyChange, secondaryQtyChange, item.itemId, firmId]
+    )
+  }
+}
+
+// Modified updatePartyBalance to support reversal
+export async function updatePartyBalance(document: any, firmId: string, reverse: boolean = false) {
+  // Skip if no party ID
+  if (!document.partyId) return
+
+  // Get current party information
+  const party = await db.raw(
+    'SELECT openingBalance, openingBalanceType FROM parties WHERE id = ? AND firmId = ?',
+    [document.partyId, firmId]
+  )
+
+  if (!party || party.length === 0) return
+
+  const currentBalance = Number(party[0].openingBalance) || 0
+  const balanceType = party[0].openingBalanceType || 'to_pay'
+
+  let newBalance = currentBalance
+  let newBalanceType = balanceType
+
+  // Calculate how this transaction affects the balance
+  const transactionAmount = Number(document.total) || 0
+  const paidAmount = Number(document.paidAmount) || 0
+  const balanceAmount = transactionAmount - paidAmount
+
+  if (balanceAmount <= 0) return // Fully paid, no balance to update
+
+  // Determine if this is a customer or supplier transaction
+  const isCustomer = document.documentType.startsWith('sale_')
+  
+  // Reverse the transaction type if we're undoing previous balance changes
+  const effectiveIsCustomer = reverse ? !isCustomer : isCustomer
+
+  if (effectiveIsCustomer) {
+    // For sales: customer owes money to business
+    if (balanceType === 'to_pay') {
+      // Business already owes money to customer
+      if (currentBalance > balanceAmount) {
+        // Reduce existing payable
+        newBalance = currentBalance - balanceAmount
+      } else {
+        // Switch to receivable
+        newBalance = balanceAmount - currentBalance
+        newBalanceType = 'to_receive'
+      }
+    } else {
+      // Business is owed money by customer, add to receivable
+      newBalance = currentBalance + balanceAmount
+    }
+  } else {
+    // For purchases: business owes money to supplier
+    if (balanceType === 'to_receive') {
+      // Customer already owes money to business
+      if (currentBalance > balanceAmount) {
+        // Reduce existing receivable
+        newBalance = currentBalance - balanceAmount
+      } else {
+        // Switch to payable
+        newBalance = balanceAmount - currentBalance
+        newBalanceType = 'to_pay'
+      }
+    } else {
+      // Business owes money to supplier, add to payable
+      newBalance = currentBalance + balanceAmount
+    }
+  }
+
+  // Update the party balance
+  await db.raw(
+    `UPDATE parties SET 
+     openingBalance = ?,
+     openingBalanceType = ?
+     WHERE id = ? AND firmId = ?`,
+    [newBalance, newBalanceType, document.partyId, firmId]
+  )
+}

@@ -1,8 +1,7 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, } from "electron";
 import { join } from "node:path";
-import { Model } from "sequelize";
-import { sequelize, User } from "./database";
 import { initLogs, isDev, prepareNext } from "./utils";
+import backendProcess from "./app";
 
 /**
  * Creates the main application window.
@@ -40,10 +39,22 @@ function createWindow(): void {
     win.maximize();
   } else {
     win.loadFile(join(__dirname, "..", "frontend", "out", "index.html"));
-    win.setMenu(null);
+   win.setMenu(null)
   }
 }
+function startBackendServer() {
+  const backendJS = backendProcess;
 
+  console.log("🟡 Launching backend with: node", backendJS);
+
+  backendJS.on("error", (err) => {
+    console.error("❌ Backend server failed to start:", err);
+  });
+
+  backendJS.on("exit", (code) => {
+    console.error("❌ Backend server exited with code:", code);
+  });
+}
 /**
  * When the application is ready, this function is called.
  *
@@ -57,19 +68,7 @@ app.whenReady().then(async () => {
 
   await initLogs();
 
-  await sequelize
-    .sync({
-      logging: true,
-      alter: true,
-
-      // this is used for development.
-      // If you want to reset the database, set this to true and run the script again.
-      // Otherwise, set it to false.
-      force: false,
-    })
-    .then(() => {
-      console.log("Database synced");
-    });
+  startBackendServer()
 
   createWindow();
 
@@ -83,19 +82,4 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-/* ++++++++++ code ++++++++++ */
-ipcMain.on("addUser", async (event, data: any) => {
-  await User.create(data)
-    .then((data: Model) => {
-      event.returnValue = {
-        error: false,
-        data: data.dataValues,
-      };
-    })
-    .catch((error) => {
-      event.returnValue = {
-        error: true,
-        data: error,
-      };
-    });
-});
+

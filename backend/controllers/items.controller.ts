@@ -1,0 +1,146 @@
+import { Request, Response } from 'express';
+import { db } from './../lib/db';
+import { v4 as uuidv4 } from 'uuid';
+
+// POST /items - Create new item
+export const createItem = async (req: Request, res: Response):Promise<any> => {
+  try {
+    const firmId = req.headers['x-firm-id'] as string || '';
+    const body = req.body;
+
+    if (body.customFields && typeof body.customFields === 'object') {
+      body.customFields = JSON.stringify(body.customFields);
+    }
+
+    const now = new Date().toISOString();
+    const newItem = {
+      id: uuidv4(),
+      ...body,
+      firmId,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await db('items', firmId).insert(newItem);
+    res.status(201).json(newItem);
+  } catch (error: any) {
+    console.error('Error creating item:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// GET /items - Get all items (optional filters)
+export const getItems = async (req: Request, res: Response):Promise<any> => {
+  try {
+    const firmId = req.headers['x-firm-id'] as string || '';
+    const { type, categoryId } = req.query;
+
+    let query = db('items', firmId);
+
+    if (type) query = query.where('type', type);
+    if (categoryId) query = query.where('categoryId', categoryId);
+
+    const items = await query.select();
+
+    const parsedItems = items.map((item) => {
+      if (item.customFields && typeof item.customFields === 'string') {
+        try {
+          return { ...item, customFields: JSON.parse(item.customFields) };
+        } catch {
+          return item;
+        }
+      }
+      return item;
+    });
+
+    res.json(parsedItems);
+  } catch (error: any) {
+    console.error('Error fetching items:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// GET /items/:id - Get item by ID
+export const getItemById = async (req: Request, res: Response):Promise<any>  => {
+  try {
+    const firmId = req.headers['x-firm-id'] as string || '';
+    const { id } = req.params;
+
+    const item = await db('items', firmId).where('id', id).first();
+
+    if (!item) {
+      return res.status(404).json({ success: false, error: 'Item not found' });
+    }
+
+    if (item.customFields && typeof item.customFields === 'string') {
+      try {
+        item.customFields = JSON.parse(item.customFields);
+      } catch {
+        // Leave as is
+      }
+    }
+
+    res.json(item);
+  } catch (error: any) {
+    console.error(`Error fetching item ${req.params.id}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// PUT /items/:id - Update item by ID
+export const updateItem = async (req: Request, res: Response):Promise<any> => {
+  try {
+    const firmId = req.headers['x-firm-id'] as string || '';
+    const { id } = req.params;
+    const body = req.body;
+
+    if (body.customFields && typeof body.customFields === 'object') {
+      body.customFields = JSON.stringify(body.customFields);
+    }
+
+    const updates = {
+      ...body,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const result = await db('items', firmId).where('id', id).update(updates);
+
+    if (result === 0) {
+      return res.status(404).json({ success: false, error: 'Item not found' });
+    }
+
+    const updatedItem = await db('items', firmId).where('id', id).first();
+
+    if (updatedItem.customFields && typeof updatedItem.customFields === 'string') {
+      try {
+        updatedItem.customFields = JSON.parse(updatedItem.customFields);
+      } catch {
+        // Leave as is
+      }
+    }
+
+    res.json(updatedItem);
+  } catch (error: any) {
+    console.error(`Error updating item ${req.params.id}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// DELETE /items/:id - Delete item by ID
+export const deleteItem = async (req: Request, res: Response):Promise<any> => {
+  try {
+    const firmId = req.headers['x-firm-id'] as string || '';
+    const { id } = req.params;
+
+    const result = await db('items', firmId).where('id', id).delete();
+
+    if (result === 0) {
+      return res.status(404).json({ success: false, error: 'Item not found' });
+    }
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error(`Error deleting item ${req.params.id}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};

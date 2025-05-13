@@ -1,7 +1,7 @@
 electronVersion: 34.2.0
 asar: true
 compression: normal
-productName: SC - Next Electron
+productName: PaperBill
 appId: br.com.electron.next
 
 extraMetadata:
