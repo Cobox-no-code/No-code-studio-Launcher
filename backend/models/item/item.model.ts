@@ -72,6 +72,7 @@ export interface Product extends BaseItem {
   minStockLevel?: number
   location?: string
   updatedAt?:string
+  includeTax?:boolean
 }
 
 // Service specific interface
@@ -87,6 +88,8 @@ export interface Service extends BaseItem {
   openingStockDate?: Date // Optional date for opening stock
   currentQuantity: number
   minStockLevel?: number
+  purchasePriceTaxInclusive?:boolean
+  salePriceTaxInclusive?:boolean
   location?: string
   updatedAt?:string
 }

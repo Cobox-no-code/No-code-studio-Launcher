@@ -74,7 +74,7 @@ export async function insertDocument(documentData: any, firmId: string) {
  */
 export async function insertDocumentItems(items: any[], documentId: string, firmId: string) {
   const now = new Date().toISOString();
-  
+    console.log(items)
   if (!items || items.length === 0) return;
   
   for (const item of items) {
@@ -102,6 +102,7 @@ export async function insertDocumentItems(items: any[], documentId: string, firm
     if (item.secondaryUnitId) itemData.secondaryUnitId = item.secondaryUnitId;
     if (item.secondaryUnitName) itemData.secondaryUnitName = item.secondaryUnitName;
     if (item.conversionRate) itemData.conversionRate = item.conversionRate;
+    if(item.unit_conversionId) itemData.unit_conversionId = item.unit_conversionId
     if (item.mfgDate) itemData.mfgDate = item.mfgDate;
     if (item.batchNo) itemData.batchNo = item.batchNo;
     if (item.expDate) itemData.expDate = item.expDate;
@@ -193,7 +194,25 @@ export async function insertDocumentTransportation(transportation: any[], docume
 }
 
 
-// Modified updateStockQuantities to support reversal
+/**
+ * Updates stock quantities for items based on the document type and unit conversions
+ * Handles cases where only primary, only secondary, or both unit quantities are provided
+ * 
+ * @param {string} documentType - Type of document affecting stock
+ * @param {Array} items - Array of items with quantities to update
+ * @param {string} firmId - ID of the firm
+ * @param {boolean} reverse - Whether to reverse the stock operation (e.g. for cancellations)
+ */
+/**
+/**
+ * Updates stock quantities for items based on the document type and unit conversions
+ * Handles cases where only primary, only secondary, or both unit quantities are provided
+ * 
+ * @param {string} documentType - Type of document affecting stock
+ * @param {Array} items - Array of items with quantities to update
+ * @param {string} firmId - ID of the firm
+ * @param {boolean} reverse - Whether to reverse the stock operation (e.g. for cancellations)
+ */
 export async function updateStockQuantities(
   documentType: string,
   items: any[],
@@ -210,49 +229,121 @@ export async function updateStockQuantities(
     'delivery_challan',
   ]
 
+  // Skip processing if document type doesn't affect stock
+  if (!stockChangeTypes.includes(documentType)) return
+
   for (const item of items) {
-    // Skip documents like quotations/orders that don't affect stock
-    if (!stockChangeTypes.includes(documentType)) continue
-
-    const currentItem = await db.raw(
-      'SELECT primaryQuantity, secondaryQuantity FROM items WHERE id = ? AND firmId = ?',
-      [item.itemId, firmId]
-    )
-
-    if (!currentItem || currentItem.length === 0) continue
-
-    let primaryQtyChange = Number(item.primaryQuantity) || 0
-    let secondaryQtyChange = Number(item.secondaryQuantity) || 0
-
-    let operator = '+'
-
-    // Decrease stock for sales, returns, challans
-    if (
-      ['sale', 'sale_invoice', 'purchase_return', 'delivery_challan'].includes(
-        documentType
+    try {
+      // Check if the item even exists in inventory
+      const [inventoryItem] = await db.raw(
+        `SELECT id, primaryQuantity, secondaryQuantity 
+         FROM items 
+         WHERE id = ? AND firmId = ?`,
+        [item.itemId, firmId]
       )
-    ) {
-      operator = '-'
-    }
 
-    // Increase stock for purchase and sale return
-    if (['purchase_invoice', 'sale_return'].includes(documentType)) {
-      operator = '+'
-    }
-    
-    // Reverse the operator if we're undoing previous stock changes
-    if (reverse) {
-      operator = operator === '+' ? '-' : '+'
-    }
+      if (!inventoryItem) {
+        console.log(`Item ${item.itemId} not found in inventory, skipping...`)
+        continue
+      }
 
-    // Apply stock update
-    await db.raw(
-      `UPDATE items SET 
-        primaryQuantity = primaryQuantity ${operator} ?,
-        secondaryQuantity = secondaryQuantity ${operator} ?
-       WHERE id = ? AND firmId = ?`,
-      [primaryQtyChange, secondaryQtyChange, item.itemId, firmId]
-    )
+      // Get conversion details - using the unit_conversionId directly from the item in payload
+      const conversionId = item.unit_conversionId
+      console.log(item.unit_conversionId,item.conversionRate)
+      let conversionRate = item.conversionRate
+      let primaryUnitId = item.primaryUnitId
+      let secondaryUnitId = item.secondaryUnitId
+
+      // if (conversionId) {
+      //   const [conversionDetails] = await db.raw(
+      //     `SELECT primaryUnitId, secondaryUnitId, conversionRate 
+      //      FROM unit_conversions 
+      //      WHERE id = ?`,
+      //     [conversionId]
+      //   )
+
+      //   if (conversionDetails) {
+      //     conversionRate = Number(conversionDetails.conversionRate) || 1
+      //     primaryUnitId = conversionDetails.primaryUnitId
+      //     secondaryUnitId = conversionDetails.secondaryUnitId
+          
+      //     console.log(`Found conversion rate for item ${item.itemId}: 1 ${item.primaryUnitName} = ${conversionRate} ${item.secondaryUnitName}`)
+      //   }
+      // }
+
+      // Determine operation direction based on document type
+     
+      let operator = '+'
+      if (['sale', 'sale_invoice', 'purchase_return', 'delivery_challan'].includes(documentType)) {
+        operator = '-'
+      }
+      if (reverse) {
+        operator = operator === '+' ? '-' : '+'
+      }
+
+      // Get primary and secondary quantities from the document item
+      let primaryQtyChange = Number(item.primaryQuantity) || 0
+      let secondaryQtyChange = Number(item.secondaryQuantity) || 0
+
+      // Current stock levels
+      const currentPrimaryQty = Number(inventoryItem.primaryQuantity) || 0
+      const currentSecondaryQty = Number(inventoryItem.secondaryQuantity) || 0
+
+      console.log(`Starting stock update for item ${item.itemId}:`, {
+        action: operator === '+' ? 'Adding' : 'Removing',
+        primaryChange: primaryQtyChange,
+        secondaryChange: secondaryQtyChange,
+        currentPrimary: currentPrimaryQty,
+        currentSecondary: currentSecondaryQty,
+        conversionRate
+      })
+
+      // Convert everything to the smallest unit (secondary) for easier calculation
+      const currentTotalInSecondary = (currentPrimaryQty * conversionRate) + currentSecondaryQty
+      const changeInSecondary = (primaryQtyChange * conversionRate) + secondaryQtyChange
+
+      // Calculate the new total in secondary units
+      let newTotalInSecondary
+      if (operator === '+') {
+        newTotalInSecondary = currentTotalInSecondary + changeInSecondary
+      } else {
+        newTotalInSecondary = Math.max(0, currentTotalInSecondary - changeInSecondary)
+      }
+
+      // Convert back to mixed units
+      const newPrimaryQty = Math.floor(newTotalInSecondary / conversionRate)
+      const newSecondaryQty = newTotalInSecondary % conversionRate
+
+      console.log(`Calculated new stock for item ${item.itemId}:`, {
+        currentTotalInSecondary,
+        changeInSecondary: `${operator}${changeInSecondary}`,
+        newTotalInSecondary,
+        newPrimaryQty,
+        newSecondaryQty
+      })
+
+      // Update the item stock
+      await db.raw(
+        `UPDATE items SET 
+          primaryQuantity = ?,
+          secondaryQuantity = ?
+         WHERE id = ? AND firmId = ?`,
+        [
+          newPrimaryQty,
+          newSecondaryQty,
+          item.itemId,
+          firmId
+        ]
+      )
+
+      console.log(`Updated stock for item ${item.itemId} to:`, {
+        primaryQuantity: newPrimaryQty,
+        secondaryQuantity: newSecondaryQty
+      })
+
+    } catch (error) {
+      console.error(`Error updating stock for item ${item.itemId}:`, error)
+    }
   }
 }
 

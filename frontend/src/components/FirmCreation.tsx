@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { API_BASE_URL } from '@/redux/api/api.config'
+import { backend_url } from '@/backend.config'
 
 // Type definitions
 interface Country {
@@ -26,6 +27,7 @@ interface Firm {
   id: string;
   name: string;
   country?: string | null;
+  backend_url?:string
   phone?: string | null;
   createdAt?: string;
   updatedAt?: string;
@@ -94,7 +96,7 @@ const FirmCreationScreen = (): JSX.Element => {
 
   const handleCreateFirm = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault()
-    
+   
     if (!firmName.trim()) {
       setError('Firm name is required')
       return
@@ -104,10 +106,11 @@ const FirmCreationScreen = (): JSX.Element => {
       setLoading(true)
       setError('')
       
-      const response = await axios.post<Firm>(API_BASE_URL+'/firms', {
+      const response = await axios.post(API_BASE_URL+'/firms', {
         name: firmName,
         country,
-        phone
+        phone,
+        backend_url:backend_url
       })
         await axios.get(API_BASE_URL+`/initData`, {
           headers: { 'x-firm-id': response.data.id }

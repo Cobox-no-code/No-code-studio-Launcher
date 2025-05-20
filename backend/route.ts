@@ -17,6 +17,7 @@ import * as documentController from './controllers/documents.controller';
 import * as initController from './controllers/init.controller';
 import * as initDataController from './controllers/initData.controller';
 import * as firmController from './controllers/firms.controller';
+import * as syncToCloud  from './controllers/syncCloud.controller';
 const router = Router();
 router.get('/init', initController.initializeHandler);
 router.get('/initData',initDataController.initDataHandler );
@@ -100,5 +101,9 @@ router.post('/documents', documentController.createDocument);
 router.get('/documents/:id', documentController.getDocumentById);
 router.put('/documents/:id', documentController.updateDocument);
 router.delete('/documents/:id', documentController.deleteDocument);
+
+
+router.post("/sync-cloud/all", syncToCloud.syncToCloud);
+router.post("/sync-local/all", syncToCloud.syncToLocal);
 
 export default router;

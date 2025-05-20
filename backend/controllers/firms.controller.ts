@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { db, initializeDatabase } from './../lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { FirmDTO } from '../models/firm/firm.mode.';
+import axios from 'axios';
 
 // GET /firms - List all firms
 export const getAllFirms = async (_req: Request, res: Response) => {
@@ -31,9 +32,14 @@ export const createFirm = async (req: Request, res: Response): Promise<any> => {
       businessLogo: body.businessLogo || '', // assume base64/binary string
       createdAt: now,
       updatedAt: now,
+      address:body.address
     };
 
     await db('firms').insert(newFirm);
+    await axios.post(`${body.cloudurl}/sync/`, {
+      table: "firms",
+      records: [newFirm],
+    });
     await initializeDatabase();
 
     res.status(201).json(newFirm);

@@ -91,7 +91,7 @@ const Items = () => {
   const [currentTab, setCurrentTab] = useState('all')
 
   // Use RTK Query to fetch items, categories, and units
-  const { data: items, isLoading, isError, error } = useGetItemsQuery({})
+  const { data: items, isLoading, isError, error ,refetch} = useGetItemsQuery({})
   const { data: categories, isLoading: isLoadingCategories } = useGetCategoriesQuery()
   const { data: units, isLoading: isLoadingUnits } = useGetUnitsQuery()
   const { data: unitConversions, isLoading: isLoadingConversions } = useGetUnitConversionsQuery()
@@ -143,7 +143,18 @@ const Items = () => {
       shortName: unit ? unit.shortname : ''
     }
   }
-
+ useEffect(() => {
+    // Immediately refetch data when component mounts
+    refetch();
+    
+    // Set up interval for periodic refetching (every 5 seconds)
+    const intervalId = setInterval(() => {
+      refetch();
+    }, 5000); // Adjust this time as needed
+    
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [refetch]);
   // Calculate stock value considering both primary and secondary quantities
   const calculateStockValue = (item:any) => {
     if (!item || !item.purchasePrice) return '—'

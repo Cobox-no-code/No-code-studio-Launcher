@@ -99,7 +99,7 @@ const LoginPage = () => {
       localStorage.setItem('email', res.data.email || '')
 
       toast.success('Login successful!')
-      router.push('/')
+      router.push('/firm')
     } catch (err) {
       console.error('Error verifying OTP:', err)
       setError('Invalid OTP. Please try again.')
@@ -251,7 +251,7 @@ const LoginPage = () => {
                         placeholder="Enter your email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        required
+                       
                         className="border-gray-300 focus:border-gray-500 focus:ring-gray-500"
                       />
                     </div>

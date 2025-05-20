@@ -9,4 +9,6 @@ export interface FirmDTO {
   businessLogo?: string;
   createdAt?: string;
   updatedAt?: string;
+  address?:string
+  cloudurl?:string
 }

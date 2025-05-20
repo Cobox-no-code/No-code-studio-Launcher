@@ -368,13 +368,7 @@ const DocumentPageContent: React.FC<{
       <div className="sticky bottom-0 bg-white border-t p-4 px-6 flex justify-between gap-3 shadow-md">
      <Link href={'/'}><Button className=' cursor-pointer'>Back</Button></Link>   
        <div className=' flex gap-3 justify-end'>
-        <Button 
-          variant="outline" 
-          onClick={handlePrint}
-          className="gap-2 px-4"
-        >
-          <Printer className="h-4 w-4" /> Print
-        </Button>
+       
         <Button
           onClick={handleSubmit}
           disabled={state.isSubmitting}

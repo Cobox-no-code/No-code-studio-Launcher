@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { AlertCircle, Building, Check, ChevronDown, ChevronsUpDown, Search } from 'lucide-react'
+import { AlertCircle, Building, Check, ChevronDown, ChevronsUpDown, Link as Link1, Search,ChevronsLeft } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { setCurrentFirm } from '@/lib/firm-utils'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -14,7 +14,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { API_BASE_URL } from '@/redux/api/api.config'
-
+import Link from 'next/link'
+import { backend_url } from '@/backend.config'
 // Type definitions
 interface Country {
   code: string;
@@ -39,6 +40,7 @@ const FirmCreationScreen = (): JSX.Element => {
   const [firmName, setFirmName] = useState<string>('')
   const [country, setCountry] = useState<string>('')
   const [phone, setPhone] = useState<string>('')
+  const [address, setAddress] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string>('')
   const [existingFirms, setExistingFirms] = useState<Firm[]>([])
@@ -106,7 +108,8 @@ const FirmCreationScreen = (): JSX.Element => {
       const response = await axios.post<Firm>(API_BASE_URL+'/firms', {
         name: firmName,
         country,
-        phone
+        phone,
+        cloudurl:backend_url
       })
         await axios.get(API_BASE_URL+`/initData`, {
           headers: { 'x-firm-id': response.data.id }
@@ -207,6 +210,10 @@ const FirmCreationScreen = (): JSX.Element => {
                 </div>
               </div>
             </div>
+
+           <Link href='/'> <Button className=' bg-white text-black hover:bg-white cursor-pointer'>
+            <ChevronsLeft/>
+            Back</Button></Link>
           </div>
           
           {/* Right side - Form */}
@@ -332,7 +339,16 @@ const FirmCreationScreen = (): JSX.Element => {
                         ))}
                       </select>
                     </div>
-                    
+                       <div className="space-y-2">
+                      <Label htmlFor="phone">Address (Optional)</Label>
+                      <Input 
+                        id="address"
+                        placeholder="Enter Address " 
+                        value={address}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setAddress(e.target.value)}
+                        className="border-gray-300 focus:border-gray-500 focus:ring-gray-500"
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="phone">Phone (Optional)</Label>
                       <Input 

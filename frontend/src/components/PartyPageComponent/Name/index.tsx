@@ -1,9 +1,9 @@
 'use client'
-import React, { ChangeEvent, useState } from 'react'
+import React, { ChangeEvent, useEffect, useState } from 'react'
 import { useDispatch } from 'react-redux'
 import { AppDispatch } from '@/redux/store'
 import { openModal } from '@/redux/slices/modal'
-import { useGetPartiesQuery, useGetGroupsQuery } from '@/redux/api/partiesApi'
+import { useGetPartiesQuery, useGetGroupsQuery, useDeletePartyMutation } from '@/redux/api/partiesApi'
 
 // UI Components
 import { Button } from '@/components/ui/button'
@@ -56,7 +56,8 @@ import {
   BadgeIndianRupee,
   Settings,
   Pencil,
-  Tag
+  Tag,
+  Delete
 } from 'lucide-react'
 import { openCreateForm, openEditForm } from '@/redux/slices/partySlice'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -90,15 +91,33 @@ const Parties = () => {
   const [filterParty, setFilterParty] = useState('');
   const [filterTransaction, setFilterTransaction] = useState('');
   const [currentTab, setCurrentTab] = useState('all');
-
+  const [deleteParty] = useDeletePartyMutation()
   // Use RTK Query to fetch parties
   const {
     data: parties,
     isLoading,
     isError,
-    error
-  } = useGetPartiesQuery({});
-
+    error,
+    refetch
+  } = useGetPartiesQuery({},{
+        // Refetch on window focus (when user comes back to this tab)
+    refetchOnFocus: true,
+    
+    // Refetch when reconnecting after being offline
+    refetchOnReconnect: true,
+  });
+ useEffect(() => {
+    // Immediately refetch data when component mounts
+    refetch();
+    
+    // Set up interval for periodic refetching (every 5 seconds)
+    const intervalId = setInterval(() => {
+      refetch();
+    }, 5000); // Adjust this time as needed
+    
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [refetch]);
   // Use RTK Query to fetch groups
   const {
     data: groups,
@@ -389,6 +408,18 @@ const Parties = () => {
                                 >
                                   <Pencil className="h-4 w-4 mr-2" />
                                   Edit Party
+                                </Button>
+                                  <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="justify-start"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteParty(party.id);
+                                  }}
+                                >
+                      
+                                  Delete Party
                                 </Button>
                               </div>
                             </PopoverContent>

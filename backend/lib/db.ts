@@ -214,6 +214,7 @@ export async function initializFirm() {
         ownerName TEXT,
         businessName TEXT,
         businessLogo TEXT,
+        address TEXT,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL
       )
@@ -630,8 +631,8 @@ await db.exec(`
 
 
 
-    // Create Bank Accounts table
-    await db.exec(`
+// Create Bank Accounts table
+await db.exec(`
   CREATE TABLE IF NOT EXISTS bank_accounts (
     id TEXT PRIMARY KEY,
     firmId TEXT NOT NULL,
@@ -652,134 +653,6 @@ await db.exec(`
     updatedAt TEXT NOT NULL
   )
 `)
-
-//     // Create PurchaseInvoices table
-//     await db.exec(`
-//   CREATE TABLE IF NOT EXISTS purchase_invoices (
-//     id TEXT PRIMARY KEY,
-//     firmId TEXT NOT NULL,
-//     purchaseType TEXT CHECK (purchaseType IN ('credit', 'cash')) NOT NULL,
-//     supplierId TEXT,
-//     supplier TEXT NOT NULL,
-//     phone TEXT,
-//     ewaybill TEXT,
-//     billingAddress TEXT,
-//     billingName TEXT,
-//     invoiceNumber TEXT NOT NULL,
-//     invoiceTime TEXT,
-//     poDate TEXT,
-//     poNumber TEXT,
-//     invoiceDate TEXT NOT NULL,
-//     stateOfSupply TEXT,
-//     roundOff REAL DEFAULT 0,
-//     total REAL NOT NULL,
-//     transportName TEXT,
-//     vehicleNumber TEXT,
-//     deliveryDate TEXT,
-//     deliveryLocation TEXT,
-//     shipping REAL,
-//     packaging REAL,
-//     adjustment REAL,
-//     paymentType TEXT CHECK (paymentType IN ('cash', 'cheque', 'bank')) NOT NULL,
-//     bankId TEXT,
-//     chequeNumber TEXT,
-//     chequeDate TEXT,
-//     description TEXT,
-//     image TEXT,
-//     discountPercentage REAL,
-//     discountAmount REAL,
-//     taxPercentage REAL,
-//     taxAmount REAL,
-//     balanceAmount REAL NOT NULL,
-//     paidAmount REAL NOT NULL,
-//     createdAt TEXT NOT NULL,
-//     updatedAt TEXT NOT NULL,
-//     FOREIGN KEY (supplierId) REFERENCES parties (id),
-//     FOREIGN KEY (bankId) REFERENCES bank_accounts (id)
-//   )
-// `)
-
-//     // Create PurchaseInvoiceItems table
-//     await db.exec(`
-//   CREATE TABLE IF NOT EXISTS purchase_invoice_items (
-//    id TEXT PRIMARY KEY,
-//         firmId TEXT NOT NULL,
-//         invoiceId TEXT NOT NULL,
-//         itemId TEXT NOT NULL,
-//         item TEXT NOT NULL,
-    
-//         primaryQuantity REAL NOT NULL,
-//         secondaryQuantity REAL,
-    
-//         primaryUnitId TEXT,
-//         primaryUnit TEXT NOT NULL,
-    
-//         secondaryUnitId TEXT,
-//         secondaryUnit TEXT,
-    
-//         pricePerUnit REAL NOT NULL,
-//         mfgDate TEXT,
-//         taxType TEXT,
-//         taxRateId TEXT,
-//         taxAmount REAL,
-//         amount REAL NOT NULL,
-    
-//         categoryId TEXT,
-//         category TEXT,
-    
-//         itemCode TEXT,
-//         hsnCode TEXT,
-//         serialNo TEXT,
-//         description TEXT,
-//         batchNo TEXT,
-//         modelNo TEXT,
-//         expDate TEXT,
-//         mrp REAL,
-//         size TEXT,
-//         discountPercent REAL,
-//         discountAmount REAL,
-    
-//         createdAt TEXT NOT NULL,
-//         updatedAt TEXT NOT NULL,
-    
-//         FOREIGN KEY (invoiceId) REFERENCES sale_invoices (id) ON DELETE CASCADE,
-//         FOREIGN KEY (itemId) REFERENCES items (id),
-//         FOREIGN KEY (unitId) REFERENCES units (id),
-//         FOREIGN KEY (secondaryUnitId) REFERENCES units (id),
-//         FOREIGN KEY (categoryId) REFERENCES categories (id),
-//         FOREIGN KEY (taxRateId) REFERENCES tax_rates (id)
-
-//   )
-// `)
-
-//     // Create PurchaseChargeDetails table
-//     await db.exec(`
-//   CREATE TABLE IF NOT EXISTS purchase_charge_details (
-//     id TEXT PRIMARY KEY,
-//     firmId TEXT NOT NULL,
-//     invoiceId TEXT NOT NULL,
-//     name TEXT NOT NULL,
-//     amount REAL NOT NULL,
-//     createdAt TEXT NOT NULL,
-//     updatedAt TEXT NOT NULL,
-//     FOREIGN KEY (invoiceId) REFERENCES purchase_invoices (id) ON DELETE CASCADE
-//   )
-// `)
-
-//     // Create PurchaseTransportationDetails table
-//     await db.exec(`
-//   CREATE TABLE IF NOT EXISTS purchase_transportation_details (
-//     id TEXT PRIMARY KEY,
-//     invoiceId TEXT NOT NULL,
-//     firmId TEXT NOT NULL,
-//     type TEXT NOT NULL,
-//     detail TEXT NOT NULL,
-//     amount REAL,
-//     createdAt TEXT NOT NULL,
-//     updatedAt TEXT NOT NULL,
-//     FOREIGN KEY (invoiceId) REFERENCES purchase_invoices (id) ON DELETE CASCADE
-//   )
-// `)
 
     // Create Bank Transactions table
     await db.exec(`

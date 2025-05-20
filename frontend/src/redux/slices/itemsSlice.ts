@@ -56,6 +56,8 @@ const initialState: ItemFormState = {
     secondaryOpeningQuantity: 0,
     pricePerUnit: 0,
     customFields: {},
+    purchasePriceTaxInclusive:false,
+    salePriceTaxInclusive:false
   },
   isSubmitting: false,
   submitError: null,
@@ -204,7 +206,8 @@ export function transformFormToModel(
     wholesalePrice: formData.wholesalePrice,
     taxRate: formData.taxRate,
     
-
+  purchasePriceTaxInclusive:formData.purchasePriceTaxInclusive,
+      salePriceTaxInclusive:formData.salePriceTaxInclusive,
   }
 
   if (formData.type === ItemType.PRODUCT) {
@@ -217,7 +220,7 @@ export function transformFormToModel(
       primaryOpeningQuantity: formData.primaryOpeningQuantity || 0,
       secondaryOpeningQuantity: formData.secondaryOpeningQuantity || 0,
       pricePerUnit: formData.pricePerUnit || 0,
-  
+    
       minStockLevel: formData.minStockLevel,
       location: formData.location,
     } as Omit<Product, 'id'>
@@ -227,7 +230,7 @@ export function transformFormToModel(
       ...baseItem,
       type: ItemType.SERVICE,
       unit_conversionId: formData.unit_conversionId || undefined,
-    } as Omit<Service, 'id'>
+    } as unknown as Omit<Service, 'id'>
   }
 }
 // Helper function to validate form data before submission

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useDocument } from './Context';
+import { toast } from 'react-hot-toast';
 
 // UI Components
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -31,15 +32,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 // API Hooks
-import { useGetPartiesQuery } from '@/redux/api/partiesApi';
+import { useCreatePartyMutation, useGetPartiesQuery } from '@/redux/api/partiesApi';
 import { openCreateForm as openPartyCreateForm } from '@/redux/slices/partySlice';
 import { useDispatch } from 'react-redux';
 import { DocumentType } from '@/models/document/document.model';
+import { useGetDocumentsQuery } from '@/redux/api/documentApi';
 
 const DocumentHeader: React.FC = () => {
   const { state, dispatch: docDispatch } = useDocument();
   const { document, validationErrors } = state;
   const reduxDispatch = useDispatch();
+  const [createParty, { isLoading: isCreatingParty }] = useCreatePartyMutation();
   
   // Local state
   const [partySearchTerm, setPartySearchTerm] = useState('');
@@ -59,6 +62,11 @@ const DocumentHeader: React.FC = () => {
     error: partiesError 
   } = useGetPartiesQuery({ search: partySearchTerm });
   
+  const {
+    data: documents,
+    refetch
+  } = useGetDocumentsQuery({documentType: document.documentType});
+  
   // Filter parties based on search term and party type
   const filteredParties = parties?.filter(party => {
     const matchesSearch = party.name.toLowerCase().includes(partySearchTerm.toLowerCase()) ||
@@ -72,6 +80,49 @@ const DocumentHeader: React.FC = () => {
     return matchesSearch && isCorrectType;
   }) || [];
 
+  // Function to handle creating and selecting a new party
+  const handleCreateAndSelectParty = async () => {
+    // Check if party already exists in filtered results
+    const partyExists = filteredParties.some(
+      party => party.name.toLowerCase() === partySearchTerm.toLowerCase()
+    );
+    
+    if (!partyExists && partySearchTerm.trim()) {
+      try {
+        // Create basic party with the entered name
+        const newPartyData = {
+          name: partySearchTerm.trim(),
+          gstType: 'Unregistered',
+          // Set groupId based on document type (customer or supplier)
+          groupId: isSalesDocument ? 'customer' : 'supplier'
+        };
+        
+        // Create party using mutation
+        const result = await createParty(newPartyData).unwrap();
+        
+        if (result) {
+          // Party created successfully, now select it
+          handlePartySelect(result);
+          setShowPartyDropdown(false);
+          
+          // Show success message
+          toast.success(`New ${partyLabel.toLowerCase()} "${result.name}" created and selected`);
+        }
+      } catch (error) {
+        console.error('Failed to create party:', error);
+        toast.error(`Failed to create ${partyLabel.toLowerCase()}: ${error.message || 'Unknown error'}`);
+      }
+    } else if (filteredParties.length > 0) {
+      // If party exists in filtered results, select the first one
+      handlePartySelect(filteredParties[0]);
+    }
+  };
+
+  useEffect(() => {
+    // Immediately refetch data when component mounts
+    refetch();
+  }, []);
+
   // Generate document number automatically if not set
   useEffect(() => {
     if (!document.documentNumber) {
@@ -81,42 +132,13 @@ const DocumentHeader: React.FC = () => {
 
   // Simple document number generator
   const generateDocumentNumber = async () => {
-    const prefix = getDocumentPrefix(document.documentType.toString());
-    const currentDate = new Date();
-    const year = currentDate.getFullYear();
-    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    
-    const documentNumber = `${prefix}/${year}${month}/${random}`;
+    const length = documents && documents.length || 0;
+    const documentNumber = `${length+1}`;
     
     docDispatch({
       type: 'UPDATE_FIELD',
       payload: { field: 'documentNumber', value: documentNumber }
     });
-  };
-
-  // Get prefix for document number based on document type
-  const getDocumentPrefix = (docType: string): string => {
-    switch (docType) {
-      case DocumentType.SALE_INVOICE:
-        return 'INV';
-      case DocumentType.SALE_ORDER:
-        return 'SO';
-      case DocumentType.SALE_RETURN:
-        return 'SR';
-      case DocumentType.SALE_QUOTATION:
-        return 'QUO';
-      case DocumentType.DELIVERY_CHALLAN:
-        return 'DC';
-      case DocumentType.PURCHASE_INVOICE:
-        return 'PI';
-      case DocumentType.PURCHASE_ORDER:
-        return 'PO';
-      case DocumentType.PURCHASE_RETURN:
-        return 'PR';
-      default:
-        return 'DOC';
-    }
   };
 
   // Party selection handler
@@ -186,6 +208,12 @@ const DocumentHeader: React.FC = () => {
                           setShowPartyDropdown(true);
                         }}
                         onFocus={() => setShowPartyDropdown(true)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && partySearchTerm.trim() !== '') {
+                            handleCreateAndSelectParty();
+                            e.preventDefault();
+                          }
+                        }}
                         className="pl-8 pr-3"
                         placeholder={`Search by name or phone`}
                       />
@@ -206,10 +234,12 @@ const DocumentHeader: React.FC = () => {
                   
                   {showPartyDropdown && (
                     <div className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-gray-200 ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
-                      {partiesLoading ? (
+                      {partiesLoading || isCreatingParty ? (
                         <div className="px-4 py-2 flex items-center justify-center">
                           <LoaderCircle className="h-4 w-4 mr-2 animate-spin text-primary" />
-                          <span className="text-gray-500">Loading {partyLabel.toLowerCase()}s...</span>
+                          <span className="text-gray-500">
+                            {isCreatingParty ? 'Creating party...' : `Loading ${partyLabel.toLowerCase()}s...`}
+                          </span>
                         </div>
                       ) : partiesError ? (
                         <div className="px-4 py-2">
@@ -247,8 +277,13 @@ const DocumentHeader: React.FC = () => {
                           </div>
                         ))
                       ) : (
-                        <div className="px-4 py-2 text-gray-500 text-center text-sm">
-                          No {partyLabel.toLowerCase()}s found
+                        <div className="px-4 py-2 text-gray-500">
+                          <div className="text-center text-sm mb-1">
+                            No {partyLabel.toLowerCase()}s found
+                          </div>
+                          <div className="text-xs text-center text-primary">
+                            Press Enter to create &quot;{partySearchTerm}&quot;
+                          </div>
                         </div>
                       )}
                       <div className="border-t border-gray-200 mt-1 pt-1 px-4 py-2">

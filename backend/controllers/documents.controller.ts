@@ -216,23 +216,35 @@ export const updateDocument = async (req: Request, res: Response): Promise<any> 
 };
 
 // DELETE /documents/:id
-export const deleteDocument = async (req: Request, res: Response):Promise<any> => {
+export const deleteDocument = async (req: Request, res: Response): Promise<any> => {
   try {
-    const firmId = req.headers['x-firm-id'] as string;
+        const firmId = req.headers['x-firm-id'] as string;
     const { id } = req.params;
 
-    const existing = await db.raw('SELECT * FROM documents WHERE id = ? AND firmId = ?', [id, firmId]);
-    if (!existing || existing.length === 0) return res.status(404).json({ error: 'Document not found' });
+    if (!firmId || !id) {
+      return res.status(400).json({ error: 'Firm ID and document ID are required' });
+    }
 
-    await db.raw('DELETE FROM stock_movements WHERE documentId = ? AND firmId = ?', [id, firmId]);
-    await db.raw('DELETE FROM document_items WHERE documentId = ? AND firmId = ?', [id, firmId]);
-    await db.raw('DELETE FROM document_charges WHERE documentId = ? AND firmId = ?', [id, firmId]);
-    await db.raw('DELETE FROM document_transportation WHERE documentId = ? AND firmId = ?', [id, firmId]);
-    await db.raw('DELETE FROM documents WHERE id = ? AND firmId = ?', [id, firmId]);
+    // Fetch the document with its items
+    const [document] = await db.raw('SELECT * FROM documents WHERE id = ? AND firmId = ?', [id, firmId]);
+    if (!document) return res.status(404).json({ error: 'Document not found' });
 
-    res.json({ success: true });
+    document.items = await db.raw('SELECT * FROM document_items WHERE documentId = ?', [id]);
+
+    // Reverse stock and party balance
+    await updateStockQuantities(document.documentType, document.items || [], firmId, true);
+    await updatePartyBalance(document, firmId, true);
+
+    // Delete related records
+    await db.raw('DELETE FROM document_items WHERE documentId = ?', [id]);
+    await db.raw('DELETE FROM document_charges WHERE documentId = ?', [id]);
+    await db.raw('DELETE FROM document_transportation WHERE documentId = ?', [id]);
+    await db.raw('DELETE FROM documents WHERE id = ?', [id]);
+
+    res.json({ success: true, message: 'Document deleted and stock/payment reversed.' });
   } catch (error: any) {
     console.error('Error deleting document:', error);
     res.status(500).json({ error: error.message });
   }
 };
+

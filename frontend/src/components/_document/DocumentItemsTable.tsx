@@ -61,7 +61,10 @@ const DocumentItemsTable: React.FC = () => {
   const { state, dispatch, calculateTotals } = useDocument();
   const dispatchOther = useAppDispatch();
   // Local state
-  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
 
   const [selectedTaxRates, setSelectedTaxRates] = useState<TaxRate[]>([]);
   const [focusedRow, setFocusedRow] = useState<number | null>(null);
@@ -155,6 +158,7 @@ const DocumentItemsTable: React.FC = () => {
     });
     toast.success("New item row added");
   };
+
 
   // Helper function to find conversion rates from any source
   const findConversionRate = (
@@ -416,15 +420,20 @@ const DocumentItemsTable: React.FC = () => {
         grossAmount = primaryQty * price;
       }
 
-      // Calculate tax based on net amount after discount
-      const taxRate = getTaxRateFromType(updatedItem.taxType as string);
-      updatedItem.taxRate = Number(taxRate.toString());
-      const taxAmount = (amountBeforeTax * taxRate) / 100;
+      if (!updatedItem.salePriceTaxInclusive) {
+        // Calculate tax based on net amount after discount
+        const taxRate = getTaxRateFromType(updatedItem.taxType as string);
+        updatedItem.taxRate = Number(taxRate.toString());
+        const taxAmount = (amountBeforeTax * taxRate) / 100;
 
-      // Update calculated fields
+        // Update calculated fields
+        updatedItem.discountAmount = Number(discountAmount.toFixed(2));
+        updatedItem.taxAmount = Number(taxAmount.toFixed(2));
+        updatedItem.amount = Number((amountBeforeTax + taxAmount).toFixed(2));
+      }
       updatedItem.discountAmount = Number(discountAmount.toFixed(2));
-      updatedItem.taxAmount = Number(taxAmount.toFixed(2));
-      updatedItem.amount = Number((amountBeforeTax + taxAmount).toFixed(2));
+
+      updatedItem.amount = Number(amountBeforeTax.toFixed(2));
     }
 
     dispatch({
@@ -478,8 +487,7 @@ const DocumentItemsTable: React.FC = () => {
       taxType: item.taxRate,
       taxRate: Number(item.taxRate),
       hsnCode: item.hsnCode || "",
-      taxAmount:
-        item.salePrice * (getTaxRateFromType(item.taxRate || "") / 100),
+      taxAmount:  item.salePrice * (getTaxRateFromType(item.taxRate || "") / 100),
     };
 
     // Calculate amounts based on unit conversion
@@ -502,6 +510,7 @@ const DocumentItemsTable: React.FC = () => {
         conversionRate,
         discountPercent
       );
+      conversionRate = result.conversionRate;
       discountAmount = result.discountAmount;
       amountBeforeTax = result.amountBeforeTax;
     } else {
@@ -510,15 +519,21 @@ const DocumentItemsTable: React.FC = () => {
       amountBeforeTax = primaryQty * price - discountAmount;
     }
 
-    // Calculate tax
-    const taxRate = getTaxRateFromType(updatedItem.taxType as string);
-    const taxAmount = (amountBeforeTax * taxRate) / 100;
+      if (!updatedItem.salePriceTaxInclusive) {
+        // Calculate tax based on net amount after discount
+        const taxRate = getTaxRateFromType(updatedItem.taxType as string);
+        updatedItem.taxRate = Number(taxRate.toString());
+        const taxAmount = (amountBeforeTax * taxRate) / 100;
 
-    // Set calculated values
-    updatedItem.discountAmount = Number(discountAmount.toFixed(2));
-    updatedItem.taxAmount = Number(taxAmount.toFixed(2));
-    updatedItem.amount = Number(amountBeforeTax + taxAmount);
-
+        // Update calculated fields
+        updatedItem.discountAmount = Number(discountAmount.toFixed(2));
+        updatedItem.taxAmount = Number(taxAmount.toFixed(2));
+        updatedItem.amount = Number((amountBeforeTax + taxAmount).toFixed(2));
+      }
+      updatedItem.discountAmount = Number(discountAmount.toFixed(2));
+ updatedItem.taxAmount = 0;
+      updatedItem.amount = Number(amountBeforeTax.toFixed(2));
+    updatedItem.conversionRate = conversionRate;
     dispatch({
       type: "UPDATE_ITEM",
       payload: { index, item: updatedItem },
@@ -636,16 +651,16 @@ const DocumentItemsTable: React.FC = () => {
     if (items[index]) {
       setItemSearchTerm(items[index].itemName || "");
     }
-      setTimeout(() => {
-    const input = itemInputRef.current;
-    if (input) {
-      const rect = input.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
-      });
-    }
-  }, 0);
+    setTimeout(() => {
+      const input = itemInputRef.current;
+      if (input) {
+        const rect = input.getBoundingClientRect();
+        setDropdownPosition({
+          top: rect.bottom + window.scrollY + 4,
+          left: rect.left + window.scrollX,
+        });
+      }
+    }, 0);
   };
 
   const handleItemInputChange = (index: number, value: string): void => {
@@ -894,7 +909,7 @@ const DocumentItemsTable: React.FC = () => {
                       </td>
 
                       {/* Item */}
-                       {/* Item */}
+                      {/* Item */}
                       <td className="p-2 border-r border-gray-200 relative">
                         <div className="relative">
                           <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
@@ -916,7 +931,6 @@ const DocumentItemsTable: React.FC = () => {
                             }
                           />
                         </div>
-
                       </td>
 
                       {/* HSN Code */}
@@ -1378,61 +1392,66 @@ const DocumentItemsTable: React.FC = () => {
         </div>
 
         {showItemDropdown !== null && dropdownPosition && (
-  <div
-    ref={dropdownRef}
-    className="absolute z-[10000] bg-white shadow-lg w-[350px] max-h-64 rounded-md py-1 text-sm ring-1 ring-gray-200 overflow-auto"
-    style={{
-      position: 'absolute',
-      top: dropdownPosition.top,
-      left: dropdownPosition.left,
-    }}
-  >
-    {isLoadingItems ? (
-      <div className="px-4 py-2 text-gray-500 flex items-center">
-        <Loader2 className="h-4 w-4 mr-2 animate-spin text-primary" />
-        Loading items...
-      </div>
-    ) : filteredItems.length > 0 ? (
-      filteredItems.map((item) => (
-        <div
-          key={item.id}
-          className="cursor-pointer hover:bg-gray-100 px-4 py-2"
-          onClick={() => handleItemSelection(showItemDropdown, item)}
-        >
-          <div className="font-medium">{item.name}</div>
-          <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-            <Badge className="h-5 px-1 bg-primary/5 text-primary border-primary/20">
-              ₹{item.salePrice}
-            </Badge>
-            {item.itemCode && (
-              <Badge className="h-5 px-1 bg-gray-50">{item.itemCode}</Badge>
-            )}
-            {isProduct(item) ? (
-              <Badge className="h-5 px-1 bg-blue-50 text-blue-500">Product</Badge>
+          <div
+            ref={dropdownRef}
+            className="absolute z-[10000] bg-white shadow-lg w-[350px] max-h-64 rounded-md py-1 text-sm ring-1 ring-gray-200 overflow-auto"
+            style={{
+              position: "absolute",
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+            }}
+          >
+            {isLoadingItems ? (
+              <div className="px-4 py-2 text-gray-500 flex items-center">
+                <Loader2 className="h-4 w-4 mr-2 animate-spin text-primary" />
+                Loading items...
+              </div>
+            ) : filteredItems.length > 0 ? (
+              filteredItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="cursor-pointer hover:bg-gray-100 px-4 py-2"
+                  onClick={() => handleItemSelection(showItemDropdown, item)}
+                >
+                  <div className="font-medium">{item.name}</div>
+                  <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                    <Badge className="h-5 px-1 bg-primary/5 text-primary border-primary/20">
+                      ₹{item.salePrice}
+                    </Badge>
+                    {item.itemCode && (
+                      <Badge className="h-5 px-1 bg-gray-50">
+                        {item.itemCode}
+                      </Badge>
+                    )}
+                    {isProduct(item) ? (
+                      <Badge className="h-5 px-1 bg-blue-50 text-blue-500">
+                        Product
+                      </Badge>
+                    ) : (
+                      <Badge className="h-5 px-1 bg-purple-50 text-purple-500">
+                        Service
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))
             ) : (
-              <Badge className="h-5 px-1 bg-purple-50 text-purple-500">Service</Badge>
+              <div className="px-4 py-2 text-gray-500 text-center">
+                No items found
+                <div className="border-t border-gray-100 mt-1 pt-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-primary text-xs flex items-center justify-center"
+                    onClick={() => dispatchOther(openCreateItem())}
+                  >
+                    <Plus className="h-3 w-3 mr-1" /> Add New Item
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
-        </div>
-      ))
-    ) : (
-      <div className="px-4 py-2 text-gray-500 text-center">
-        No items found
-        <div className="border-t border-gray-100 mt-1 pt-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full text-primary text-xs flex items-center justify-center"
-            onClick={() => dispatchOther(openCreateItem())}
-          >
-            <Plus className="h-3 w-3 mr-1" /> Add New Item
-          </Button>
-        </div>
-      </div>
-    )}
-  </div>
-)}
-
+        )}
       </CardContent>
     </Card>
   );

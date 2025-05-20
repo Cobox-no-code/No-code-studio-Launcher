@@ -217,16 +217,16 @@ const data = {
       icon: ShoppingBasket,
       items: [],
     },
-    // {
-    //   title: 'Sync, Share & Backup',
-    //   url: '/sync-&-share/sync&share',
-    //   icon: RefreshCw,
-    //   rightSideIcon: ChevronRight,
-    //   items: [
+    {
+      title: 'Sync, Share & Backup',
+      url: '/sync-&-share/sync&share',
+      icon: RefreshCw,
+      rightSideIcon: ChevronRight,
+      items: [
     
     
-    //   ],
-    // },
+      ],
+    },
   ],
 }
 
@@ -269,9 +269,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent className="text-white flex-grow">
         <NavMain items={data.navMain} />
       </SidebarContent>
-         <SubscriptionStatus />
-      {/* Company Selector at the bottom */}
+         
+
       <div className="mt-auto">
+        <SubscriptionStatus />
         <CompanySelector isBottom={true} />
       </div>
     </Sidebar>

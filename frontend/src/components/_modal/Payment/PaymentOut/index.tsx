@@ -138,7 +138,7 @@ const PaymentOutForm: React.FC = () => {
         await createPayment(formData).unwrap();
         toast.success('Payment sent successfully!');
       }
-      
+      window.dispatchEvent(new Event('partyDataChanged'));
       // Close form and reset
       dispatch(closeForm());
       dispatch(resetForm());

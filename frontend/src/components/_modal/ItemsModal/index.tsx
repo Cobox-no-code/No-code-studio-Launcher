@@ -200,7 +200,7 @@ useEffect(() => {
         processedValue = parseInt(processedValue, 10).toString()
       }
     }
-
+ console.log(field,value)
     // Dispatch the field change to Redux
     dispatch(updateFormField({ field, value: processedValue }))
   }
@@ -221,8 +221,8 @@ useEffect(() => {
     )
   }
 
-  // Form submission
-  const handleSave = async () => {
+// Form submission
+const handleSave = async () => {
     // Validate form first
     const errors = validateFormData(formData)
     if (Object.keys(errors).length > 0) {
@@ -244,6 +244,7 @@ useEffect(() => {
           primaryQuantity: formData.primaryOpeningQuantity || 0,
           secondaryQuantity: formData.secondaryOpeningQuantity || 0,
       }
+      console.log(itemData)
       // Submit using the createItem mutation
       if (mode === 'edit' && currentItemId) {
         // Use updateItem for edit mode

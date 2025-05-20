@@ -1,5 +1,5 @@
 'use client'
-import React, { ChangeEvent, useState } from 'react'
+import React, { ChangeEvent, useEffect, useState } from 'react'
 import { useDispatch } from 'react-redux'
 import { AppDispatch } from '@/redux/store'
 import { openModal } from '@/redux/slices/modal'
@@ -100,6 +100,7 @@ const PartyGroups = () => {
     isLoading: isLoadingGroups,
     isError: isGroupsError,
     error: groupsError,
+    refetch
   } = useGetGroupsQuery()
 
   // Use RTK Query to fetch parties
@@ -153,7 +154,18 @@ const PartyGroups = () => {
       (party.email &&
         party.email.toLowerCase().includes(filterParty.toLowerCase()))
   )
-
+ useEffect(() => {
+    // Immediately refetch data when component mounts
+    refetch();
+    
+    // Set up interval for periodic refetching (every 5 seconds)
+    const intervalId = setInterval(() => {
+      refetch();
+    }, 5000); // Adjust this time as needed
+    
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [refetch]);
   // Handle party selection (for move operation)
   const handlePartySelection = (partyId: string) => {
     setSelectedPartyIds((prev) => {

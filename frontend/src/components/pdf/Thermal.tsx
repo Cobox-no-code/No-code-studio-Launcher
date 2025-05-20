@@ -10,6 +10,8 @@ interface ThermalPrinterProps {
   className?: string;
   businessName?: string;
   phoneNumber?: string;
+  contentRef?:any,
+  firmData?:any
 }
 
 // Helper to format currency
@@ -72,32 +74,20 @@ const getDocumentTitle = (documentType: string) => {
 
 const ThermalPrinter: React.FC<ThermalPrinterProps> = ({
   document,
-  variant = 'outline',
-  size = 'sm',
-  className = '',
+  contentRef,
   businessName = 'Your Business Name',
-  phoneNumber = '9752133459'
+  phoneNumber = '9752133459',
+  firmData,
 }) => {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const handlePrint = useReactToPrint({
-    contentRef
-  });
 
+ console.log(firmData)
   // Render the print button
   return (
     <>
-      <Button
-        variant={variant}
-        size={size}
-        onClick={()=>handlePrint()}
-        className={className}
-      >
-        <Printer className="h-4 w-4 mr-2" />
-        Print Thermal Receipt
-      </Button>
+   
 
       {/* Hidden content that will be printed */}
-      <div style={{ display: 'none' }}>
+      <div >
         <div 
           ref={contentRef} 
           style={{ 

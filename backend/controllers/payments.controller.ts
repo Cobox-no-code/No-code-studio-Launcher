@@ -30,7 +30,8 @@ export const getAllPayments = async (req: Request, res: Response):Promise<any> =
 };
 
 // POST /payments
-export const createPayment = async (req: Request, res: Response):Promise<any> => {
+// POST /payments
+export const createPayment = async (req: Request, res: Response): Promise<any> => {
   const firmId = req.headers['x-firm-id'] as string;
   if (!firmId) return res.status(400).json({ error: 'Firm ID is required' });
 
@@ -70,18 +71,70 @@ export const createPayment = async (req: Request, res: Response):Promise<any> =>
         let balance = party.openingBalance || 0;
 
         if (payment.direction === PaymentDirection.IN) {
-          balance = party.openingBalanceType === 'to_receive'
-            ? Math.max(0, balance - payment.amount)
-            : balance + payment.amount;
-        } else {
-          balance = party.openingBalanceType === 'to_pay'
-            ? Math.max(0, balance - payment.amount)
-            : balance + payment.amount;
+          if (party.openingBalanceType === 'to_receive') {
+            if (balance - payment.amount < 0) {
+              const surplus = payment.amount - balance;
+              balance = surplus;
+              await db('parties')
+                .where('id', payment.partyId)
+                .update({
+                  openingBalance: balance,
+                  openingBalanceType: 'to_pay',
+                  updatedAt: now,
+                });
+            } else {
+              balance -= payment.amount;
+              await db('parties')
+                .where('id', payment.partyId)
+                .update({
+                  openingBalance: balance,
+                  updatedAt: now,
+                });
+            }
+          } else {
+            // Already a to_pay, just increase it
+            balance += payment.amount;
+            await db('parties')
+              .where('id', payment.partyId)
+              .update({
+                openingBalance: balance,
+                updatedAt: now,
+              });
+          }
         }
 
-        await db('parties')
-          .where('id', payment.partyId)
-          .update({ openingBalance: balance, updatedAt: now });
+        else if (payment.direction === PaymentDirection.OUT) {
+          if (party.openingBalanceType === 'to_pay') {
+            if (balance - payment.amount < 0) {
+              const surplus = payment.amount - balance;
+              balance = surplus;
+              await db('parties')
+                .where('id', payment.partyId)
+                .update({
+                  openingBalance: balance,
+                  openingBalanceType: 'to_receive',
+                  updatedAt: now,
+                });
+            } else {
+              balance -= payment.amount;
+              await db('parties')
+                .where('id', payment.partyId)
+                .update({
+                  openingBalance: balance,
+                  updatedAt: now,
+                });
+            }
+          } else {
+            // Already a to_receive, just increase it
+            balance += payment.amount;
+            await db('parties')
+              .where('id', payment.partyId)
+              .update({
+                openingBalance: balance,
+                updatedAt: now,
+              });
+          }
+        }
       }
     }
 
@@ -91,6 +144,7 @@ export const createPayment = async (req: Request, res: Response):Promise<any> =>
     res.status(500).json({ error: error.message });
   }
 };
+
 
 // GET /payments/:id
 export const getPaymentById = async (req: Request, res: Response):Promise<any> => {
@@ -110,56 +164,138 @@ export const getPaymentById = async (req: Request, res: Response):Promise<any> =
 };
 
 // PUT /payments/:id
-export const updatePayment = async (req: Request, res: Response):Promise<any> => {
+// PUT /payments/:id
+export const updatePayment = async (req: Request, res: Response): Promise<any> => {
   const firmId = req.headers['x-firm-id'] as string;
-  const { id } = req.params;
-  const data: UpdatePaymentDTO = req.body;
-  const now = new Date().toISOString();
+  const paymentId = req.params.id;
+
+  if (!firmId) return res.status(400).json({ error: 'Firm ID is required' });
 
   try {
-    const old = await db('payments') .where("id",id)
-    .where("firmId",firmId).first();
-    if (!old) return res.status(404).json({ error: 'Payment not found' });
+    const existing = await db('payments').where( "id", paymentId ).where("firmId",firmId).first();
+    if (!existing) return res.status(404).json({ error: 'Payment not found' });
 
-    const amountDiff = (data.amount ?? old.amount) - old.amount;
-    const updated = { ...old, ...data, updatedAt: now };
+    const data: UpdatePaymentDTO = req.body;
+    const now = new Date().toISOString();
 
-    await db('payments') .where("id",id)
-    .where("firmId",firmId).update(updated);
-
-    // Bank account balance update
-    if (amountDiff !== 0 && old.paymentType === 'bank' && old.bankAccountId) {
-      const method = old.direction === PaymentDirection.IN ? 'increment' : 'decrement';
+    // 1. Revert bank balance
+    if (existing.paymentType === 'bank' && existing.bankAccountId) {
+      const revertBankMethod = existing.direction === PaymentDirection.IN ? 'decrement' : 'increment';
       await db('bank_accounts')
-        .where('id', old.bankAccountId)
-        [method]('currentBalance', amountDiff);
+        .where('id', existing.bankAccountId)
+        [revertBankMethod]('currentBalance', existing.amount);
     }
 
-    // Party balance update
-    if (amountDiff !== 0 && old.partyId) {
-      const party = await db('parties').where('id', old.partyId).first();
+    // 2. Revert party balance
+    if (existing.partyId) {
+      const party = await db('parties').where('id', existing.partyId).first();
       if (party) {
         let balance = party.openingBalance || 0;
-        if (old.direction === PaymentDirection.IN) {
-          balance = party.openingBalanceType === 'to_receive'
-            ? Math.max(0, balance - amountDiff)
-            : balance + amountDiff;
+
+        if (existing.direction === PaymentDirection.IN) {
+          if (party.openingBalanceType === 'to_receive') {
+            balance += existing.amount;
+          } else {
+            balance -= existing.amount;
+          }
         } else {
-          balance = party.openingBalanceType === 'to_pay'
-            ? Math.max(0, balance - amountDiff)
-            : balance + amountDiff;
+          if (party.openingBalanceType === 'to_pay') {
+            balance += existing.amount;
+          } else {
+            balance -= existing.amount;
+          }
         }
 
-        await db('parties').where('id', old.partyId).update({ openingBalance: balance, updatedAt: now });
+        await db('parties')
+          .where('id', existing.partyId)
+          .update({ openingBalance: Math.abs(balance), updatedAt: now });
       }
     }
 
-    res.json(updated);
+    // 3. Update the payment record
+    const updatedPayment: Payment = {
+      ...existing,
+      ...data,
+      updatedAt: now,
+    };
+
+    await db('payments').where( "id", paymentId ).where("firmId",firmId).update(updatedPayment);
+
+    // 4. Apply new bank balance
+    if (updatedPayment.paymentType === 'bank' && updatedPayment.bankAccountId) {
+      const applyBankMethod = updatedPayment.direction === PaymentDirection.IN ? 'increment' : 'decrement';
+      await db('bank_accounts')
+        .where('id', updatedPayment.bankAccountId)
+        [applyBankMethod]('currentBalance', updatedPayment.amount);
+    }
+
+    // 5. Apply new party balance
+    if (updatedPayment.partyId) {
+      const party = await db('parties').where('id', updatedPayment.partyId).first();
+      if (party) {
+        let balance = party.openingBalance || 0;
+
+        if (updatedPayment.direction === PaymentDirection.IN) {
+          if (party.openingBalanceType === 'to_receive') {
+            if (balance - updatedPayment.amount < 0) {
+              const surplus = updatedPayment.amount - balance;
+              balance = surplus;
+              await db('parties').where('id', party.id).update({
+                openingBalance: balance,
+                openingBalanceType: 'to_pay',
+                updatedAt: now,
+              });
+            } else {
+              balance -= updatedPayment.amount;
+              await db('parties').where('id', party.id).update({
+                openingBalance: balance,
+                updatedAt: now,
+              });
+            }
+          } else {
+            balance += updatedPayment.amount;
+            await db('parties').where('id', party.id).update({
+              openingBalance: balance,
+              updatedAt: now,
+            });
+          }
+        }
+
+        else if (updatedPayment.direction === PaymentDirection.OUT) {
+          if (party.openingBalanceType === 'to_pay') {
+            if (balance - updatedPayment.amount < 0) {
+              const surplus = updatedPayment.amount - balance;
+              balance = surplus;
+              await db('parties').where('id', party.id).update({
+                openingBalance: balance,
+                openingBalanceType: 'to_receive',
+                updatedAt: now,
+              });
+            } else {
+              balance -= updatedPayment.amount;
+              await db('parties').where('id', party.id).update({
+                openingBalance: balance,
+                updatedAt: now,
+              });
+            }
+          } else {
+            balance += updatedPayment.amount;
+            await db('parties').where('id', party.id).update({
+              openingBalance: balance,
+              updatedAt: now,
+            });
+          }
+        }
+      }
+    }
+
+    res.status(200).json(updatedPayment);
   } catch (error: any) {
     console.error('Error updating payment:', error);
     res.status(500).json({ error: error.message });
   }
 };
+
 
 // DELETE /payments/:id
 export const deletePayment = async (req: Request, res: Response):Promise<any> => {

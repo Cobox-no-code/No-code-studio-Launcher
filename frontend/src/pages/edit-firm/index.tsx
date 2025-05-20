@@ -29,21 +29,43 @@ import {
 
 import { Camera, Upload, X, Building2, FileText } from 'lucide-react'
 import { API_BASE_URL } from '@/redux/api/api.config'
+// Type definitions
+interface Country {
+  code: string;
+  name: string;
+}
 
 export default function EditFirmPage(): JSX.Element {
   const router = useRouter()
   const firmId = typeof window !== 'undefined' ? localStorage.getItem('firmId') : null
-  
+    const [country, setCountry] = useState<string>('')
   const [formData, setFormData] = useState({
     name: '',
-    country: '',
     phone: '',
     gstNumber: '',
     ownerName: '',
     businessName: '',
     businessLogo: '',
+    address:''
   })
-
+  const [countries, setCountries] = useState<Country[]>([
+    { code: 'US', name: 'United States' },
+    { code: 'GB', name: 'United Kingdom' },
+    { code: 'CA', name: 'Canada' },
+    { code: 'AU', name: 'Australia' },
+    { code: 'IN', name: 'India' },
+    { code: 'DE', name: 'Germany' },
+    { code: 'FR', name: 'France' },
+    { code: 'JP', name: 'Japan' },
+    { code: 'CN', name: 'China' },
+    { code: 'BR', name: 'Brazil' },
+    { code: 'ZA', name: 'South Africa' },
+    { code: 'SG', name: 'Singapore' },
+    { code: 'AE', name: 'United Arab Emirates' },
+    { code: 'NZ', name: 'New Zealand' },
+    { code: 'RU', name: 'Russia' },
+    { code: 'MX', name: 'Mexico' }
+  ])
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -280,14 +302,31 @@ export default function EditFirmPage(): JSX.Element {
                 />
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
+             <div className="space-y-2">
+                      <Label htmlFor="country">Country</Label>
+                      <select
+                        id="country"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        value={country}
+                        onChange={(e: ChangeEvent<HTMLSelectElement>) => setCountry(e.target.value)}
+                        required
+                      >
+                        <option value="">Select a country</option>
+                        {countries.map((country) => (
+                          <option key={country.code} value={country.code}>
+                            {country.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                      <div className="space-y-2">
+                <Label htmlFor="address">Address</Label>
                 <Input
-                  id="country"
-                  name="country"
-                  value={formData.country}
+                  id="address"
+                  name="address"
+                  value={formData.address}
                   onChange={handleChange}
-                  placeholder="Enter country"
+                  placeholder="Enter Address"
                 />
               </div>
               

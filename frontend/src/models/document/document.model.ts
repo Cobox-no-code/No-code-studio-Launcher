@@ -142,7 +142,8 @@ export enum DocumentType {
     // Quantity with primary/secondary unit
     primaryQuantity: number;
     secondaryQuantity?: number;
-  
+  purchasePriceTaxInclusive?:boolean
+  salePriceTaxInclusive?:boolean
     // Units
     primaryUnitId: string;
     primaryUnitName: string;
@@ -150,7 +151,7 @@ export enum DocumentType {
     secondaryUnitName?: string;
     unit_conversionId?: string;
     conversionRate?: number;
-  
+    
     // Pricing
     pricePerUnit: number;
     amount: number;

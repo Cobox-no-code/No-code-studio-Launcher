@@ -11,6 +11,8 @@ interface DocumentPrinterProps {
   businessName?: string;
   bankDetails?: any; // Bank details for payment information
   countryCode?: string; // Country code to determine tax type display (e.g., 'IN', 'GB')
+  contentRef ?: any
+  firmData ?:any
 }
 
 interface TaxGroup {
@@ -130,16 +132,15 @@ const getTaxPrefix = (countryCode: string = 'IN') => {
 
 const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
   document,
-  variant = 'outline',
-  size = 'sm',
-  className = '',
   businessName = 'Your Business Name',
   bankDetails = null,
-  countryCode = 'IN'
+  countryCode = 'IN',
+  contentRef ,
+  firmData
 }) => {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const handlePrint = useReactToPrint({ contentRef:  contentRef });
-  
+
+  console.log(firmData)
+
   // Get currency code based on country
   const currencyCode = getCurrencyCode(countryCode);
   
@@ -173,30 +174,28 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
   // Render the print button
   return (
     <>
-      <Button
-        variant={variant}
-        size={size}
-        onClick={() => handlePrint()}
-        className={className}
-      >
-        <Printer className="h-4 w-4 mr-2" />
-        Print Document
-      </Button>
+    
 
       {/* Hidden content that will be printed */}
-      <div style={{ display: 'none' }}>
+      <div>
         <div ref={contentRef} className="p-8 bg-white">
           <div className="text-center font-bold text-xl mb-4">
             {getDocumentTitle(document.documentType)}
           </div>
 
           {/* Document Header */}
-          <div className="border border-gray-300 p-2 mb-4">
-            <div className="text-lg font-bold">{businessName}</div>
-            <div className="text-sm">Document #: {document.documentNumber}</div>
+          <div className="border border-gray-300 p-2 mb-4 flex  justify-between">
+            <div className=' flex gap-3'> 
+              
+            <img src={firmData?.businessLogo ||''} alt=""  className='h-full w-32'/>
+            <div>
+               <div className="text-lg font-bold">{businessName}</div>
+                <div className="text-sm">Address:{firmData?.address}</div>
+            <div className="text-sm">Invoice #: {document.documentNumber}</div>
             <div className="text-right text-sm">
               Date: {formatDate(document.documentDate)}
-            </div>
+            </div></div></div>
+          
           </div>
 
           {/* Party and Document Details */}
@@ -712,5 +711,6 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
     </>
   );
 };
+
 
 export default DocumentPrinter;
