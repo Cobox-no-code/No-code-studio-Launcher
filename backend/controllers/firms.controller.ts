@@ -20,7 +20,10 @@ export const createFirm = async (req: Request, res: Response): Promise<any> => {
   try {
     const body: FirmDTO = req.body;
     const now = new Date().toISOString();
-
+   const existingFirm = await db('firms').where('name', body.name).first();
+    if (existingFirm) {
+      return res.status(400).json({ success: false, error: 'Firm name must be unique' });
+    }
     const newFirm = {
       id: uuidv4(),
       name: body.name,
@@ -73,7 +76,10 @@ export const updateFirm = async (req: Request, res: Response):Promise<any> => {
     const { id } = req.params;
     const body = req.body;
     const now = new Date().toISOString();
-
+   const existingFirm = await db('firms').where('name', body.name).first();
+    if (existingFirm) {
+      return res.status(400).json({ success: false, error: 'Firm name must be unique' });
+    }
     await db('firms').where('id', id).update({
       ...body,
       updatedAt: now,

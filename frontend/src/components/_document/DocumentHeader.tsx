@@ -118,10 +118,18 @@ const DocumentHeader: React.FC = () => {
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
     // Immediately refetch data when component mounts
     refetch();
-  }, []);
+    
+    // Set up interval for periodic refetching (every 5 seconds)
+    const intervalId = setInterval(() => {
+      refetch();
+    }, 5000); // Adjust this time as needed
+    
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [refetch]);
 
   // Generate document number automatically if not set
   useEffect(() => {
@@ -131,15 +139,29 @@ const DocumentHeader: React.FC = () => {
   }, [document.documentType]);
 
   // Simple document number generator
-  const generateDocumentNumber = async () => {
-    const length = documents && documents.length || 0;
-    const documentNumber = `${length+1}`;
-    
+const generateDocumentNumber = async () => {
+  if (!documents || documents.length === 0) {
     docDispatch({
       type: 'UPDATE_FIELD',
-      payload: { field: 'documentNumber', value: documentNumber }
+      payload: { field: 'documentNumber', value: '1' }
     });
-  };
+    return;
+  }
+
+  // Sort by numeric value of documentNumber
+  const sortedDocs = [...documents].sort((a, b) =>
+    Number(a.documentNumber) - Number(b.documentNumber)
+  );
+
+  const lastDocNumber = Number(sortedDocs[sortedDocs.length - 1].documentNumber || 0);
+  const newDocNumber = (lastDocNumber + 1).toString();
+
+  docDispatch({
+    type: 'UPDATE_FIELD',
+    payload: { field: 'documentNumber', value: newDocNumber }
+  });
+};
+
 
   // Party selection handler
   const handlePartySelect = (party: any) => {

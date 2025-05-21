@@ -967,8 +967,7 @@ const DocumentItemsTable: React.FC = () => {
                             } ${hasUnitConversion ? "pr-9" : ""}`}
                             value={row.primaryQuantity || ""}
                             placeholder="1"
-                            min="0"
-                            step="0.01"
+                         
                             onFocus={() => setFocusedRow(index)}
                             onBlur={() => setFocusedRow(null)}
                             onChange={(e) =>
@@ -1194,8 +1193,7 @@ const DocumentItemsTable: React.FC = () => {
                           }`}
                           value={row.secondaryQuantity || "0"}
                           placeholder={hasUnitConversion ? "0" : "N/A"}
-                          min="0"
-                          step="0.01"
+                        
                           disabled={!hasUnitConversion}
                           onFocus={() => setFocusedRow(index)}
                           onBlur={() => setFocusedRow(null)}
