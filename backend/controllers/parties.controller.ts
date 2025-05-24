@@ -74,6 +74,7 @@ export const createParty = async (
     // Check if a party with the same name already exists
     const existing = await db("parties", firmId).where("name", name).first();
     if (existing) {
+      console.log(existing);
       return res
         .status(400)
         .json({ success: false, error: "Party name must be unique" });
