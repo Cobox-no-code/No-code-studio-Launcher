@@ -1,7 +1,7 @@
 // lib/db.ts
-import sqlite3 from 'sqlite3';
-import path from 'path';
-import { app } from 'electron';
+import sqlite3 from "sqlite3";
+import path from "path";
+import { app } from "electron";
 
 let resolvedDbPath: string;
 
@@ -9,20 +9,20 @@ try {
   // Use app.getPath safely only if inside Electron
   const isElectron = !!process.versions.electron;
   resolvedDbPath = isElectron
-    ? path.join(app.getPath('userData'), 'vypaar.db')
-    : path.join(process.cwd(), 'vypaar.dev.db'); // fallback for dev/testing outside Electron
+    ? path.join(app.getPath("userData"), "vypaar.db")
+    : path.join(process.cwd(), "vypaar.dev.db"); // fallback for dev/testing outside Electron
 } catch (e) {
-  resolvedDbPath = path.join(process.cwd(), 'vypaar.dev.db'); // fallback
+  resolvedDbPath = path.join(process.cwd(), "vypaar.dev.db"); // fallback
 }
 
-console.log('💾 SQLite DB path:', resolvedDbPath);
+console.log("💾 SQLite DB path:", resolvedDbPath);
 
 const sqlite = new sqlite3.Database(
   resolvedDbPath,
   sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE,
   (err) => {
-    if (err) console.error('❌ DB error:', err.message);
-    else console.log('✅ Connected to SQLite DB.');
+    if (err) console.error("❌ DB error:", err.message);
+    else console.log("✅ Connected to SQLite DB.");
   }
 );
 
@@ -35,8 +35,13 @@ interface QueryBuilderInstance<T> {
   update: (data: Partial<T>) => Promise<any>;
   delete: () => Promise<any>;
   where: (column: string, value: any) => QueryBuilderInstance<T>;
-  whereOp: (column: string, operator: string, value: any) => QueryBuilderInstance<T>;
+  whereOp: (
+    column: string,
+    operator: string,
+    value: any
+  ) => QueryBuilderInstance<T>;
   whereIn: (column: string, values: any[]) => QueryBuilderInstance<T>;
+  andWhereNot: (column: string, value: any) => QueryBuilderInstance<T>;
   increment: (column: string, amount?: number) => Promise<any>;
   decrement: (column: string, amount?: number) => Promise<any>;
   raw: (sql: string, params?: any[]) => Promise<any>;
@@ -48,18 +53,23 @@ interface DbInterface {
   raw: (sql: string, params?: any[]) => Promise<any>;
 }
 
-function queryBuilder<T = any>(table: string, firmId?: string): QueryBuilderInstance<T> {
-  let whereClause = '';
+function queryBuilder<T = any>(
+  table: string,
+  firmId?: string
+): QueryBuilderInstance<T> {
+  let whereClause = "";
   let whereParams: any[] = [];
 
   const builder: QueryBuilderInstance<T> = {
     insert: (data: Insertable): Promise<T> => {
       if (firmId) data.firmId = firmId;
       const keys = Object.keys(data);
-      const placeholders = keys.map(() => '?').join(', ');
-      const sql = `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`;
+      const placeholders = keys.map(() => "?").join(", ");
+      const sql = `INSERT INTO ${table} (${keys.join(
+        ", "
+      )}) VALUES (${placeholders})`;
       const values = keys.map((k) =>
-        typeof data[k] === 'boolean' ? (data[k] ? 1 : 0) : data[k]
+        typeof data[k] === "boolean" ? (data[k] ? 1 : 0) : data[k]
       );
 
       return new Promise((resolve, reject) => {
@@ -71,7 +81,7 @@ function queryBuilder<T = any>(table: string, firmId?: string): QueryBuilderInst
     },
 
     select: (): Promise<T[]> => {
-      const firmCondition = firmId ? `WHERE firmId = ?` : '';
+      const firmCondition = firmId ? `WHERE firmId = ?` : "";
       const finalClause = whereClause || firmCondition;
       const finalParams = whereClause ? whereParams : firmId ? [firmId] : [];
 
@@ -85,7 +95,7 @@ function queryBuilder<T = any>(table: string, firmId?: string): QueryBuilderInst
     },
 
     first: (): Promise<T | undefined> => {
-      const firmCondition = firmId ? `WHERE firmId = ?` : '';
+      const firmCondition = firmId ? `WHERE firmId = ?` : "";
       const finalClause = whereClause || firmCondition;
       const finalParams = whereClause ? whereParams : firmId ? [firmId] : [];
 
@@ -100,9 +110,9 @@ function queryBuilder<T = any>(table: string, firmId?: string): QueryBuilderInst
 
     update: (data: Partial<T>) => {
       const keys = Object.keys(data);
-      const setClause = keys.map((key) => `${key} = ?`).join(', ');
+      const setClause = keys.map((key) => `${key} = ?`).join(", ");
       const values = keys.map((k) =>
-        typeof (data as any)[k] === 'boolean'
+        typeof (data as any)[k] === "boolean"
           ? (data as any)[k]
             ? 1
             : 0
@@ -129,8 +139,25 @@ function queryBuilder<T = any>(table: string, firmId?: string): QueryBuilderInst
     },
 
     where: (column: string, value: any) => {
-      whereClause = `WHERE ${column} = ?`;
-      whereParams = [value];
+      if (whereClause) {
+        // If there's already a WHERE clause, add AND
+        whereClause += ` AND ${column} = ?`;
+        whereParams.push(value);
+      } else {
+        // First WHERE condition
+        whereClause = `WHERE ${column} = ?`;
+        whereParams = [value];
+      }
+      return builder;
+    },
+    andWhereNot: (column: string, value: any) => {
+      if (whereClause) {
+        whereClause += ` AND ${column} != ?`;
+        whereParams.push(value);
+      } else {
+        whereClause = `WHERE ${column} != ?`;
+        whereParams = [value];
+      }
       return builder;
     },
 
@@ -141,7 +168,7 @@ function queryBuilder<T = any>(table: string, firmId?: string): QueryBuilderInst
     },
 
     whereIn: (column: string, values: any[]) => {
-      const placeholders = values.map(() => '?').join(', ');
+      const placeholders = values.map(() => "?").join(", ");
       whereClause = `WHERE ${column} IN (${placeholders})`;
       whereParams = values;
       return builder;
@@ -174,7 +201,7 @@ function queryBuilder<T = any>(table: string, firmId?: string): QueryBuilderInst
           resolve(rows);
         });
       });
-    }
+    },
   };
 
   return builder;
@@ -200,7 +227,7 @@ export const db = Object.assign(queryBuilder, {
       });
     });
   },
-  raw: rawSql
+  raw: rawSql,
 }) as DbInterface;
 export async function initializFirm() {
   try {
@@ -220,7 +247,7 @@ export async function initializFirm() {
       )
     `);
   } catch (error) {
-    console.error('Error initializing firm:', error);
+    console.error("Error initializing firm:", error);
     throw error;
   }
 }
@@ -238,7 +265,7 @@ export async function initializeDatabase() {
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL
       )
-    `)
+    `);
 
     // Create Units table
     await db.exec(`
@@ -250,7 +277,7 @@ export async function initializeDatabase() {
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL
       )
-    `)
+    `);
 
     // Create Unit Conversions table - Fixed trailing comma
     await db.exec(`
@@ -265,7 +292,7 @@ export async function initializeDatabase() {
         FOREIGN KEY (primaryUnitId) REFERENCES units (id),
         FOREIGN KEY (secondaryUnitId) REFERENCES units (id)
       )
-    `)
+    `);
 
     // Create Items table (compatible with your existing schema)
     await db.exec(`
@@ -318,7 +345,7 @@ export async function initializeDatabase() {
         FOREIGN KEY (unit_conversionId) REFERENCES unit_conversions (id)
         
       )
-    `)
+    `);
     // Create Groups table
     await db.exec(`
   CREATE TABLE IF NOT EXISTS groups (
@@ -329,7 +356,7 @@ export async function initializeDatabase() {
     createdAt TEXT NOT NULL,
     updatedAt TEXT NOT NULL
   )
-`)
+`);
 
     // Create Parties table
     await db.exec(`
@@ -358,7 +385,7 @@ export async function initializeDatabase() {
     updatedAt TEXT NOT NULL,
     FOREIGN KEY (groupId) REFERENCES groups (id)
   )
-`)
+`);
 
     // Create a separate table for additional fields
     await db.exec(`
@@ -373,10 +400,10 @@ export async function initializeDatabase() {
     FOREIGN KEY (partyId) REFERENCES parties (id) ON DELETE CASCADE
     
   )
-`)
+`);
 
-// Create the documents table for all document types
-await db.exec(`
+    // Create the documents table for all document types
+    await db.exec(`
   CREATE TABLE IF NOT EXISTS documents (
     id TEXT PRIMARY KEY,
     firmId TEXT NOT NULL,
@@ -449,15 +476,15 @@ await db.exec(`
   )
 `);
 
-// Create indexes for the documents table
-await db.exec(`
+    // Create indexes for the documents table
+    await db.exec(`
   CREATE INDEX IF NOT EXISTS idx_documents_type ON documents(documentType);
   CREATE INDEX IF NOT EXISTS idx_documents_party ON documents(partyId);
   CREATE INDEX IF NOT EXISTS idx_documents_date ON documents(documentDate)
 `);
 
-// Create the document items table
-await db.exec(`
+    // Create the document items table
+    await db.exec(`
   CREATE TABLE IF NOT EXISTS document_items (
     id TEXT PRIMARY KEY,
     firmId TEXT NOT NULL,
@@ -519,13 +546,13 @@ await db.exec(`
   )
 `);
 
-// Create index for document items
-await db.exec(`
+    // Create index for document items
+    await db.exec(`
   CREATE INDEX IF NOT EXISTS idx_document_items_doc ON document_items(documentId)
 `);
 
-// Create the document charges table
-await db.exec(`
+    // Create the document charges table
+    await db.exec(`
   CREATE TABLE IF NOT EXISTS document_charges (
     id TEXT PRIMARY KEY,
     firmId TEXT NOT NULL,
@@ -538,13 +565,13 @@ await db.exec(`
   )
 `);
 
-// Create index for document charges
-await db.exec(`
+    // Create index for document charges
+    await db.exec(`
   CREATE INDEX IF NOT EXISTS idx_document_charges_doc ON document_charges(documentId)
 `);
 
-// Create the document transportation details table
-await db.exec(`
+    // Create the document transportation details table
+    await db.exec(`
   CREATE TABLE IF NOT EXISTS document_transportation (
     id TEXT PRIMARY KEY,
     firmId TEXT NOT NULL,
@@ -558,13 +585,13 @@ await db.exec(`
   )
 `);
 
-// Create index for document transportation
-await db.exec(`
+    // Create index for document transportation
+    await db.exec(`
   CREATE INDEX IF NOT EXISTS idx_document_transport_doc ON document_transportation(documentId)
 `);
 
-// Create the document relationships table
-await db.exec(`
+    // Create the document relationships table
+    await db.exec(`
   CREATE TABLE IF NOT EXISTS document_relationships (
     id TEXT PRIMARY KEY,
     firmId TEXT NOT NULL,
@@ -580,14 +607,14 @@ await db.exec(`
   )
 `);
 
-// Create indexes for document relationships
-await db.exec(`
+    // Create indexes for document relationships
+    await db.exec(`
   CREATE INDEX IF NOT EXISTS idx_doc_rel_source ON document_relationships(sourceDocumentId);
   CREATE INDEX IF NOT EXISTS idx_doc_rel_target ON document_relationships(targetDocumentId)
 `);
 
-// Create the stock movements table
-await db.exec(`
+    // Create the stock movements table
+    await db.exec(`
   CREATE TABLE IF NOT EXISTS stock_movements (
     id TEXT PRIMARY KEY,
     firmId TEXT NOT NULL,
@@ -623,16 +650,14 @@ await db.exec(`
   )
 `);
 
-// Create indexes for stock movements
-await db.exec(`
+    // Create indexes for stock movements
+    await db.exec(`
   CREATE INDEX IF NOT EXISTS idx_stock_movements_item ON stock_movements(itemId);
   CREATE INDEX IF NOT EXISTS idx_stock_movements_doc ON stock_movements(documentId)
 `);
 
-
-
-// Create Bank Accounts table
-await db.exec(`
+    // Create Bank Accounts table
+    await db.exec(`
   CREATE TABLE IF NOT EXISTS bank_accounts (
     id TEXT PRIMARY KEY,
     firmId TEXT NOT NULL,
@@ -652,7 +677,7 @@ await db.exec(`
     createdAt TEXT NOT NULL,
     updatedAt TEXT NOT NULL
   )
-`)
+`);
 
     // Create Bank Transactions table
     await db.exec(`
@@ -671,8 +696,8 @@ await db.exec(`
     updatedAt TEXT NOT NULL,
     FOREIGN KEY (bankAccountId) REFERENCES bank_accounts (id) ON DELETE CASCADE
   )
-`)
-await db.exec(`
+`);
+    await db.exec(`
   CREATE TABLE IF NOT EXISTS payments (
     id TEXT PRIMARY KEY,
     firmId TEXT NOT NULL,
@@ -699,8 +724,8 @@ await db.exec(`
   )
 `);
 
-// Create indexes for faster queries
-await db.exec(`
+    // Create indexes for faster queries
+    await db.exec(`
   CREATE INDEX IF NOT EXISTS idx_payments_firmId ON payments (firmId);
   CREATE INDEX IF NOT EXISTS idx_payments_direction ON payments (direction);
   CREATE INDEX IF NOT EXISTS idx_payments_partyId ON payments (partyId);
@@ -708,10 +733,10 @@ await db.exec(`
   CREATE INDEX IF NOT EXISTS idx_payments_paymentDate ON payments (paymentDate);
 `);
 
-    console.log('Database schema initialized successfully')
+    console.log("Database schema initialized successfully");
   } catch (error) {
-    console.error('Error initializing database schema:', error)
-    throw error
+    console.error("Error initializing database schema:", error);
+    throw error;
   }
 }
 // Initialize default data (basic units, categories, etc.)

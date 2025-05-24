@@ -1,6 +1,9 @@
 "use client";
 
-import { openCreatePaymentInForm } from "@/redux/slices/paymentSlice";
+import {
+  openCreatePaymentInForm,
+  openEditForm,
+} from "@/redux/slices/paymentSlice";
 import { AppDispatch } from "@/redux/store";
 import React, { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -29,7 +32,10 @@ import {
 
 // API Hooks
 import { useGetPartiesQuery } from "@/redux/api/partiesApi";
-import { useGetPaymentInsQuery } from "@/redux/api/paymentApi";
+import {
+  useDeletePaymentMutation,
+  useGetPaymentInsQuery,
+} from "@/redux/api/paymentApi";
 
 // Icons
 import {
@@ -37,6 +43,7 @@ import {
   Banknote,
   Calendar,
   CreditCard,
+  EllipsisVertical,
   FileText,
   Plus,
   Receipt,
@@ -44,8 +51,13 @@ import {
   Users,
   X,
 } from "lucide-react";
-
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { PaymentType } from "@/models/document/document.model";
+import { PaymentDirection } from "@/models/payment/payment.model";
 
 // Utility function to format currency
 const formatCurrency = (amount: number | null) => {
@@ -76,6 +88,7 @@ const PaymentInPage = () => {
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<string | null>(
     null
   );
+  const [deletePayment] = useDeletePaymentMutation();
   const [dateRange, setDateRange] = useState({
     startDate: "",
     endDate: "",
@@ -422,6 +435,42 @@ const PaymentInPage = () => {
                             <ArrowDownLeft className="mr-1 h-3.5 w-3.5" />
                             {formatCurrency(payment.amount)}
                           </div>
+                        </TableCell>
+                        <TableCell className="text-right w-10">
+                          <Popover>
+                            <PopoverTrigger
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <EllipsisVertical className="h-4 w-4 text-gray-500" />
+                            </PopoverTrigger>
+                            <PopoverContent className="w-40" align="end">
+                              <div className="flex flex-col space-y-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="justify-start"
+                                  onClick={(e) => {
+                                    dispatch(openEditForm(payment.id));
+                                  }}
+                                >
+                                  Edit Payment
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="justify-start"
+                                  onClick={(e) => {
+                                    deletePayment({
+                                      id: payment.id,
+                                      direction: PaymentDirection.IN,
+                                    });
+                                  }}
+                                >
+                                  Delete Payment
+                                </Button>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         </TableCell>
                       </TableRow>
                     ))

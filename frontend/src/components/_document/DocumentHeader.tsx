@@ -1,116 +1,126 @@
-'use client';
+"use client";
 
 import {
-    Calendar,
-    CalendarDays,
-    Clock,
-    FileText,
-    Hash,
-    LoaderCircle,
-    MapPin,
-    Phone,
-    Plus,
-    Search,
-    Truck,
-    User,
-    X
-} from 'lucide-react';
-import React, { useEffect, useState } from 'react';
-import { useDocument } from './Context';
-import { toast } from 'react-hot-toast';
+  Calendar,
+  CalendarDays,
+  Clock,
+  FileText,
+  Hash,
+  LoaderCircle,
+  MapPin,
+  Phone,
+  Plus,
+  Search,
+  Truck,
+  User,
+  X,
+} from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useDocument } from "./Context";
+import { toast } from "react-hot-toast";
 
 // UI Components
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle
-} from "@/components/ui/card";
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 // API Hooks
-import { useCreatePartyMutation, useGetPartiesQuery } from '@/redux/api/partiesApi';
-import { openCreateForm as openPartyCreateForm } from '@/redux/slices/partySlice';
-import { useDispatch } from 'react-redux';
-import { DocumentType } from '@/models/document/document.model';
-import { useGetDocumentsQuery } from '@/redux/api/documentApi';
+import {
+  useCreatePartyMutation,
+  useGetPartiesQuery,
+} from "@/redux/api/partiesApi";
+import { openCreateForm as openPartyCreateForm } from "@/redux/slices/partySlice";
+import { useDispatch } from "react-redux";
+import { DocumentType } from "@/models/document/document.model";
+import { useGetDocumentsQuery } from "@/redux/api/documentApi";
 
 const DocumentHeader: React.FC = () => {
   const { state, dispatch: docDispatch } = useDocument();
-  const { document, validationErrors } = state;
+  const { document, validationErrors, mode } = state;
   const reduxDispatch = useDispatch();
-  const [createParty, { isLoading: isCreatingParty }] = useCreatePartyMutation();
-  
+  const [createParty, { isLoading: isCreatingParty }] =
+    useCreatePartyMutation();
+
   // Local state
-  const [partySearchTerm, setPartySearchTerm] = useState('');
+  const [partySearchTerm, setPartySearchTerm] = useState("");
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
-  
+
   // Determine if this is a sales or purchase document
-  const isSalesDocument = document.documentType.toString().startsWith('sale') || 
-                         document.documentType === DocumentType.DELIVERY_CHALLAN;
-  
+  const isSalesDocument =
+    document.documentType.toString().startsWith("sale") ||
+    document.documentType === DocumentType.DELIVERY_CHALLAN;
+
   // Party label (Customer or Supplier)
-  const partyLabel = isSalesDocument ? 'Customer' : 'Supplier';
-  
+  const partyLabel = isSalesDocument ? "Customer" : "Supplier";
+
   // Use RTK Query to fetch parties
-  const { 
-    data: parties, 
-    isLoading: partiesLoading, 
-    error: partiesError 
-  } = useGetPartiesQuery({ search: partySearchTerm });
-  
   const {
-    data: documents,
-    refetch
-  } = useGetDocumentsQuery({documentType: document.documentType});
-  
+    data: parties,
+    isLoading: partiesLoading,
+    error: partiesError,
+  } = useGetPartiesQuery({ search: partySearchTerm });
+
+  // Fetch documents of the same type for sequential numbering
+  const { data: documents, refetch } = useGetDocumentsQuery({
+    documentType: document.documentType,
+  });
+
   // Filter parties based on search term and party type
-  const filteredParties = parties?.filter(party => {
-    const matchesSearch = party.name.toLowerCase().includes(partySearchTerm.toLowerCase()) ||
-      (party.phone && party.phone.includes(partySearchTerm));
-    
-    // Filter by group type (customers for sales, suppliers for purchases)
-    const isCorrectType = isSalesDocument 
-      ? party.groupId?.includes('customer') || !party.groupId // Include if no group
-      : party.groupId?.includes('supplier') || !party.groupId; // Include if no group
-    
-    return matchesSearch && isCorrectType;
-  }) || [];
+  const filteredParties =
+    parties?.filter((party) => {
+      const matchesSearch =
+        party.name.toLowerCase().includes(partySearchTerm.toLowerCase()) ||
+        (party.phone && party.phone.includes(partySearchTerm));
+
+      // Filter by group type (customers for sales, suppliers for purchases)
+      const isCorrectType = isSalesDocument
+        ? party.groupId?.includes("customer") || !party.groupId // Include if no group
+        : party.groupId?.includes("supplier") || !party.groupId; // Include if no group
+
+      return matchesSearch && isCorrectType;
+    }) || [];
 
   // Function to handle creating and selecting a new party
   const handleCreateAndSelectParty = async () => {
     // Check if party already exists in filtered results
     const partyExists = filteredParties.some(
-      party => party.name.toLowerCase() === partySearchTerm.toLowerCase()
+      (party) => party.name.toLowerCase() === partySearchTerm.toLowerCase()
     );
-    
+
     if (!partyExists && partySearchTerm.trim()) {
       try {
         // Create basic party with the entered name
         const newPartyData = {
           name: partySearchTerm.trim(),
-          gstType: 'Unregistered',
+          gstType: "Unregistered",
           // Set groupId based on document type (customer or supplier)
-          groupId: isSalesDocument ? 'customer' : 'supplier'
+          groupId: isSalesDocument ? "customer" : "supplier",
         };
-        
+
         // Create party using mutation
         const result = await createParty(newPartyData).unwrap();
-        
+
         if (result) {
           // Party created successfully, now select it
           handlePartySelect(result);
           setShowPartyDropdown(false);
-          
+
           // Show success message
-          toast.success(`New ${partyLabel.toLowerCase()} "${result.name}" created and selected`);
+          toast.success(
+            `New ${partyLabel.toLowerCase()} "${
+              result.name
+            }" created and selected`
+          );
         }
       } catch (error) {
-        console.error('Failed to create party:', error);
-        toast.error(`Failed to create ${partyLabel.toLowerCase()}: ${error.message || 'Unknown error'}`);
+        console.error("Failed to create party:", error);
+        toast.error(
+          `Failed to create ${partyLabel.toLowerCase()}: ${
+            error.message || "Unknown error"
+          }`
+        );
       }
     } else if (filteredParties.length > 0) {
       // If party exists in filtered results, select the first one
@@ -118,81 +128,147 @@ const DocumentHeader: React.FC = () => {
     }
   };
 
-useEffect(() => {
+  useEffect(() => {
     // Immediately refetch data when component mounts
     refetch();
-    
+
     // Set up interval for periodic refetching (every 5 seconds)
     const intervalId = setInterval(() => {
       refetch();
     }, 5000); // Adjust this time as needed
-    
+
     // Clean up interval on unmount
     return () => clearInterval(intervalId);
   }, [refetch]);
 
-  // Generate document number automatically if not set
+  // Enhanced document number generation with sequential numbering per document type
+  const generateDocumentNumber = async () => {
+    // Don't generate if in edit mode or if document number already exists
+    if (mode === "edit" || document.documentNumber) {
+      return;
+    }
+
+    try {
+      // Filter documents by the same document type
+      const sameTypeDocuments =
+        documents?.filter(
+          (doc) => doc.documentType === document.documentType
+        ) || [];
+
+      if (sameTypeDocuments.length === 0) {
+        // First document of this type, start with 1
+        docDispatch({
+          type: "UPDATE_FIELD",
+          payload: { field: "documentNumber", value: "1" },
+        });
+        return;
+      }
+
+      // Find the highest document number for this document type
+      const documentNumbers = sameTypeDocuments
+        .map((doc) => {
+          // Extract numeric part from document number
+          const numericPart = doc.documentNumber.replace(/\D/g, "");
+          return numericPart ? parseInt(numericPart, 10) : 0;
+        })
+        .filter((num) => !isNaN(num));
+
+      // Get the maximum number and add 1
+      const maxNumber =
+        documentNumbers.length > 0 ? Math.max(...documentNumbers) : 0;
+      const nextNumber = (maxNumber + 1).toString();
+
+      docDispatch({
+        type: "UPDATE_FIELD",
+        payload: { field: "documentNumber", value: nextNumber },
+      });
+
+      console.log(
+        `Generated document number: ${nextNumber} for type: ${document.documentType}`
+      );
+    } catch (error) {
+      console.error("Error generating document number:", error);
+      // Fallback to simple increment
+      docDispatch({
+        type: "UPDATE_FIELD",
+        payload: { field: "documentNumber", value: "1" },
+      });
+    }
+  };
+
+  // Generate document number when documents data changes (only for create mode)
   useEffect(() => {
-    if (!document.documentNumber) {
+    if (mode === "create" && documents && !document.documentNumber) {
       generateDocumentNumber();
     }
-  }, [document.documentType]);
+  }, [documents, document.documentType, mode, document.documentNumber]);
 
-  // Simple document number generator
-const generateDocumentNumber = async () => {
-  if (!documents || documents.length === 0) {
-    docDispatch({
-      type: 'UPDATE_FIELD',
-      payload: { field: 'documentNumber', value: '1' }
-    });
-    return;
-  }
-
-  // Sort by numeric value of documentNumber
-  const sortedDocs = [...documents].sort((a, b) =>
-    Number(a.documentNumber) - Number(b.documentNumber)
-  );
-
-  const lastDocNumber = Number(sortedDocs[sortedDocs.length - 1].documentNumber || 0);
-  const newDocNumber = (lastDocNumber + 1).toString();
-
-  docDispatch({
-    type: 'UPDATE_FIELD',
-    payload: { field: 'documentNumber', value: newDocNumber }
-  });
-};
-
+  // Set default document time
+  useEffect(() => {
+    if (!document.documentTime) {
+      const now = new Date();
+      const formattedTime = now.toTimeString().slice(0, 5); // "HH:MM"
+      docDispatch({
+        type: "UPDATE_FIELD",
+        payload: { field: "documentTime", value: formattedTime },
+      });
+    }
+  }, [document.documentTime, docDispatch]);
 
   // Party selection handler
   const handlePartySelect = (party: any) => {
     docDispatch({
-      type: 'UPDATE_FIELD',
-      payload: { field: 'partyId', value: party.id }
+      type: "UPDATE_FIELD",
+      payload: { field: "partyId", value: party.id },
     });
-    
+
     docDispatch({
-      type: 'UPDATE_FIELD',
-      payload: { field: 'partyName', value: party.name }
+      type: "UPDATE_FIELD",
+      payload: { field: "partyName", value: party.name },
     });
-    
+
     docDispatch({
-      type: 'UPDATE_FIELD',
-      payload: { field: 'phone', value: party.phone || '' }
+      type: "UPDATE_FIELD",
+      payload: { field: "phone", value: party.phone || "" },
     });
-    
+
     docDispatch({
-      type: 'UPDATE_FIELD',
-      payload: { field: 'billingAddress', value: party.billingAddress || '' }
+      type: "UPDATE_FIELD",
+      payload: { field: "billingAddress", value: party.billingAddress || "" },
     });
-    
+
     setShowPartyDropdown(false);
-    setPartySearchTerm('');
+    setPartySearchTerm("");
   };
 
   // Handle adding a new party
   const handleAddNewParty = () => {
     reduxDispatch(openPartyCreateForm());
     setShowPartyDropdown(false);
+  };
+
+  // Get document type prefix for display
+  const getDocumentPrefix = (docType: string): string => {
+    switch (docType) {
+      case DocumentType.SALE_INVOICE:
+        return "SI";
+      case DocumentType.SALE_ORDER:
+        return "SO";
+      case DocumentType.SALE_RETURN:
+        return "SR";
+      case DocumentType.SALE_QUOTATION:
+        return "SQ";
+      case DocumentType.DELIVERY_CHALLAN:
+        return "DC";
+      case DocumentType.PURCHASE_INVOICE:
+        return "PI";
+      case DocumentType.PURCHASE_ORDER:
+        return "PO";
+      case DocumentType.PURCHASE_RETURN:
+        return "PR";
+      default:
+        return "DOC";
+    }
   };
 
   return (
@@ -203,7 +279,7 @@ const generateDocumentNumber = async () => {
           {getDocumentTypeTitle(document.documentType.toString())} Details
         </CardTitle>
       </CardHeader>
-      
+
       <CardContent className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Left Column - Party Information */}
@@ -213,7 +289,7 @@ const generateDocumentNumber = async () => {
                 <User className="h-4 w-4 mr-1 text-primary" />
                 {partyLabel} Information
               </h3>
-              
+
               <div className="space-y-4">
                 {/* Party Search Field */}
                 <div className="relative">
@@ -231,7 +307,10 @@ const generateDocumentNumber = async () => {
                         }}
                         onFocus={() => setShowPartyDropdown(true)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && partySearchTerm.trim() !== '') {
+                          if (
+                            e.key === "Enter" &&
+                            partySearchTerm.trim() !== ""
+                          ) {
                             handleCreateAndSelectParty();
                             e.preventDefault();
                           }
@@ -240,27 +319,31 @@ const generateDocumentNumber = async () => {
                         placeholder={`Search by name or phone`}
                       />
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      className="ml-2" 
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="ml-2"
                       onClick={handleAddNewParty}
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
-                  
+
                   {validationErrors.partyName && (
-                    <p className="text-xs text-red-500 mt-1">{validationErrors.partyName}</p>
+                    <p className="text-xs text-red-500 mt-1">
+                      {validationErrors.partyName}
+                    </p>
                   )}
-                  
+
                   {showPartyDropdown && (
                     <div className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-gray-200 ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
                       {partiesLoading || isCreatingParty ? (
                         <div className="px-4 py-2 flex items-center justify-center">
                           <LoaderCircle className="h-4 w-4 mr-2 animate-spin text-primary" />
                           <span className="text-gray-500">
-                            {isCreatingParty ? 'Creating party...' : `Loading ${partyLabel.toLowerCase()}s...`}
+                            {isCreatingParty
+                              ? "Creating party..."
+                              : `Loading ${partyLabel.toLowerCase()}s...`}
                           </span>
                         </div>
                       ) : partiesError ? (
@@ -309,9 +392,9 @@ const generateDocumentNumber = async () => {
                         </div>
                       )}
                       <div className="border-t border-gray-200 mt-1 pt-1 px-4 py-2">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="w-full text-primary text-xs flex items-center justify-center"
                           onClick={handleAddNewParty}
                         >
@@ -321,32 +404,34 @@ const generateDocumentNumber = async () => {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Selected Party Display */}
                 {document.partyName && (
                   <div className="p-3 bg-primary/5 rounded-md border border-primary/10">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-gray-600">Selected {partyLabel}</span>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-6 w-6 p-0" 
+                      <span className="text-xs font-medium text-gray-600">
+                        Selected {partyLabel}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
                         onClick={() => {
                           docDispatch({
-                            type: 'UPDATE_FIELD',
-                            payload: { field: 'partyName', value: '' }
+                            type: "UPDATE_FIELD",
+                            payload: { field: "partyName", value: "" },
                           });
                           docDispatch({
-                            type: 'UPDATE_FIELD',
-                            payload: { field: 'partyId', value: '' }
+                            type: "UPDATE_FIELD",
+                            payload: { field: "partyId", value: "" },
                           });
                           docDispatch({
-                            type: 'UPDATE_FIELD',
-                            payload: { field: 'phone', value: '' }
+                            type: "UPDATE_FIELD",
+                            payload: { field: "phone", value: "" },
                           });
                           docDispatch({
-                            type: 'UPDATE_FIELD',
-                            payload: { field: 'billingAddress', value: '' }
+                            type: "UPDATE_FIELD",
+                            payload: { field: "billingAddress", value: "" },
                           });
                         }}
                       >
@@ -365,24 +450,27 @@ const generateDocumentNumber = async () => {
                     )}
                   </div>
                 )}
-                
+
                 {/* Billing Name Field */}
                 <div>
                   <Label className="text-xs font-medium mb-1 block">
                     Billing Name (Optional)
                   </Label>
                   <Input
-                    value={document.billingName || ''}
-                    onChange={(e) => 
+                    value={document.billingName || ""}
+                    onChange={(e) =>
                       docDispatch({
-                        type: 'UPDATE_FIELD',
-                        payload: { field: 'billingName', value: e.target.value }
+                        type: "UPDATE_FIELD",
+                        payload: {
+                          field: "billingName",
+                          value: e.target.value,
+                        },
                       })
                     }
                     placeholder="Enter billing name"
                   />
                 </div>
-                
+
                 {/* Billing Address Field */}
                 <div>
                   <Label className="text-xs font-medium mb-1 block flex items-center">
@@ -390,11 +478,14 @@ const generateDocumentNumber = async () => {
                     Billing Address
                   </Label>
                   <Input
-                    value={document.billingAddress || ''}
-                    onChange={(e) => 
+                    value={document.billingAddress || ""}
+                    onChange={(e) =>
                       docDispatch({
-                        type: 'UPDATE_FIELD',
-                        payload: { field: 'billingAddress', value: e.target.value }
+                        type: "UPDATE_FIELD",
+                        payload: {
+                          field: "billingAddress",
+                          value: e.target.value,
+                        },
                       })
                     }
                     placeholder="Enter billing address"
@@ -404,14 +495,14 @@ const generateDocumentNumber = async () => {
               </div>
             </div>
           </div>
-          
+
           {/* Middle Column - Additional Fields */}
           <div className="space-y-4">
             <h3 className="text-sm font-medium flex items-center mb-2 text-gray-700">
               <Truck className="h-4 w-4 mr-1 text-primary" />
               Shipping & Supply Details
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {/* E-way Bill Field */}
               <div>
@@ -419,51 +510,54 @@ const generateDocumentNumber = async () => {
                   E-way Bill Number
                 </Label>
                 <Input
-                  value={document.ewaybill || ''}
-                  onChange={(e) => 
+                  value={document.ewaybill || ""}
+                  onChange={(e) =>
                     docDispatch({
-                      type: 'UPDATE_FIELD',
-                      payload: { field: 'ewaybill', value: e.target.value }
+                      type: "UPDATE_FIELD",
+                      payload: { field: "ewaybill", value: e.target.value },
                     })
                   }
                   placeholder="Enter e-way bill #"
                 />
               </div>
-              
+
               {/* State of Supply Field */}
               <div>
                 <Label className="text-xs font-medium mb-1 block">
                   State of Supply
                 </Label>
                 <Input
-                  value={document.stateOfSupply || ''}
-                  onChange={(e) => 
+                  value={document.stateOfSupply || ""}
+                  onChange={(e) =>
                     docDispatch({
-                      type: 'UPDATE_FIELD',
-                      payload: { field: 'stateOfSupply', value: e.target.value }
+                      type: "UPDATE_FIELD",
+                      payload: {
+                        field: "stateOfSupply",
+                        value: e.target.value,
+                      },
                     })
                   }
                   placeholder="Enter state"
                 />
               </div>
-              
+
               {/* PO Number Field */}
               <div>
                 <Label className="text-xs font-medium mb-1 block">
                   PO Number
                 </Label>
                 <Input
-                  value={document.poNumber || ''}
-                  onChange={(e) => 
+                  value={document.poNumber || ""}
+                  onChange={(e) =>
                     docDispatch({
-                      type: 'UPDATE_FIELD',
-                      payload: { field: 'poNumber', value: e.target.value }
+                      type: "UPDATE_FIELD",
+                      payload: { field: "poNumber", value: e.target.value },
                     })
                   }
                   placeholder="Enter PO #"
                 />
               </div>
-              
+
               {/* PO Date Field */}
               <div>
                 <Label className="text-xs font-medium mb-1 block flex items-center">
@@ -472,48 +566,75 @@ const generateDocumentNumber = async () => {
                 </Label>
                 <Input
                   type="date"
-                  value={document.poDate || ''}
-                  onChange={(e) => 
+                  value={document.poDate || ""}
+                  onChange={(e) =>
                     docDispatch({
-                      type: 'UPDATE_FIELD',
-                      payload: { field: 'poDate', value: e.target.value }
+                      type: "UPDATE_FIELD",
+                      payload: { field: "poDate", value: e.target.value },
                     })
                   }
                 />
               </div>
             </div>
           </div>
-          
+
           {/* Right Column - Document Details */}
           <div className="space-y-4">
             <h3 className="text-sm font-medium flex items-center mb-2 text-gray-700">
               <FileText className="h-4 w-4 mr-1 text-primary" />
               Document Details
             </h3>
-            
+
             <Card className="bg-primary/5 border-primary/10">
               <CardContent className="p-4 space-y-4">
                 {/* Document Number Field */}
                 <div>
                   <Label className="text-xs font-medium mb-1 block flex items-center">
                     Document Number <span className="text-red-500 ml-1">*</span>
+                    {mode === "edit" && (
+                      <span className="text-xs text-gray-500 ml-2">
+                        (Cannot be changed)
+                      </span>
+                    )}
                   </Label>
-                  <Input
-                    value={document.documentNumber || ''}
-                    onChange={(e) => 
-                      docDispatch({
-                        type: 'UPDATE_FIELD',
-                        payload: { field: 'documentNumber', value: e.target.value }
-                      })
-                    }
-                    placeholder="Enter document number"
-                    className="font-medium border-primary/20"
-                  />
+                  <div className="relative flex items-center">
+                    <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-500 bg-gray-50 px-1 rounded">
+                      {getDocumentPrefix(document.documentType.toString())}-
+                    </span>
+                    <Input
+                      value={document.documentNumber || ""}
+                      onChange={(e) =>
+                        docDispatch({
+                          type: "UPDATE_FIELD",
+                          payload: {
+                            field: "documentNumber",
+                            value: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="Auto-generated"
+                      className={`font-medium border-primary/20 pl-12 ${
+                        mode === "edit"
+                          ? "bg-gray-50 text-gray-600 cursor-not-allowed"
+                          : ""
+                      }`}
+                      disabled={mode === "edit"}
+                      readOnly={mode === "edit"}
+                    />
+                  </div>
                   {validationErrors.documentNumber && (
-                    <p className="text-xs text-red-500 mt-1">{validationErrors.documentNumber}</p>
+                    <p className="text-xs text-red-500 mt-1">
+                      {validationErrors.documentNumber}
+                    </p>
+                  )}
+                  {mode === "create" && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Sequential numbering for{" "}
+                      {getDocumentTypeTitle(document.documentType.toString())}
+                    </p>
                   )}
                 </div>
-                
+
                 {/* Document Date Field */}
                 <div>
                   <Label className="text-xs font-medium mb-1 block flex items-center">
@@ -522,20 +643,27 @@ const generateDocumentNumber = async () => {
                   </Label>
                   <Input
                     type="date"
-                    value={document.documentDate?.toString().split('T')[0] || ''}
-                    onChange={(e) => 
+                    value={
+                      document.documentDate?.toString().split("T")[0] || ""
+                    }
+                    onChange={(e) =>
                       docDispatch({
-                        type: 'UPDATE_FIELD',
-                        payload: { field: 'documentDate', value: e.target.value }
+                        type: "UPDATE_FIELD",
+                        payload: {
+                          field: "documentDate",
+                          value: e.target.value,
+                        },
                       })
                     }
                     className="border-primary/20"
                   />
                   {validationErrors.documentDate && (
-                    <p className="text-xs text-red-500 mt-1">{validationErrors.documentDate}</p>
+                    <p className="text-xs text-red-500 mt-1">
+                      {validationErrors.documentDate}
+                    </p>
                   )}
                 </div>
-                
+
                 {/* Document Time Field */}
                 <div>
                   <Label className="text-xs font-medium mb-1 block flex items-center">
@@ -544,11 +672,14 @@ const generateDocumentNumber = async () => {
                   </Label>
                   <Input
                     type="time"
-                    value={document.documentTime || ''}
-                    onChange={(e) => 
+                    value={document.documentTime || ""}
+                    onChange={(e) =>
                       docDispatch({
-                        type: 'UPDATE_FIELD',
-                        payload: { field: 'documentTime', value: e.target.value }
+                        type: "UPDATE_FIELD",
+                        payload: {
+                          field: "documentTime",
+                          value: e.target.value,
+                        },
                       })
                     }
                     className="border-primary/20"
@@ -567,23 +698,23 @@ const generateDocumentNumber = async () => {
 function getDocumentTypeTitle(docType: string): string {
   switch (docType) {
     case DocumentType.SALE_INVOICE:
-      return 'Sale Invoice';
+      return "Sale Invoice";
     case DocumentType.SALE_ORDER:
-      return 'Sale Order';
+      return "Sale Order";
     case DocumentType.SALE_RETURN:
-      return 'Sale Return';
+      return "Sale Return";
     case DocumentType.SALE_QUOTATION:
-      return 'Quotation';
+      return "Quotation";
     case DocumentType.DELIVERY_CHALLAN:
-      return 'Delivery Challan';
+      return "Delivery Challan";
     case DocumentType.PURCHASE_INVOICE:
-      return 'Purchase Invoice';
+      return "Purchase Invoice";
     case DocumentType.PURCHASE_ORDER:
-      return 'Purchase Order';
+      return "Purchase Order";
     case DocumentType.PURCHASE_RETURN:
-      return 'Purchase Return';
+      return "Purchase Return";
     default:
-      return 'Document';
+      return "Document";
   }
 }
 

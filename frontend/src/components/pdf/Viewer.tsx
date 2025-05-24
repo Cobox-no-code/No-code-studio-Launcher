@@ -26,7 +26,7 @@ const DocumentViewerPage: React.FC = () => {
   const [invoiceTheme, setInvoiceTheme] = useState<"regular" | "thermal">(
     "regular"
   );
-  const [ firm,setFirm]= useState<any>(null)
+  const [firm, setFirm] = useState<any>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({ contentRef: contentRef });
 
@@ -34,7 +34,7 @@ const DocumentViewerPage: React.FC = () => {
   const businessName = localStorage.getItem("firmName") || "Your Business Name";
   const phoneNumber = localStorage.getItem("firmNumber") || "9752133459";
   const countryCode = localStorage.getItem("firmCountry") || "IN";
-  const firmId = localStorage.getItem('firmId')||''
+  const firmId = localStorage.getItem("firmId") || "";
   // Fetch document data with proper skip logic
   const {
     data: document,
@@ -48,7 +48,6 @@ const DocumentViewerPage: React.FC = () => {
   const handleBack = () => {
     router.push("/");
   };
-
 
   // Share document function
   const handleShareDocument = () => {
@@ -66,19 +65,16 @@ const DocumentViewerPage: React.FC = () => {
       });
   };
 
- useEffect(() => {
-  
+  useEffect(() => {
     if (firmId) {
       axios
         .get(`${API_BASE_URL}/firms/${firmId}`)
         .then((res) => {
-          setFirm(res.data)
-         
+          setFirm(res.data);
         })
-        .catch(() => toast.error('Failed to load firm data'))
-        
+        .catch(() => toast.error("Failed to load firm data"));
     }
-  }, [firmId])
+  }, [firmId]);
 
   if (isLoading) {
     return (
@@ -121,9 +117,10 @@ const DocumentViewerPage: React.FC = () => {
             #{document.documentNumber}
           </h1>
           <p className="text-gray-500">
-            {document.partyName} •{" "}
+            {document.billingName ? document.billingName : businessName} •{" "}
             {new Date(document.documentDate).toLocaleDateString()}
           </p>
+          <p className="text-gray-500">• {document.documentTime}</p>
         </div>
 
         <div className="mt-4 md:mt-0 flex flex-wrap gap-2">
@@ -189,20 +186,21 @@ const DocumentViewerPage: React.FC = () => {
       {invoiceTheme === "regular" ? (
         <InvoicePrinter
           document={document}
-          bankDetails={bankDetails}
-          businessName={businessName}
+          bankDetails={document.bankId ? bankDetails : null}
+          businessName={
+            document.billingName ? document.billingName : businessName
+          }
           contentRef={contentRef}
           countryCode={countryCode}
-          firmData ={firm}
+          firmData={firm}
         />
-
       ) : (
         <ThermalInvoicePrinter
           document={document}
           businessName={businessName}
           phoneNumber={phoneNumber}
           contentRef={contentRef}
-       firmData={firm}
+          firmData={firm}
         />
       )}
 

@@ -206,22 +206,22 @@ const AddBankAccountModal = () => {
       return;
     }
 
+    // Calculate opening balance
+    const openingBalanceValue =
+      typeof localFormState.openingBalance === "string" &&
+      localFormState.openingBalance !== ""
+        ? parseFloat(localFormState.openingBalance)
+        : localFormState.openingBalance || 0;
+
     // Prepare final form data for submission
     const finalFormData = {
       ...formData,
       ...localFormState,
-      openingBalance:
-        typeof localFormState.openingBalance === "string" &&
-        localFormState.openingBalance !== ""
-          ? parseFloat(localFormState.openingBalance)
-          : localFormState.openingBalance || 0,
+      openingBalance: openingBalanceValue,
+      // In create mode, current balance equals opening balance
+      // In edit mode, keep the existing current balance (don't modify it)
       currentBalance:
-        mode === "create"
-          ? typeof localFormState.openingBalance === "string" &&
-            localFormState.openingBalance !== ""
-            ? parseFloat(localFormState.openingBalance)
-            : localFormState.openingBalance || 0
-          : formData.currentBalance,
+        mode === "create" ? openingBalanceValue : formData.openingBalance,
     };
 
     dispatch(setSubmitting(true));
@@ -319,12 +319,16 @@ const AddBankAccountModal = () => {
   return (
     <Dialog open={isOpen} onOpenChange={() => dispatch(closeForm())}>
       <DialogContent className="max-w-lg sm:max-w-xl">
-        <div className="sticky top-0 z-10 ">
+        <div className="sticky top-0 z-10 bg-white">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="text-xl font-semibold">
                 {mode === "create" ? "Add Bank Account" : "Edit Bank Account"}
               </DialogTitle>
+              <DialogClose className="rounded-full opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </DialogClose>
             </div>
             <p className="text-sm text-muted-foreground">
               Fields marked with <span className="text-red-500">*</span> are

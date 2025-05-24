@@ -26,6 +26,8 @@ import {
   Plus,
   Search,
   Trash2,
+  Package,
+  DollarSign,
 } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
@@ -51,6 +53,7 @@ import {
   Product,
   UnitConversion,
 } from "@/models/item/item.model";
+
 interface TaxRate {
   value: string;
   label: string;
@@ -60,6 +63,7 @@ const DocumentItemsTable: React.FC = () => {
   // Get document state and dispatch from context
   const { state, dispatch, calculateTotals } = useDocument();
   const dispatchOther = useAppDispatch();
+
   // Local state
   const [dropdownPosition, setDropdownPosition] = useState<{
     top: number;
@@ -75,10 +79,6 @@ const DocumentItemsTable: React.FC = () => {
   );
   const [showRowNumbers, setShowRowNumbers] = useState<boolean>(true);
   const [countryCode, setCountryCode] = useState<string>("IN");
-  const [prevTotals, setPrevTotals] = useState({
-    totalTax: "0",
-    totalDiscount: "0",
-  });
 
   // Refs for dropdown handling
   const itemInputRef = useRef<HTMLInputElement>(null);
@@ -128,7 +128,7 @@ const DocumentItemsTable: React.FC = () => {
 
   // Create empty item row based on DocumentItem model
   const createEmptyItemRow = (): DocumentItem => ({
-    id: uuidv4(), // Generate unique ID for new items
+    id: uuidv4(),
     firmId: "",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -148,6 +148,7 @@ const DocumentItemsTable: React.FC = () => {
     discountPercent: 0,
     discountAmount: 0,
     hsnCode: "",
+    salePriceTaxInclusive: false,
   });
 
   // Add new item row
@@ -159,13 +160,11 @@ const DocumentItemsTable: React.FC = () => {
     toast.success("New item row added");
   };
 
-
   // Helper function to find conversion rates from any source
   const findConversionRate = (
     primaryUnitId: string,
     secondaryUnitId: string
   ): { rate: number; isReversed: boolean } => {
-    // Default values
     let rate = 1;
     let isReversed = false;
 
@@ -177,9 +176,7 @@ const DocumentItemsTable: React.FC = () => {
       return { rate, isReversed };
     }
 
-    // Try to find the conversion
     if (unitConversions) {
-      // Look for direct match
       const directMatch = unitConversions.find(
         (uc) =>
           uc.primaryUnitId === primaryUnitId &&
@@ -190,7 +187,6 @@ const DocumentItemsTable: React.FC = () => {
         return { rate: directMatch.conversionRate, isReversed: false };
       }
 
-      // Look for reversed match
       const reversedMatch = unitConversions.find(
         (uc) =>
           uc.primaryUnitId === secondaryUnitId &&
@@ -212,7 +208,6 @@ const DocumentItemsTable: React.FC = () => {
     const taxOption = selectedTaxRates.find((tax) => tax.value === taxType);
     if (!taxOption) return 0;
 
-    // Extract the percentage from the label, e.g., "GST@18%" -> 18
     const match = taxOption.label.match(/(\d+(\.\d+)?)%/);
     return match ? parseFloat(match[1]) : 0;
   };
@@ -241,53 +236,6 @@ const DocumentItemsTable: React.FC = () => {
     return unit ? unit.shortname : "";
   };
 
-  // Calculate total quantity in base units
-  const calculateTotalQuantity = (
-    primaryQty: number,
-    secondaryQty: number,
-    conversionRate: number
-  ): number => {
-    return primaryQty * conversionRate + secondaryQty;
-  };
-
-  // Calculate final amount based on pricing logic
-  const calculateItemAmount = (
-    primaryQty: number,
-    secondaryQty: number,
-    pricePerPrimaryUnit: number,
-    conversionRate: number,
-    discountPercent: number
-  ) => {
-    // Guard against invalid conversion rate
-    if (!conversionRate || conversionRate <= 0) {
-      conversionRate = 1; // Default to 1:1 if no conversion rate
-    }
-
-    // Calculate total quantity in base units
-    const totalBaseUnits = primaryQty * conversionRate + secondaryQty;
-
-    // Calculate price per base unit
-    const pricePerBaseUnit = pricePerPrimaryUnit / conversionRate;
-
-    // Calculate gross amount before discount
-    const grossAmount = totalBaseUnits * pricePerBaseUnit;
-
-    // Calculate discount amount
-    const discountAmount = (grossAmount * discountPercent) / 100;
-
-    // Calculate amount before tax
-    const amountBeforeTax = grossAmount - discountAmount;
-
-    return {
-      totalBaseUnits,
-      discountAmount,
-      amountBeforeTax,
-      grossAmount,
-      pricePerBaseUnit,
-      conversionRate,
-    };
-  };
-
   // Helper function to get the conversion rate text consistently
   const getConversionRateText = (row: DocumentItem, item?: Item): string => {
     if (
@@ -299,7 +247,6 @@ const DocumentItemsTable: React.FC = () => {
       return "";
     }
 
-    // First, try to find conversion through the selected item
     if (item && isProduct(item)) {
       const conversion = getUnitConversion(item.id);
       if (conversion) {
@@ -307,9 +254,7 @@ const DocumentItemsTable: React.FC = () => {
       }
     }
 
-    // Try to find conversion directly from unitConversions
     if (unitConversions) {
-      // Look for direct match
       const directMatch = unitConversions.find(
         (uc) =>
           uc.primaryUnitId === row.primaryUnitId &&
@@ -320,7 +265,6 @@ const DocumentItemsTable: React.FC = () => {
         return `1 ${row.primaryUnitName} = ${directMatch.conversionRate} ${row.secondaryUnitName}`;
       }
 
-      // Look for reversed match
       const reversedMatch = unitConversions.find(
         (uc) =>
           uc.primaryUnitId === row.secondaryUnitId &&
@@ -338,15 +282,74 @@ const DocumentItemsTable: React.FC = () => {
   };
 
   // Update item row with calculations
+  // 1. Calculate final amount based on pricing logic
+  const calculateItemAmount = (
+    primaryQty: number,
+    secondaryQty: number,
+    pricePerPrimaryUnit: number,
+    conversionRate: number,
+    discountPercent: number,
+    taxRate: number,
+    isTaxInclusive: boolean = false
+  ) => {
+    // Guard against invalid conversion rate
+    if (!conversionRate || conversionRate <= 0) {
+      conversionRate = 1;
+    }
+
+    // Calculate total quantity in base units
+    const totalBaseUnits = primaryQty * conversionRate + secondaryQty;
+    const pricePerBaseUnit = pricePerPrimaryUnit / conversionRate;
+
+    // Calculate gross amount
+    const grossAmount = totalBaseUnits * pricePerBaseUnit;
+
+    // Calculate discount on gross amount
+    const discountAmount = (grossAmount * discountPercent) / 100;
+    const amountAfterDiscount = grossAmount - discountAmount;
+
+    let taxAmount: number;
+    let netAmount: number;
+
+    if (isTaxInclusive) {
+      // Simple calculation: Tax = Price × Tax Rate, Total stays same
+      taxAmount = (amountAfterDiscount * taxRate) / 100; // 100 × 5% = 5
+      netAmount = amountAfterDiscount; // Total amount stays the same (100)
+    } else {
+      // Tax is added on top of the price
+      taxAmount = (amountAfterDiscount * taxRate) / 100;
+      netAmount = amountAfterDiscount + taxAmount;
+    }
+
+    return {
+      totalBaseUnits,
+      discountAmount,
+      taxAmount,
+      netAmount,
+      grossAmount,
+      pricePerBaseUnit,
+      conversionRate,
+    };
+  };
+
+  // 2. Update item row with calculations
   const handleItemChange = (
     index: number,
     field: keyof DocumentItem,
-    value: string
+    value: string | boolean
   ): void => {
     const items = getItems();
     if (!items[index]) return;
-    console.log(items);
-    const updatedItem = { ...items[index], [field]: value };
+
+    const updatedItem = { ...items[index] };
+
+    // Handle boolean fields separately
+    if (field === "salePriceTaxInclusive") {
+      updatedItem[field] = value === "With Tax" || value === true;
+    } else {
+      (updatedItem as any)[field] = value;
+    }
+
     const selectedItem = items?.find((i) => i.id === updatedItem.itemId);
 
     if (
@@ -356,6 +359,8 @@ const DocumentItemsTable: React.FC = () => {
         "pricePerUnit",
         "discountPercent",
         "taxType",
+        "amount",
+        "salePriceTaxInclusive",
       ].includes(field)
     ) {
       // Convert to numbers safely
@@ -367,18 +372,61 @@ const DocumentItemsTable: React.FC = () => {
         parseFloat(String(updatedItem.discountPercent)) || 0;
 
       // Update unit name if changed
-      if (field === "primaryUnitId" && value) {
+      if (field === "primaryUnitId" && typeof value === "string") {
         updatedItem.primaryUnitName = getUnitName(value);
       }
 
-      let discountAmount = 0;
-      let amountBeforeTax = 0;
-      let grossAmount = primaryQty * price;
       let conversionRate = 1;
+      const totalAmount = parseFloat(String(updatedItem.amount)) || 0;
 
       // First, check if the item has a unit conversion
       let hasConversion = false;
+      if (field === "amount" && primaryQty > 0) {
+        // Calculate price per unit from total amount
+        const taxRate = getTaxRateFromType(updatedItem.taxType as string);
+        const isTaxInclusive = updatedItem.salePriceTaxInclusive || false;
 
+        let calculatedPricePerUnit: number;
+
+        if (isTaxInclusive) {
+          // If tax inclusive, the amount already includes tax
+          calculatedPricePerUnit = totalAmount / primaryQty;
+        } else {
+          // If tax exclusive, need to remove tax to get base price per unit
+          const amountWithoutTax = totalAmount / (1 + taxRate / 100);
+          calculatedPricePerUnit = amountWithoutTax / primaryQty;
+        }
+
+        // Update price per unit
+        updatedItem.pricePerUnit = Number(calculatedPricePerUnit.toFixed(2));
+
+        // Recalculate tax amount based on new price per unit
+        const newPrice = calculatedPricePerUnit;
+        const grossAmount = primaryQty * newPrice;
+        const discountAmount = (grossAmount * discountPercent) / 100;
+        const amountAfterDiscount = grossAmount - discountAmount;
+
+        let taxAmount: number;
+
+        if (isTaxInclusive) {
+          taxAmount = (amountAfterDiscount * taxRate) / 100;
+        } else {
+          taxAmount = (amountAfterDiscount * taxRate) / 100;
+        }
+
+        updatedItem.discountAmount = Number(
+          ((grossAmount * discountPercent) / 100).toFixed(2)
+        );
+        updatedItem.taxAmount = Number(taxAmount.toFixed(2));
+
+        // Skip the normal calculation flow and dispatch directly
+        dispatch({
+          type: "UPDATE_ITEM",
+          payload: { index, item: updatedItem },
+        });
+        calculateTotals();
+        return; // Exit early to avoid double calculation
+      }
       if (selectedItem && isProduct(selectedItem)) {
         const conversion = getUnitConversion(selectedItem.id);
         if (conversion) {
@@ -401,6 +449,13 @@ const DocumentItemsTable: React.FC = () => {
         hasConversion = true;
       }
 
+      // Get tax rate
+      const taxRate = getTaxRateFromType(updatedItem.taxType as string);
+      updatedItem.taxRate = taxRate;
+
+      // Calculate amounts based on whether tax is inclusive or not
+      const isTaxInclusive = updatedItem.salePriceTaxInclusive || false;
+
       if (hasConversion) {
         // Calculate based on base units with conversion
         const result = calculateItemAmount(
@@ -408,32 +463,36 @@ const DocumentItemsTable: React.FC = () => {
           secondaryQty,
           price,
           conversionRate,
-          discountPercent
+          discountPercent,
+          taxRate,
+          isTaxInclusive
         );
-        discountAmount = result.discountAmount;
-        amountBeforeTax = result.amountBeforeTax;
-        grossAmount = result.grossAmount;
+
+        updatedItem.discountAmount = Number(result.discountAmount.toFixed(2));
+        updatedItem.taxAmount = Number(result.taxAmount.toFixed(2));
+        updatedItem.amount = Number(result.netAmount.toFixed(2));
       } else {
         // Simple calculation without conversion
-        discountAmount = (primaryQty * price * discountPercent) / 100;
-        amountBeforeTax = primaryQty * price - discountAmount;
-        grossAmount = primaryQty * price;
-      }
+        let grossAmount = primaryQty * price;
+        let discountAmount = (grossAmount * discountPercent) / 100;
+        let amountAfterDiscount = grossAmount - discountAmount;
+        let taxAmount: number;
+        let netAmount: number;
 
-      if (!updatedItem.salePriceTaxInclusive) {
-        // Calculate tax based on net amount after discount
-        const taxRate = getTaxRateFromType(updatedItem.taxType as string);
-        updatedItem.taxRate = Number(taxRate.toString());
-        const taxAmount = (amountBeforeTax * taxRate) / 100;
+        if (isTaxInclusive) {
+          // Simple: Tax = Amount × Tax%, Total stays same
+          taxAmount = (amountAfterDiscount * taxRate) / 100; // 100 × 5% = 5
+          netAmount = amountAfterDiscount; // Amount stays the same (100)
+        } else {
+          // Add tax on top
+          taxAmount = (amountAfterDiscount * taxRate) / 100;
+          netAmount = amountAfterDiscount + taxAmount;
+        }
 
-        // Update calculated fields
         updatedItem.discountAmount = Number(discountAmount.toFixed(2));
         updatedItem.taxAmount = Number(taxAmount.toFixed(2));
-        updatedItem.amount = Number((amountBeforeTax + taxAmount).toFixed(2));
+        updatedItem.amount = Number(netAmount.toFixed(2));
       }
-      updatedItem.discountAmount = Number(discountAmount.toFixed(2));
-
-      updatedItem.amount = Number(amountBeforeTax.toFixed(2));
     }
 
     dispatch({
@@ -446,7 +505,6 @@ const DocumentItemsTable: React.FC = () => {
 
   // Handle item selection from dropdown
   const handleItemSelection = (index: number, item: Item): void => {
-    console.log(items);
     if (items && index >= items?.length) return;
 
     let primaryUnitId = "";
@@ -457,7 +515,6 @@ const DocumentItemsTable: React.FC = () => {
 
     // Set correct unit information
     if (isProduct(item)) {
-      // Get unit information if available
       if (item.unit_conversionId && unitConversions) {
         const conversion = unitConversions.find(
           (uc) => uc.id === item.unit_conversionId
@@ -466,7 +523,6 @@ const DocumentItemsTable: React.FC = () => {
           conversionRate = conversion.conversionRate;
           primaryUnitId = conversion.primaryUnitId;
           primaryUnitName = getUnitName(primaryUnitId);
-
           secondaryUnitId = conversion.secondaryUnitId;
           secondaryUnitName = getUnitName(secondaryUnitId);
         }
@@ -481,59 +537,63 @@ const DocumentItemsTable: React.FC = () => {
       primaryUnitName: primaryUnitName || "pcs",
       secondaryUnitId: secondaryUnitId || "",
       secondaryUnitName: secondaryUnitName || "",
-      primaryQuantity: 1, // Default to 1
-      secondaryQuantity: 0, // Default to 0
+      primaryQuantity: 1,
+      secondaryQuantity: 0,
       pricePerUnit: item.salePrice,
       taxType: item.taxRate,
       taxRate: Number(item.taxRate),
       hsnCode: item.hsnCode || "",
-      taxAmount:  item.salePrice * (getTaxRateFromType(item.taxRate || "") / 100),
+      salePriceTaxInclusive: isProduct(item)
+        ? (item as Product).salePriceTaxInclusive || false
+        : false,
     };
 
-    // Calculate amounts based on unit conversion
-    const primaryQty = parseFloat(String(updatedItem.primaryQuantity)) || 0;
-    const secondaryQty = parseFloat(String(updatedItem.secondaryQuantity)) || 0;
-    const price = parseFloat(String(updatedItem.pricePerUnit)) || 0;
-    const discountPercent =
-      parseFloat(String(updatedItem.discountPercent)) || 0;
-
-    // Calculate amounts
-    let discountAmount = 0;
-    let amountBeforeTax = 0;
+    // Calculate amounts based on unit conversion and tax settings
+    const primaryQty = 1;
+    const secondaryQty = 0;
+    const price = item.salePrice || 0;
+    const discountPercent = 0;
+    const taxRate = getTaxRateFromType(item.taxRate || "");
+    const isTaxInclusive = updatedItem.salePriceTaxInclusive;
 
     if (conversionRate > 0) {
-      // Calculate with conversion rate
       const result = calculateItemAmount(
         primaryQty,
         secondaryQty,
         price,
         conversionRate,
-        discountPercent
+        discountPercent,
+        taxRate,
+        isTaxInclusive
       );
-      conversionRate = result.conversionRate;
-      discountAmount = result.discountAmount;
-      amountBeforeTax = result.amountBeforeTax;
+
+      updatedItem.discountAmount = Number(result.discountAmount.toFixed(2));
+      updatedItem.taxAmount = Number(result.taxAmount.toFixed(2));
+      updatedItem.amount = Number(result.netAmount.toFixed(2));
     } else {
-      // Simple calculation without conversion
-      discountAmount = (primaryQty * price * discountPercent) / 100;
-      amountBeforeTax = primaryQty * price - discountAmount;
+      // Simple calculation
+      let grossAmount = primaryQty * price;
+      let discountAmount = 0;
+      let taxAmount: number;
+      let netAmount: number;
+
+      if (isTaxInclusive) {
+        // Simple: Tax = Amount × Tax%, Total stays same
+        taxAmount = (grossAmount * taxRate) / 100; // 100 × 5% = 5
+        netAmount = grossAmount; // Amount stays the same (100)
+      } else {
+        // Add tax on top
+        taxAmount = (grossAmount * taxRate) / 100;
+        netAmount = grossAmount + taxAmount;
+      }
+
+      updatedItem.discountAmount = Number(discountAmount.toFixed(2));
+      updatedItem.taxAmount = Number(taxAmount.toFixed(2));
+      updatedItem.amount = Number(netAmount.toFixed(2));
     }
 
-      if (!updatedItem.salePriceTaxInclusive) {
-        // Calculate tax based on net amount after discount
-        const taxRate = getTaxRateFromType(updatedItem.taxType as string);
-        updatedItem.taxRate = Number(taxRate.toString());
-        const taxAmount = (amountBeforeTax * taxRate) / 100;
-
-        // Update calculated fields
-        updatedItem.discountAmount = Number(discountAmount.toFixed(2));
-        updatedItem.taxAmount = Number(taxAmount.toFixed(2));
-        updatedItem.amount = Number((amountBeforeTax + taxAmount).toFixed(2));
-      }
-      updatedItem.discountAmount = Number(discountAmount.toFixed(2));
- updatedItem.taxAmount = 0;
-      updatedItem.amount = Number(amountBeforeTax.toFixed(2));
     updatedItem.conversionRate = conversionRate;
+
     dispatch({
       type: "UPDATE_ITEM",
       payload: { index, item: updatedItem },
@@ -552,24 +612,19 @@ const DocumentItemsTable: React.FC = () => {
     const item = items[index];
     if (!item.primaryUnitId || !item.secondaryUnitId) return;
 
-    // Find the conversion rate between these units
     let conversionRate = 1;
     let isReversedConversion = false;
 
-    // First, try to find conversion through the selected item
     const selectedItem = items?.find((i) => i.id === item.itemId);
     if (selectedItem && isProduct(selectedItem)) {
       const itemConversion = getUnitConversion(selectedItem.id);
       if (itemConversion) {
         conversionRate = itemConversion.conversionRate;
-
-        // Check if we need to reverse the rate
         isReversedConversion =
           item.primaryUnitId !== itemConversion.primaryUnitId;
       }
     }
 
-    // If no conversion from item, try direct conversion
     if (conversionRate === 1 && unitConversions) {
       const { rate, isReversed } = findConversionRate(
         item.primaryUnitId,
@@ -597,11 +652,9 @@ const DocumentItemsTable: React.FC = () => {
 
     // Calculate the new price per unit based on the conversion rate
     const price = parseFloat(String(updatedItem.pricePerUnit)) || 0;
-
-    // If we're already using a reversed conversion, we need to divide instead of multiply
     const newPricePerUnit = isReversedConversion
-      ? price / conversionRate // If we were using the inverted rate, now use direct rate
-      : price * conversionRate; // If we were using direct rate, now use inverted rate
+      ? price / conversionRate
+      : price * conversionRate;
 
     updatedItem.pricePerUnit = Number(newPricePerUnit.toFixed(2));
 
@@ -610,8 +663,9 @@ const DocumentItemsTable: React.FC = () => {
     const secondaryQty = parseFloat(String(updatedItem.secondaryQuantity)) || 0;
     const discountPercent =
       parseFloat(String(updatedItem.discountPercent)) || 0;
+    const taxRate = getTaxRateFromType(updatedItem.taxType as string);
+    const isTaxInclusive = updatedItem.salePriceTaxInclusive || false;
 
-    // Calculate with the new swapped configuration
     const effectiveConversionRate = isReversedConversion
       ? conversionRate
       : 1 / conversionRate;
@@ -621,18 +675,14 @@ const DocumentItemsTable: React.FC = () => {
       secondaryQty,
       newPricePerUnit,
       effectiveConversionRate,
-      discountPercent
+      discountPercent,
+      taxRate,
+      isTaxInclusive
     );
 
     updatedItem.discountAmount = Number(result.discountAmount.toFixed(2));
-
-    const taxRate = getTaxRateFromType(updatedItem.taxType as string);
-    const taxAmount = (result.amountBeforeTax * taxRate) / 100;
-    updatedItem.taxAmount = Number(taxAmount.toFixed(2));
-
-    updatedItem.amount = Number(
-      (result.amountBeforeTax + taxAmount).toFixed(2)
-    );
+    updatedItem.taxAmount = Number(result.taxAmount.toFixed(2));
+    updatedItem.amount = Number(result.netAmount.toFixed(2));
 
     dispatch({
       type: "UPDATE_ITEM",
@@ -690,7 +740,6 @@ const DocumentItemsTable: React.FC = () => {
   // Handle delete item row
   const handleDeleteItemRow = (index: number): void => {
     const items = getItems();
-    // If only one item left, just reset it instead of removing
     if (items.length === 1) {
       dispatch({
         type: "UPDATE_ITEM",
@@ -709,12 +758,10 @@ const DocumentItemsTable: React.FC = () => {
 
   // Update document totals whenever items change
   useEffect(() => {
-    // Skip the first render
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
-
     calculateTotals();
   }, [getItems()]);
 
@@ -826,6 +873,9 @@ const DocumentItemsTable: React.FC = () => {
                 <th className="p-2 text-left font-medium border-b border-r border-gray-200">
                   TAX AMT
                 </th>
+                <th className="p-2 text-left font-medium border-b border-r border-gray-200">
+                  TAX TYPE
+                </th>
                 <th
                   className="p-2 text-left font-medium border-b border-gray-200"
                   style={{ width: "10%" }}
@@ -837,14 +887,13 @@ const DocumentItemsTable: React.FC = () => {
             <tbody>
               {getItems().length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="text-center py-6 text-gray-500">
+                  <td colSpan={13} className="text-center py-6 text-gray-500">
                     No items added. Click the Add Item button below to add your
                     first item.
                   </td>
                 </tr>
               ) : (
                 getItems().map((row, index) => {
-                  // Check if this item has a unit conversion
                   const selectedItem = items?.find(
                     (item) => item.id === row.itemId
                   );
@@ -909,7 +958,6 @@ const DocumentItemsTable: React.FC = () => {
                       </td>
 
                       {/* Item */}
-                      {/* Item */}
                       <td className="p-2 border-r border-gray-200 relative">
                         <div className="relative">
                           <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
@@ -967,7 +1015,6 @@ const DocumentItemsTable: React.FC = () => {
                             } ${hasUnitConversion ? "pr-9" : ""}`}
                             value={row.primaryQuantity || ""}
                             placeholder="1"
-                         
                             onFocus={() => setFocusedRow(index)}
                             onBlur={() => setFocusedRow(null)}
                             onChange={(e) =>
@@ -1010,12 +1057,10 @@ const DocumentItemsTable: React.FC = () => {
                                 if (conversionId === "new") {
                                   dispatchOther(openCreateForm());
                                 } else {
-                                  // Handle selecting an existing conversion
                                   const conversion = unitConversions?.find(
                                     (c) => c.id === conversionId
                                   );
                                   if (conversion && unitOptions) {
-                                    // Get primary and secondary unit names
                                     const primaryUnit = unitOptions.find(
                                       (u) => u.id === conversion.primaryUnitId
                                     );
@@ -1024,7 +1069,6 @@ const DocumentItemsTable: React.FC = () => {
                                     );
 
                                     if (primaryUnit && secondaryUnit) {
-                                      // Update the item with the selected conversion
                                       const updatedItem = {
                                         ...getItems()[index],
                                         primaryUnitId: conversion.primaryUnitId,
@@ -1033,11 +1077,10 @@ const DocumentItemsTable: React.FC = () => {
                                           conversion.secondaryUnitId,
                                         secondaryUnitName:
                                           secondaryUnit.shortname,
-                                        primaryQuantity: "1", // Default to 1 for primary quantity
-                                        secondaryQuantity: "0", // Default to 0 for secondary quantity
+                                        primaryQuantity: "1",
+                                        secondaryQuantity: "0",
                                       };
 
-                                      // Calculate new values based on this conversion
                                       const primaryQty =
                                         parseFloat(
                                           updatedItem.primaryQuantity
@@ -1054,44 +1097,38 @@ const DocumentItemsTable: React.FC = () => {
                                         parseFloat(
                                           String(updatedItem.discountPercent)
                                         ) || 0;
+                                      const taxRate = getTaxRateFromType(
+                                        String(updatedItem.taxType)
+                                      );
+                                      const isTaxInclusive =
+                                        updatedItem.salePriceTaxInclusive ||
+                                        false;
 
-                                      // Calculate with the new conversion
                                       const result = calculateItemAmount(
                                         primaryQty,
                                         secondaryQty,
                                         price,
                                         conversion.conversionRate,
-                                        discountPercent
+                                        discountPercent,
+                                        taxRate,
+                                        isTaxInclusive
                                       );
 
-                                      // Apply the calculations
                                       updatedItem.discountAmount = Number(
                                         result.discountAmount.toFixed(2)
                                       );
-
-                                      const taxRate = getTaxRateFromType(
-                                        String(updatedItem.taxType)
-                                      );
-                                      const taxAmount =
-                                        (result.amountBeforeTax * taxRate) /
-                                        100;
                                       updatedItem.taxAmount = Number(
-                                        taxAmount.toFixed(2)
+                                        result.taxAmount.toFixed(2)
                                       );
-
                                       updatedItem.amount = Number(
-                                        (
-                                          result.amountBeforeTax + taxAmount
-                                        ).toFixed(2)
+                                        result.netAmount.toFixed(2)
                                       );
 
-                                      // Update the item in the form
                                       dispatch({
                                         type: "UPDATE_ITEM",
                                         payload: { index, item: updatedItem },
                                       });
 
-                                      // Show success message
                                       toast.success(
                                         `Applied ${primaryUnit.shortname}/${secondaryUnit.shortname} conversion`
                                       );
@@ -1106,7 +1143,6 @@ const DocumentItemsTable: React.FC = () => {
                               <SelectContent>
                                 {unitConversions &&
                                   unitConversions.map((conversion) => {
-                                    // Get readable unit names for display
                                     const primaryUnitName =
                                       unitOptions?.find(
                                         (u) => u.id === conversion.primaryUnitId
@@ -1156,7 +1192,6 @@ const DocumentItemsTable: React.FC = () => {
                               <ArrowDownUp className="h-3 w-3 mx-1" />
                               <span>{row.secondaryUnitName}</span>
                             </div>
-                            {/* Display conversion rate */}
                             <div className="text-xs text-gray-500 text-center">
                               {getConversionRateText(row, selectedItem)}
                             </div>
@@ -1165,7 +1200,6 @@ const DocumentItemsTable: React.FC = () => {
                               size="sm"
                               className="w-full text-xs h-6 flex items-center justify-center text-gray-500"
                               onClick={() => {
-                                // Remove the conversion from this item
                                 const updatedItem = { ...getItems()[index] };
                                 updatedItem.secondaryUnitId = "";
                                 updatedItem.secondaryUnitName = "";
@@ -1193,7 +1227,6 @@ const DocumentItemsTable: React.FC = () => {
                           }`}
                           value={row.secondaryQuantity || "0"}
                           placeholder={hasUnitConversion ? "0" : "N/A"}
-                        
                           disabled={!hasUnitConversion}
                           onFocus={() => setFocusedRow(index)}
                           onBlur={() => setFocusedRow(null)}
@@ -1205,7 +1238,6 @@ const DocumentItemsTable: React.FC = () => {
                             )
                           }
                         />
-                        {/* Display secondary unit with quantity */}
                         {hasUnitConversion && row.secondaryUnitName && (
                           <div className="text-xs text-gray-600 mt-1 text-right">
                             {row.secondaryUnitName}
@@ -1320,6 +1352,35 @@ const DocumentItemsTable: React.FC = () => {
                         />
                       </td>
 
+                      {/* Tax Type (Inclusive/Exclusive) */}
+                      <td className="p-2 border-r border-gray-200">
+                        <Select
+                          value={
+                            row?.salePriceTaxInclusive
+                              ? "With Tax"
+                              : "Without Tax"
+                          }
+                          onValueChange={(value) =>
+                            handleItemChange(
+                              index,
+                              "salePriceTaxInclusive",
+                              value
+                            )
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-full text-xs">
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Without Tax">
+                              Without Tax
+                            </SelectItem>
+                            <SelectItem value="With Tax">With Tax</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </td>
+
+                      {/* Amount */}
                       {/* Amount */}
                       <td className="p-2">
                         <input
@@ -1327,7 +1388,13 @@ const DocumentItemsTable: React.FC = () => {
                           className="w-full px-2 py-1 rounded-md text-right font-medium bg-primary/5 text-sm border-primary/20"
                           value={row.amount || ""}
                           placeholder="0.00"
-                          readOnly
+                          // Remove readOnly to make it editable
+                          onFocus={() => setFocusedRow(index)}
+                          onBlur={() => setFocusedRow(null)}
+                          onChange={
+                            (e) =>
+                              handleItemChange(index, "amount", e.target.value) // Add this onChange handler
+                          }
                         />
                       </td>
                     </tr>
@@ -1389,10 +1456,11 @@ const DocumentItemsTable: React.FC = () => {
           </div>
         </div>
 
+        {/* Enhanced Item Dropdown */}
         {showItemDropdown !== null && dropdownPosition && (
           <div
             ref={dropdownRef}
-            className="absolute z-[10000] bg-white shadow-lg w-[350px] max-h-64 rounded-md py-1 text-sm ring-1 ring-gray-200 overflow-auto"
+            className="absolute z-[10000] bg-white shadow-lg w-[400px] max-h-64 rounded-md py-1 text-sm ring-1 ring-gray-200 overflow-auto"
             style={{
               position: "absolute",
               top: dropdownPosition.top,
@@ -1408,29 +1476,75 @@ const DocumentItemsTable: React.FC = () => {
               filteredItems.map((item) => (
                 <div
                   key={item.id}
-                  className="cursor-pointer hover:bg-gray-100 px-4 py-2"
+                  className="cursor-pointer hover:bg-gray-100 px-4 py-3 border-b border-gray-100"
                   onClick={() => handleItemSelection(showItemDropdown, item)}
                 >
-                  <div className="font-medium">{item.name}</div>
-                  <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                    <Badge className="h-5 px-1 bg-primary/5 text-primary border-primary/20">
-                      ₹{item.salePrice}
-                    </Badge>
-                    {item.itemCode && (
-                      <Badge className="h-5 px-1 bg-gray-50">
-                        {item.itemCode}
-                      </Badge>
-                    )}
-                    {isProduct(item) ? (
-                      <Badge className="h-5 px-1 bg-blue-50 text-blue-500">
-                        Product
-                      </Badge>
-                    ) : (
-                      <Badge className="h-5 px-1 bg-purple-50 text-purple-500">
-                        Service
-                      </Badge>
-                    )}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-medium text-gray-900">{item.name}</div>
+                    <div className="flex items-center gap-2">
+                      {isProduct(item) ? (
+                        <Badge
+                          variant="outline"
+                          className="h-5 px-2 bg-blue-50 text-blue-600 border-blue-200"
+                        >
+                          <Package className="h-3 w-3 mr-1" />
+                          Product
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="h-5 px-2 bg-purple-50 text-purple-600 border-purple-200"
+                        >
+                          Service
+                        </Badge>
+                      )}
+                    </div>
                   </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-xs text-gray-600">
+                      {item.itemCode && (
+                        <span className="flex items-center">
+                          <Hash className="h-3 w-3 mr-1" />
+                          {item.itemCode}
+                        </span>
+                      )}
+                      {item.hsnCode && <span>HSN: {item.hsnCode}</span>}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Badge className="h-6 px-2 bg-green-50 text-green-700 border-green-200">
+                        <DollarSign className="h-3 w-3 mr-1" />
+                        Sale: ₹{item.salePrice}
+                      </Badge>
+
+                      {isProduct(item) && (
+                        <>
+                          <Badge
+                            variant="outline"
+                            className="h-6 px-2 bg-orange-50 text-orange-700 border-orange-200"
+                          >
+                            <DollarSign className="h-3 w-3 mr-1" />
+                            Cost: ₹{(item as Product).purchasePrice || 0}
+                          </Badge>
+
+                          <Badge
+                            variant="outline"
+                            className="h-6 px-2 bg-gray-50 text-gray-700"
+                          >
+                            <Package className="h-3 w-3 mr-1" />
+                            Stock: {(item as Product).primaryQuantity || 0}
+                          </Badge>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {item.description && (
+                    <div className="text-xs text-gray-500 mt-1 truncate">
+                      {item.description}
+                    </div>
+                  )}
                 </div>
               ))
             ) : (

@@ -1,165 +1,210 @@
 // components/PaymentInForm.tsx
-import {
-    Calendar,
-    LoaderCircle,
-    Save,
-    Search
-} from 'lucide-react';
-import React, { useEffect, useState } from 'react';
-import { toast } from 'react-hot-toast';
-import { useDispatch, useSelector } from 'react-redux';
+import { Calendar, LoaderCircle, Save, Search } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { toast } from "react-hot-toast";
+import { useDispatch, useSelector } from "react-redux";
 
 // UI Components
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue
-} from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Redux
-import { useGetBankAccountsQuery } from '@/redux/api/bankingApi';
-import { useGetPartiesQuery } from '@/redux/api/partiesApi';
-import { useCreatePaymentMutation, useGetPaymentByIdQuery, useUpdatePaymentMutation } from '@/redux/api/paymentApi';
+import { useGetBankAccountsQuery } from "@/redux/api/bankingApi";
+import { useGetPartiesQuery } from "@/redux/api/partiesApi";
 import {
-    closeForm,
-    resetForm,
-    setSubmitError,
-    setSubmitting,
-    setValidationErrors,
-    updateFormField,
-    validatePaymentForm
-} from '@/redux/slices/paymentSlice';
-import { RootState } from '@/redux/store';
+  useCreatePaymentMutation,
+  useGetPaymentByIdQuery,
+  useUpdatePaymentMutation,
+} from "@/redux/api/paymentApi";
+import {
+  closeForm,
+  resetForm,
+  setSubmitError,
+  setSubmitting,
+  setValidationErrors,
+  updateFormField,
+  validatePaymentForm,
+} from "@/redux/slices/paymentSlice";
+import { RootState } from "@/redux/store";
 
 // Models
-import { PaymentType } from '@/models/document/document.model';
-import { PaymentDirection } from '@/models/payment/payment.model';
+import { PaymentType } from "@/models/document/document.model";
+import { PaymentDirection } from "@/models/payment/payment.model";
 
 const PaymentInForm: React.FC = () => {
   const dispatch = useDispatch();
-  const { 
-    isOpen, 
-    mode, 
+  const {
+    isOpen,
+    mode,
     currentPaymentId,
-    formData, 
-    isSubmitting, 
-    submitError, 
+    formData,
+    isSubmitting,
+    submitError,
     validationErrors,
-    activeTab
+    activeTab,
   } = useSelector((state: RootState) => state.paymentForm);
 
-  
   // Local state for party search
-  const [partySearchTerm, setPartySearchTerm] = useState('');
+  const [partySearchTerm, setPartySearchTerm] = useState("");
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
-  
+
   // RTK Query hooks
   const [createPayment, { isLoading: isCreating }] = useCreatePaymentMutation();
   const [updatePayment, { isLoading: isUpdating }] = useUpdatePaymentMutation();
-  const { data: paymentData, isLoading: isLoadingPayment } = useGetPaymentByIdQuery(
-    currentPaymentId || '', 
-    { skip: !currentPaymentId || mode !== 'edit' }
-  );
-  
-  const { 
-    data: parties, 
-    isLoading: isLoadingParties 
-  } = useGetPartiesQuery({ search: partySearchTerm });
-  
-  const { 
-    data: bankAccounts, 
-    isLoading: isLoadingBanks 
-  } = useGetBankAccountsQuery();
-  
+  const { data: paymentData, isLoading: isLoadingPayment } =
+    useGetPaymentByIdQuery(currentPaymentId || "", {
+      skip: !currentPaymentId || mode !== "edit",
+    });
+
+  const { data: parties, isLoading: isLoadingParties } = useGetPartiesQuery({
+    search: partySearchTerm,
+  });
+
+  const { data: bankAccounts, isLoading: isLoadingBanks } =
+    useGetBankAccountsQuery();
 
   // Filter parties based on search
-  const filteredParties = parties?.filter(party => 
-    party.name.toLowerCase().includes(partySearchTerm.toLowerCase()) ||
-    (party.phone && party.phone.includes(partySearchTerm))
-  ) || [];
-  
+  const filteredParties =
+    parties?.filter(
+      (party) =>
+        party.name.toLowerCase().includes(partySearchTerm.toLowerCase()) ||
+        (party.phone && party.phone.includes(partySearchTerm))
+    ) || [];
+
   // Load payment data when editing
   useEffect(() => {
-    if (mode === 'edit' && paymentData) {
+    if (mode === "edit" && paymentData) {
       // Populate form data
-      dispatch(updateFormField({ field: 'amount', value: paymentData.amount }));
-      dispatch(updateFormField({ field: 'paymentType', value: paymentData.paymentType }));
-      dispatch(updateFormField({ field: 'paymentDate', value: paymentData.paymentDate }));
-      dispatch(updateFormField({ field: 'referenceNumber', value: paymentData.referenceNumber || '' }));
-      dispatch(updateFormField({ field: 'partyId', value: paymentData.partyId || '' }));
-      dispatch(updateFormField({ field: 'partyName', value: paymentData.partyName || '' }));
-      dispatch(updateFormField({ field: 'description', value: paymentData.description || '' }));
-      dispatch(updateFormField({ field: 'receiptNumber', value: paymentData.receiptNumber || '' }));
-      dispatch(updateFormField({ field: 'bankAccountId', value: paymentData.bankAccountId || '' }));
-      dispatch(updateFormField({ field: 'chequeNumber', value: paymentData.chequeNumber || '' }));
-      dispatch(updateFormField({ field: 'chequeDate', value: paymentData.chequeDate || '' }));
+      dispatch(updateFormField({ field: "amount", value: paymentData.amount }));
+      dispatch(
+        updateFormField({
+          field: "paymentType",
+          value: paymentData.paymentType,
+        })
+      );
+      dispatch(
+        updateFormField({
+          field: "paymentDate",
+          value: paymentData.paymentDate,
+        })
+      );
+      dispatch(
+        updateFormField({
+          field: "referenceNumber",
+          value: paymentData.referenceNumber || "",
+        })
+      );
+      dispatch(
+        updateFormField({ field: "partyId", value: paymentData.partyId || "" })
+      );
+      dispatch(
+        updateFormField({
+          field: "partyName",
+          value: paymentData.partyName || "",
+        })
+      );
+      dispatch(
+        updateFormField({
+          field: "description",
+          value: paymentData.description || "",
+        })
+      );
+      dispatch(
+        updateFormField({
+          field: "receiptNumber",
+          value: paymentData.receiptNumber || "",
+        })
+      );
+      dispatch(
+        updateFormField({
+          field: "bankAccountId",
+          value: paymentData.bankAccountId || "",
+        })
+      );
+      dispatch(
+        updateFormField({
+          field: "chequeNumber",
+          value: paymentData.chequeNumber || "",
+        })
+      );
+      dispatch(
+        updateFormField({
+          field: "chequeDate",
+          value: paymentData.chequeDate || "",
+        })
+      );
     }
   }, [mode, paymentData, dispatch]);
-  
+
   // Handle form submission
   const handleSubmit = async () => {
     // Validate form data
     const errors = validatePaymentForm(formData);
-    
+
     if (Object.keys(errors).length > 0) {
       dispatch(setValidationErrors(errors));
-      
+
       // Show toast with first error
       const firstError = Object.values(errors)[0];
       toast.error(firstError);
       return;
     }
-    
+
     try {
       dispatch(setSubmitting(true));
-      
-      if (mode === 'edit' && currentPaymentId) {
+
+      if (mode === "edit" && currentPaymentId) {
         // Update existing payment
         await updatePayment({
           id: currentPaymentId,
-          ...formData
+          ...formData,
         }).unwrap();
-        toast.success('Payment updated successfully!');
+        toast.success("Payment updated successfully!");
       } else {
         // Create new payment
         await createPayment(formData).unwrap();
-        toast.success('Payment received successfully!');
+        toast.success("Payment received successfully!");
       }
-      window.dispatchEvent(new Event('partyDataChanged'));
+      window.dispatchEvent(new Event("partyDataChanged"));
       // Close form and reset
       dispatch(closeForm());
       dispatch(resetForm());
     } catch (error: any) {
-      dispatch(setSubmitError(error.message || 'Failed to save payment'));
-      toast.error(`Failed to save payment: ${error.message || 'Unknown error'}`);
+      dispatch(setSubmitError(error.message || "Failed to save payment"));
+      toast.error(
+        `Failed to save payment: ${error.message || "Unknown error"}`
+      );
     } finally {
       dispatch(setSubmitting(false));
     }
   };
-  
+
   // Handle party selection
   const handlePartySelect = (party: any) => {
-    dispatch(updateFormField({ field: 'partyId', value: party.id }));
-    dispatch(updateFormField({ field: 'partyName', value: party.name }));
+    dispatch(updateFormField({ field: "partyId", value: party.id }));
+    dispatch(updateFormField({ field: "partyName", value: party.name }));
     setShowPartyDropdown(false);
-    setPartySearchTerm('');
+    setPartySearchTerm("");
   };
-     // Only show if it's a payment-in form
-     if (!isOpen || formData.direction !== PaymentDirection.IN) return null;
+  // Only show if it's a payment-in form
+  if (!isOpen || formData.direction !== PaymentDirection.IN) return null;
   // Loading state
   if (isLoadingPayment) {
     return (
@@ -173,81 +218,89 @@ const PaymentInForm: React.FC = () => {
       </Dialog>
     );
   }
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={() => dispatch(closeForm())}>
       <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {mode === 'edit' ? 'Edit Payment In' : 'New Payment In'}
+            {mode === "edit" ? "Edit Payment In" : "New Payment In"}
           </DialogTitle>
         </DialogHeader>
-        
+
         {submitError && (
           <Alert variant="destructive" className="mb-4">
             <AlertDescription>{submitError}</AlertDescription>
           </Alert>
         )}
-        
-        <Tabs 
-          value={`tab-${activeTab}`} 
 
-        >
+        <Tabs value={`tab-${activeTab}`}>
           <TabsList className="grid grid-cols-2 mb-4">
             <TabsTrigger value="tab-0">Basic Info</TabsTrigger>
-         
           </TabsList>
-          
+
           <TabsContent value="tab-0" className="space-y-4">
             {/* Basic payment information */}
             <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                  <Label htmlFor="amount">
-                    Amount <span className="text-red-500">*</span>
-                  </Label>
+              <div className="space-y-2">
+                <Label htmlFor="amount">
+                  Amount <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  value={formData.amount}
+                  onChange={(e) =>
+                    dispatch(
+                      updateFormField({
+                        field: "amount",
+                        value: parseFloat(e.target.value) || 0,
+                      })
+                    )
+                  }
+                  placeholder="0.00"
+                  className={`${
+                    validationErrors.amount ? "border-red-500" : ""
+                  }`}
+                />
+                {validationErrors.amount && (
+                  <p className="text-xs text-red-500">
+                    {validationErrors.amount}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="paymentDate">
+                  Payment Date <span className="text-red-500">*</span>
+                </Label>
+                <div className="flex items-center">
+                  <Calendar className="w-4 h-4 mr-2 text-gray-500" />
                   <Input
-                    id="amount"
-                    type="number"
-                    value={formData.amount}
-                    onChange={(e) => 
-                      dispatch(updateFormField({ 
-                        field: 'amount', 
-                        value: parseFloat(e.target.value) || 0 
-                      }))
+                    id="paymentDate"
+                    type="date"
+                    value={formData.paymentDate}
+                    onChange={(e) =>
+                      dispatch(
+                        updateFormField({
+                          field: "paymentDate",
+                          value: e.target.value,
+                        })
+                      )
                     }
-                    placeholder="0.00"
-                    className={`${validationErrors.amount ? 'border-red-500' : ''}`}
+                    className={`${
+                      validationErrors.paymentDate ? "border-red-500" : ""
+                    }`}
                   />
-                  {validationErrors.amount && (
-                    <p className="text-xs text-red-500">{validationErrors.amount}</p>
-                  )}
                 </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="paymentDate">
-                    Payment Date <span className="text-red-500">*</span>
-                  </Label>
-                  <div className="flex items-center">
-                    <Calendar className="w-4 h-4 mr-2 text-gray-500" />
-                    <Input
-                      id="paymentDate"
-                      type="date"
-                      value={formData.paymentDate}
-                      onChange={(e) => 
-                        dispatch(updateFormField({ 
-                          field: 'paymentDate', 
-                          value: e.target.value 
-                        }))
-                      }
-                      className={`${validationErrors.paymentDate ? 'border-red-500' : ''}`}
-                    />
-                  </div>
-                  {validationErrors.paymentDate && (
-                    <p className="text-xs text-red-500">{validationErrors.paymentDate}</p>
-                  )}
-                </div>
+                {validationErrors.paymentDate && (
+                  <p className="text-xs text-red-500">
+                    {validationErrors.paymentDate}
+                  </p>
+                )}
+              </div>
             </div>
-            
+
             {/* Party selection */}
             <div className="space-y-2">
               <Label htmlFor="partySearch">Party/Customer</Label>
@@ -268,7 +321,7 @@ const PaymentInForm: React.FC = () => {
                     />
                   </div>
                 </div>
-                
+
                 {showPartyDropdown && (
                   <div className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base overflow-auto">
                     {isLoadingParties ? (
@@ -285,8 +338,13 @@ const PaymentInForm: React.FC = () => {
                           >
                             <div className="font-medium">{party.name}</div>
                             {party.phone && (
-                              <div className="text-xs text-gray-500">{party.phone}</div>
+                              <div className="text-xs text-gray-500">
+                                {party.phone}
+                              </div>
                             )}
+                            <div className="text-xs text-green-500">
+                              ₹{party.openingBalance}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -298,14 +356,15 @@ const PaymentInForm: React.FC = () => {
                   </div>
                 )}
               </div>
-              
+
               {formData.partyName && (
                 <div className="p-2 bg-gray-50 rounded-md text-sm">
-                  Selected: <span className="font-medium">{formData.partyName}</span>
+                  Selected:{" "}
+                  <span className="font-medium">{formData.partyName}</span>
                 </div>
               )}
             </div>
-            
+
             {/* Payment Type */}
             <div className="space-y-2">
               <Label htmlFor="paymentType">
@@ -313,27 +372,37 @@ const PaymentInForm: React.FC = () => {
               </Label>
               <Select
                 value={formData.paymentType}
-                onValueChange={(value) => 
-                  dispatch(updateFormField({ 
-                    field: 'paymentType', 
-                    value 
-                  }))
+                onValueChange={(value) =>
+                  dispatch(
+                    updateFormField({
+                      field: "paymentType",
+                      value,
+                    })
+                  )
                 }
               >
-                <SelectTrigger className={`${validationErrors.paymentType ? 'border-red-500' : ''}`}>
+                <SelectTrigger
+                  className={`${
+                    validationErrors.paymentType ? "border-red-500" : ""
+                  }`}
+                >
                   <SelectValue placeholder="Select payment type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={PaymentType.CASH}>Cash</SelectItem>
-                  <SelectItem value={PaymentType.BANK}>Bank Transfer</SelectItem>
+                  <SelectItem value={PaymentType.BANK}>
+                    Bank Transfer
+                  </SelectItem>
                   <SelectItem value={PaymentType.CHEQUE}>Cheque</SelectItem>
                 </SelectContent>
               </Select>
               {validationErrors.paymentType && (
-                <p className="text-xs text-red-500">{validationErrors.paymentType}</p>
+                <p className="text-xs text-red-500">
+                  {validationErrors.paymentType}
+                </p>
               )}
             </div>
-            
+
             {/* Bank account selection - only for bank transfers */}
             {formData.paymentType === PaymentType.BANK && (
               <div className="space-y-2">
@@ -342,19 +411,27 @@ const PaymentInForm: React.FC = () => {
                 </Label>
                 <Select
                   value={formData.bankAccountId}
-                  onValueChange={(value) => 
-                    dispatch(updateFormField({ 
-                      field: 'bankAccountId', 
-                      value 
-                    }))
+                  onValueChange={(value) =>
+                    dispatch(
+                      updateFormField({
+                        field: "bankAccountId",
+                        value,
+                      })
+                    )
                   }
                 >
-                  <SelectTrigger className={`${validationErrors.bankAccountId ? 'border-red-500' : ''}`}>
+                  <SelectTrigger
+                    className={`${
+                      validationErrors.bankAccountId ? "border-red-500" : ""
+                    }`}
+                  >
                     <SelectValue placeholder="Select bank account" />
                   </SelectTrigger>
                   <SelectContent>
                     {isLoadingBanks ? (
-                      <div className="px-4 py-2 text-sm text-gray-500">Loading accounts...</div>
+                      <div className="px-4 py-2 text-sm text-gray-500">
+                        Loading accounts...
+                      </div>
                     ) : bankAccounts && bankAccounts.length > 0 ? (
                       bankAccounts.map((account) => (
                         <SelectItem key={account.id} value={account.id}>
@@ -362,16 +439,20 @@ const PaymentInForm: React.FC = () => {
                         </SelectItem>
                       ))
                     ) : (
-                      <div className="px-4 py-2 text-sm text-gray-500">No bank accounts found</div>
+                      <div className="px-4 py-2 text-sm text-gray-500">
+                        No bank accounts found
+                      </div>
                     )}
                   </SelectContent>
                 </Select>
                 {validationErrors.bankAccountId && (
-                  <p className="text-xs text-red-500">{validationErrors.bankAccountId}</p>
+                  <p className="text-xs text-red-500">
+                    {validationErrors.bankAccountId}
+                  </p>
                 )}
               </div>
             )}
-            
+
             {/* Cheque details - only for cheque payments */}
             {formData.paymentType === PaymentType.CHEQUE && (
               <div className="space-y-4">
@@ -382,20 +463,26 @@ const PaymentInForm: React.FC = () => {
                   <Input
                     id="chequeNumber"
                     value={formData.chequeNumber}
-                    onChange={(e) => 
-                      dispatch(updateFormField({ 
-                        field: 'chequeNumber', 
-                        value: e.target.value 
-                      }))
+                    onChange={(e) =>
+                      dispatch(
+                        updateFormField({
+                          field: "chequeNumber",
+                          value: e.target.value,
+                        })
+                      )
                     }
                     placeholder="Enter cheque number"
-                    className={`${validationErrors.chequeNumber ? 'border-red-500' : ''}`}
+                    className={`${
+                      validationErrors.chequeNumber ? "border-red-500" : ""
+                    }`}
                   />
                   {validationErrors.chequeNumber && (
-                    <p className="text-xs text-red-500">{validationErrors.chequeNumber}</p>
+                    <p className="text-xs text-red-500">
+                      {validationErrors.chequeNumber}
+                    </p>
                   )}
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="chequeDate">
                     Cheque Date <span className="text-red-500">*</span>
@@ -404,84 +491,72 @@ const PaymentInForm: React.FC = () => {
                     id="chequeDate"
                     type="date"
                     value={formData.chequeDate}
-                    onChange={(e) => 
-                      dispatch(updateFormField({ 
-                        field: 'chequeDate', 
-                        value: e.target.value 
-                      }))
+                    onChange={(e) =>
+                      dispatch(
+                        updateFormField({
+                          field: "chequeDate",
+                          value: e.target.value,
+                        })
+                      )
                     }
-                    className={`${validationErrors.chequeDate ? 'border-red-500' : ''}`}
+                    className={`${
+                      validationErrors.chequeDate ? "border-red-500" : ""
+                    }`}
                   />
                   {validationErrors.chequeDate && (
-                    <p className="text-xs text-red-500">{validationErrors.chequeDate}</p>
+                    <p className="text-xs text-red-500">
+                      {validationErrors.chequeDate}
+                    </p>
                   )}
                 </div>
               </div>
             )}
-            
+
             {/* Reference Number - for all payment types */}
             <div className="space-y-2">
               <Label htmlFor="referenceNumber">Reference No.</Label>
               <Input
                 id="referenceNumber"
                 value={formData.referenceNumber}
-                onChange={(e) => 
-                  dispatch(updateFormField({ 
-                    field: 'referenceNumber', 
-                    value: e.target.value 
-                  }))
+                onChange={(e) =>
+                  dispatch(
+                    updateFormField({
+                      field: "referenceNumber",
+                      value: e.target.value,
+                    })
+                  )
                 }
                 placeholder="Transaction reference"
               />
             </div>
-          </TabsContent>
-          
-          <TabsContent value="tab-1" className="space-y-4">
-            {/* Additional details tab */}
-            <div className="space-y-2">
-              <Label htmlFor="receiptNumber">Receipt Number</Label>
-              <Input
-                id="receiptNumber"
-                value={formData.receiptNumber}
-                onChange={(e) => 
-                  dispatch(updateFormField({ 
-                    field: 'receiptNumber', 
-                    value: e.target.value 
-                  }))
-                }
-                placeholder="Optional receipt number"
-              />
-            </div>
-            
             <div className="space-y-2">
               <Label htmlFor="description">Notes/Description</Label>
               <Input
                 id="description"
                 value={formData.description}
-                onChange={(e) => 
-                  dispatch(updateFormField({ 
-                    field: 'description', 
-                    value: e.target.value 
-                  }))
+                onChange={(e) =>
+                  dispatch(
+                    updateFormField({
+                      field: "description",
+                      value: e.target.value,
+                    })
+                  )
                 }
                 placeholder="Add notes or description"
               />
             </div>
           </TabsContent>
         </Tabs>
-        
+
         <DialogFooter className="pt-4">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => dispatch(closeForm())}
             disabled={isSubmitting}
           >
             Cancel
           </Button>
-          <Button 
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-          >
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
             {isSubmitting ? (
               <>
                 <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
@@ -490,7 +565,7 @@ const PaymentInForm: React.FC = () => {
             ) : (
               <>
                 <Save className="mr-2 h-4 w-4" />
-                {mode === 'edit' ? 'Update Payment' : 'Save Payment'}
+                {mode === "edit" ? "Update Payment" : "Save Payment"}
               </>
             )}
           </Button>

@@ -1,36 +1,40 @@
-import React, { useRef } from 'react';
-import { Printer } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useReactToPrint } from 'react-to-print';
+import React, { useRef } from "react";
+import { Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useReactToPrint } from "react-to-print";
 
 interface DocumentPrinterProps {
   document: any; // Using any to accommodate different document types
-  variant?: 'default' | 'outline' | 'secondary' | 'ghost';
-  size?: 'default' | 'sm' | 'lg' | 'icon';
+  variant?: "default" | "outline" | "secondary" | "ghost";
+  size?: "default" | "sm" | "lg" | "icon";
   className?: string;
   businessName?: string;
   bankDetails?: any; // Bank details for payment information
   countryCode?: string; // Country code to determine tax type display (e.g., 'IN', 'GB')
-  contentRef ?: any
-  firmData ?:any
+  contentRef?: any;
+  firmData?: any;
 }
 
 interface TaxGroup {
   taxableValue: number;
   taxType: string;
   taxRate: number;
-  vat: number;         // VAT amount
-  cgst: number;        // CGST amount (for India)
-  sgst: number;        // SGST amount (for India)
-  igst: number;        // IGST amount (for India)
-  totalTax: number;    // Total tax amount
+  vat: number; // VAT amount
+  cgst: number; // CGST amount (for India)
+  sgst: number; // SGST amount (for India)
+  igst: number; // IGST amount (for India)
+  totalTax: number; // Total tax amount
 }
 
 // Helper to format currency
-const formatCurrency = (amount: string | number | bigint, currencyCode: string = 'INR') => {
-  const numericAmount = typeof amount === 'string' ? parseFloat(amount) : Number(amount);
-  return new Intl.NumberFormat('en', {
-    style: 'currency',
+const formatCurrency = (
+  amount: string | number | bigint,
+  currencyCode: string = "INR"
+) => {
+  const numericAmount =
+    typeof amount === "string" ? parseFloat(amount) : Number(amount);
+  return new Intl.NumberFormat("en", {
+    style: "currency",
     currency: currencyCode,
     maximumFractionDigits: 2,
   }).format(numericAmount);
@@ -38,33 +42,33 @@ const formatCurrency = (amount: string | number | bigint, currencyCode: string =
 
 // Helper to format dates
 const formatDate = (dateString: string) => {
-  if (!dateString) return '';
+  if (!dateString) return "";
   const date = new Date(dateString);
-  return date.toLocaleDateString('en', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
+  return date.toLocaleDateString("en", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
   });
 };
 
 // Helper to determine tax type based on country and tax type string
-const getTaxType = (taxType: string, countryCode: string = 'IN') => {
+const getTaxType = (taxType: string, countryCode: string = "IN") => {
   // Default to VAT for most countries
-  if (countryCode !== 'IN') {
-    if (taxType && taxType.includes('VAT@')) {
-      return 'VAT';
+  if (countryCode !== "IN") {
+    if (taxType && taxType.includes("VAT@")) {
+      return "VAT";
     }
-    return 'VAT';
+    return "VAT";
   }
-  
+
   // For India, use GST or IGST
-  if (taxType && taxType.includes('GST@')) {
-    return 'GST'; // Intra-state GST
-  } else if (taxType && taxType.includes('IGST@')) {
-    return 'IGST'; // Inter-state GST
+  if (taxType && taxType.includes("GST@")) {
+    return "GST"; // Intra-state GST
+  } else if (taxType && taxType.includes("IGST@")) {
+    return "IGST"; // Inter-state GST
   }
-  
-  return 'NONE'; // No tax or unknown
+
+  return "NONE"; // No tax or unknown
 };
 
 // Helper to extract tax rate from tax type string
@@ -77,88 +81,89 @@ const getTaxRate = (taxType: string) => {
 // Helper function to get document title
 const getDocumentTitle = (documentType: string) => {
   switch (documentType) {
-    case 'sale_invoice':
-      return 'Tax Invoice';
-    case 'sale_quotation':
-      return 'Quotation';
-    case 'sale_order':
-      return 'Sales Order';
-    case 'purchase_invoice':
-      return 'Purchase Invoice';
-    case 'purchase_order':
-      return 'Purchase Order';
-    case 'delivery_challan':
-      return 'Delivery Challan';
+    case "sale_invoice":
+      return "Tax Invoice";
+    case "sale_quotation":
+      return "Quotation";
+    case "sale_order":
+      return "Sales Order";
+    case "purchase_invoice":
+      return "Purchase Invoice";
+    case "purchase_order":
+      return "Purchase Order";
+    case "delivery_challan":
+      return "Delivery Challan";
     default:
-      return 'Document';
+      return "Document";
   }
 };
 
 // Helper to get currency code based on country code
-const getCurrencyCode = (countryCode: string = 'IN') => {
+const getCurrencyCode = (countryCode: string = "IN") => {
   const currencyMap: Record<string, string> = {
-    'IN': 'INR', // India - Indian Rupee
-    'US': 'USD', // United States - US Dollar
-    'GB': 'GBP', // United Kingdom - British Pound
-    'EU': 'EUR', // European Union - Euro
-    'CA': 'CAD', // Canada - Canadian Dollar
-    'AU': 'AUD', // Australia - Australian Dollar
-    'SG': 'SGD', // Singapore - Singapore Dollar
-    'AE': 'AED', // United Arab Emirates - UAE Dirham
-    'JP': 'JPY', // Japan - Japanese Yen
+    IN: "INR", // India - Indian Rupee
+    US: "USD", // United States - US Dollar
+    GB: "GBP", // United Kingdom - British Pound
+    EU: "EUR", // European Union - Euro
+    CA: "CAD", // Canada - Canadian Dollar
+    AU: "AUD", // Australia - Australian Dollar
+    SG: "SGD", // Singapore - Singapore Dollar
+    AE: "AED", // United Arab Emirates - UAE Dirham
+    JP: "JPY", // Japan - Japanese Yen
   };
-  
-  return currencyMap[countryCode] || 'USD';
+
+  return currencyMap[countryCode] || "USD";
 };
 
 // Get tax prefix based on country code
-const getTaxPrefix = (countryCode: string = 'IN') => {
-  if (countryCode === 'IN') {
+const getTaxPrefix = (countryCode: string = "IN") => {
+  if (countryCode === "IN") {
     return {
-      main: 'GST',
-      split1: 'CGST',
-      split2: 'SGST',
-      inter: 'IGST'
+      main: "GST",
+      split1: "CGST",
+      split2: "SGST",
+      inter: "IGST",
     };
   } else {
     return {
-      main: 'VAT',
-      split1: 'VAT',
-      split2: '',
-      inter: ''
+      main: "VAT",
+      split1: "VAT",
+      split2: "",
+      inter: "",
     };
   }
 };
 
 const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
   document,
-  businessName = 'Your Business Name',
+  businessName = "Your Business Name",
   bankDetails = null,
-  countryCode = 'IN',
-  contentRef ,
-  firmData
+  countryCode = "IN",
+  contentRef,
+  firmData,
 }) => {
-
-  console.log(firmData)
+  console.log(firmData);
 
   // Get currency code based on country
   const currencyCode = getCurrencyCode(countryCode);
-  
+
   // Get tax labels based on country
   const taxPrefix = getTaxPrefix(countryCode);
-  
+
   // Calculate subtotal (item sum before tax)
   const calculateSubtotal = () => {
     if (!document.items) return 0;
 
     return document.items.reduce((sum: number, item: any) => {
       // For subtotal calculation, we use the amount without tax
-      const amount = typeof item.amount === 'string' 
-        ? parseFloat(item.amount) 
-        : Number(item.amount || 0);
-      const taxAmount = typeof item.taxAmount === 'string' 
-        ? parseFloat(item.taxAmount) 
-        : Number(item.taxAmount || 0);
+      const amount =
+        typeof item.amount === "string"
+          ? parseFloat(item.amount)
+          : Number(item.amount || 0);
+      const taxAmount =
+        typeof item.taxAmount === "string"
+          ? parseFloat(item.taxAmount)
+          : Number(item.taxAmount || 0);
 
       // Return the amount without tax
       return sum + amount - taxAmount;
@@ -169,13 +174,11 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
   const taxableValue = calculateSubtotal();
 
   // Determine if we should use split tax display (like CGST/SGST in India)
-  const usesSplitTax = countryCode === 'IN';
+  const usesSplitTax = countryCode === "IN";
 
   // Render the print button
   return (
     <>
-    
-
       {/* Hidden content that will be printed */}
       <div>
         <div ref={contentRef} className="p-8 bg-white">
@@ -185,17 +188,25 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
 
           {/* Document Header */}
           <div className="border border-gray-300 p-2 mb-4 flex  justify-between">
-            <div className=' flex gap-3'> 
-              
-            <img src={firmData?.businessLogo ||''} alt=""  className='h-full w-32'/>
-            <div>
-               <div className="text-lg font-bold">{businessName}</div>
+            <div className=" flex gap-3">
+              <img
+                src={firmData?.businessLogo || ""}
+                alt=""
+                className="h-full w-32"
+              />
+              <div>
+                <div className="text-lg font-bold">
+                  {document.billingName ? document.billingName : businessName}
+                </div>
                 <div className="text-sm">Address:{firmData?.address}</div>
-            <div className="text-sm">Invoice #: {document.documentNumber}</div>
-            <div className="text-right text-sm">
-              Date: {formatDate(document.documentDate)}
-            </div></div></div>
-          
+                <div className="text-sm">
+                  Invoice #: {document.documentNumber}
+                </div>
+                <div className="text-right text-sm">
+                  Date: {formatDate(document.documentDate)}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Party and Document Details */}
@@ -204,13 +215,13 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
             <div className="w-1/2 border border-gray-300 p-2">
               <div className="font-bold">{document.partyName}</div>
               <div className="text-sm">
-                Address: {document.billingAddress || 'N/A'}
+                Address: {document.billingAddress || "N/A"}
               </div>
               <div className="text-sm">
-                Contact No: {document.phone || 'N/A'}
+                Contact No: {document.phone || "N/A"}
               </div>
               <div className="text-sm">
-                State: {document.stateOfSupply || 'N/A'}
+                State: {document.stateOfSupply || "N/A"}
               </div>
             </div>
 
@@ -220,12 +231,12 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
               <div className="text-sm">
                 Date: {formatDate(document.documentDate)}
               </div>
-              <div className="text-sm">PO No: {document.poNumber || 'N/A'}</div>
+              <div className="text-sm">PO No: {document.poNumber || "N/A"}</div>
               <div className="text-sm">
-                E-way Bill Number: {document.ewaybill || 'N/A'}
+                E-way Bill Number: {document.ewaybill || "N/A"}
               </div>
               <div className="text-sm">
-                Place Of Supply: {document.stateOfSupply || 'N/A'}
+                Place Of Supply: {document.stateOfSupply || "N/A"}
               </div>
             </div>
           </div>
@@ -234,11 +245,11 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
           <div className="border border-gray-300 p-2 mb-4">
             <div className="font-bold">Transportation Details:</div>
             <div className="text-sm">
-              Transport Name: {document.transportName || 'N/A'} | Vehicle
-              Number: {document.vehicleNumber || 'N/A'} | Delivery Date:{' '}
+              Transport Name: {document.transportName || "N/A"} | Vehicle
+              Number: {document.vehicleNumber || "N/A"} | Delivery Date:{" "}
               {document.deliveryDate
                 ? formatDate(document.deliveryDate)
-                : 'N/A'}
+                : "N/A"}
             </div>
           </div>
 
@@ -266,9 +277,7 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
                   Discount(%)
                 </th>
                 <th className="border border-gray-300 p-1 text-xs">Tax(%)</th>
-                <th className="border border-gray-300 p-1 text-xs">
-                  Amount
-                </th>
+                <th className="border border-gray-300 p-1 text-xs">Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -286,7 +295,7 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
                         {item.itemName || item.item}
                       </td>
                       <td className="border border-gray-300 p-1 text-xs">
-                        {item.hsnCode || ''}
+                        {item.hsnCode || ""}
                       </td>
                       <td className="border border-gray-300 p-1 text-xs text-right">
                         {item.primaryQuantity}
@@ -295,19 +304,19 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
                         {item.primaryUnitName || item.unit}
                       </td>
                       <td className="border border-gray-300 p-1 text-xs text-right">
-                        {item.secondaryQuantity || '0'}
+                        {item.secondaryQuantity || "0"}
                       </td>
                       <td className="border border-gray-300 p-1 text-xs">
-                        {item.secondaryUnitName || '-'}
+                        {item.secondaryUnitName || "-"}
                       </td>
                       <td className="border border-gray-300 p-1 text-xs text-right">
                         {formatCurrency(item.pricePerUnit || 0, currencyCode)}
                       </td>
                       <td className="border border-gray-300 p-1 text-xs text-right">
-                        {item.discountPercent ? item.discountPercent : '0.00'}
+                        {item.discountPercent ? item.discountPercent : "0.00"}
                       </td>
                       <td className="border border-gray-300 p-1 text-xs text-right">
-                        {taxRate || '0.00'}
+                        {taxRate || "0.00"}
                       </td>
                       <td className="border border-gray-300 p-1 text-xs text-right">
                         {formatCurrency(item.amount || 0, currencyCode)}
@@ -383,49 +392,57 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
                 </thead>
                 <tbody>
                   {Object.entries(
-                    document.items.reduce((acc: Record<any, any>, item: any) => {
-                      const hsnCode = item.hsnCode || 'UNKNOWN';
-                      if (!acc[hsnCode]) {
-                        acc[hsnCode] = {
-                          taxableValue: 0,
-                          taxType: getTaxType(item.taxType, countryCode),
-                          taxRate: getTaxRate(item.taxType) || Number(item.taxRate) || 0,
-                          vat: 0,
-                          cgst: 0,
-                          sgst: 0,
-                          igst: 0,
-                          totalTax: 0,
-                        };
-                      }
-
-                      const amount = typeof item.amount === 'string'
-                        ? parseFloat(item.amount)
-                        : Number(item.amount || 0);
-                      const taxAmount = typeof item.taxAmount === 'string'
-                        ? parseFloat(item.taxAmount)
-                        : Number(item.taxAmount || 0);
-
-                      const taxableValue = amount - taxAmount;
-                      acc[hsnCode].taxableValue += taxableValue;
-
-                      if (countryCode === 'IN') {
-                        // India's tax system
-                        if (acc[hsnCode].taxType === 'GST') {
-                          // Split rate and amount into CGST + SGST
-                          acc[hsnCode].cgst += taxAmount / 2;
-                          acc[hsnCode].sgst += taxAmount / 2;
-                        } else if (acc[hsnCode].taxType === 'IGST') {
-                          acc[hsnCode].igst += taxAmount;
+                    document.items.reduce(
+                      (acc: Record<any, any>, item: any) => {
+                        const hsnCode = item.hsnCode || "UNKNOWN";
+                        if (!acc[hsnCode]) {
+                          acc[hsnCode] = {
+                            taxableValue: 0,
+                            taxType: getTaxType(item.taxType, countryCode),
+                            taxRate:
+                              getTaxRate(item.taxType) ||
+                              Number(item.taxRate) ||
+                              0,
+                            vat: 0,
+                            cgst: 0,
+                            sgst: 0,
+                            igst: 0,
+                            totalTax: 0,
+                          };
                         }
-                      } else {
-                        // Other countries - typically just VAT
-                        acc[hsnCode].vat += taxAmount;
-                      }
 
-                      acc[hsnCode].totalTax += taxAmount;
+                        const amount =
+                          typeof item.amount === "string"
+                            ? parseFloat(item.amount)
+                            : Number(item.amount || 0);
+                        const taxAmount =
+                          typeof item.taxAmount === "string"
+                            ? parseFloat(item.taxAmount)
+                            : Number(item.taxAmount || 0);
 
-                      return acc;
-                    }, {})
+                        const taxableValue = amount - taxAmount;
+                        acc[hsnCode].taxableValue += taxableValue;
+
+                        if (countryCode === "IN") {
+                          // India's tax system
+                          if (acc[hsnCode].taxType === "GST") {
+                            // Split rate and amount into CGST + SGST
+                            acc[hsnCode].cgst += taxAmount / 2;
+                            acc[hsnCode].sgst += taxAmount / 2;
+                          } else if (acc[hsnCode].taxType === "IGST") {
+                            acc[hsnCode].igst += taxAmount;
+                          }
+                        } else {
+                          // Other countries - typically just VAT
+                          acc[hsnCode].vat += taxAmount;
+                        }
+
+                        acc[hsnCode].totalTax += taxAmount;
+
+                        return acc;
+                      },
+                      {}
+                    )
                   ).map(([hsnCode, group]) => {
                     const groupData = group as TaxGroup;
 
@@ -443,41 +460,41 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
                           <>
                             {/* CGST % */}
                             <td className="border border-gray-300 p-1 text-xs text-right">
-                              {groupData.taxType === 'GST'
+                              {groupData.taxType === "GST"
                                 ? (groupData.taxRate / 2).toFixed(2)
-                                : '-'}
+                                : "-"}
                             </td>
                             {/* CGST amount */}
                             <td className="border border-gray-300 p-1 text-xs text-right">
-                              {groupData.taxType === 'GST'
+                              {groupData.taxType === "GST"
                                 ? formatCurrency(groupData.cgst, currencyCode)
-                                : '-'}
+                                : "-"}
                             </td>
 
                             {/* SGST % */}
                             <td className="border border-gray-300 p-1 text-xs text-right">
-                              {groupData.taxType === 'GST'
+                              {groupData.taxType === "GST"
                                 ? (groupData.taxRate / 2).toFixed(2)
-                                : '-'}
+                                : "-"}
                             </td>
                             {/* SGST amount */}
                             <td className="border border-gray-300 p-1 text-xs text-right">
-                              {groupData.taxType === 'GST'
+                              {groupData.taxType === "GST"
                                 ? formatCurrency(groupData.sgst, currencyCode)
-                                : '-'}
+                                : "-"}
                             </td>
 
                             {/* IGST % */}
                             <td className="border border-gray-300 p-1 text-xs text-right">
-                              {groupData.taxType === 'IGST'
+                              {groupData.taxType === "IGST"
                                 ? groupData.taxRate.toFixed(2)
-                                : '-'}
+                                : "-"}
                             </td>
                             {/* IGST amount */}
                             <td className="border border-gray-300 p-1 text-xs text-right">
-                              {groupData.taxType === 'IGST'
+                              {groupData.taxType === "IGST"
                                 ? formatCurrency(groupData.igst, currencyCode)
-                                : '-'}
+                                : "-"}
                             </td>
                           </>
                         ) : (
@@ -510,18 +527,24 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
                       <td className="border border-gray-300 p-1 text-xs text-right">
                         {formatCurrency(taxableValue, currencyCode)}
                       </td>
-                      
+
                       {usesSplitTax ? (
                         <>
-                          <td className="border border-gray-300 p-1 text-xs text-right">-</td>
+                          <td className="border border-gray-300 p-1 text-xs text-right">
+                            -
+                          </td>
                           <td className="border border-gray-300 p-1 text-xs text-right">
                             {formatCurrency(
                               document.items.reduce(
                                 (total: number, item: any) => {
-                                  if (getTaxType(item.taxType, countryCode) === 'GST') {
-                                    const taxAmount = typeof item.taxAmount === 'string'
-                                      ? parseFloat(item.taxAmount)
-                                      : Number(item.taxAmount || 0);
+                                  if (
+                                    getTaxType(item.taxType, countryCode) ===
+                                    "GST"
+                                  ) {
+                                    const taxAmount =
+                                      typeof item.taxAmount === "string"
+                                        ? parseFloat(item.taxAmount)
+                                        : Number(item.taxAmount || 0);
                                     return total + taxAmount / 2;
                                   }
                                   return total;
@@ -531,15 +554,21 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
                               currencyCode
                             )}
                           </td>
-                          <td className="border border-gray-300 p-1 text-xs text-right">-</td>
+                          <td className="border border-gray-300 p-1 text-xs text-right">
+                            -
+                          </td>
                           <td className="border border-gray-300 p-1 text-xs text-right">
                             {formatCurrency(
                               document.items.reduce(
                                 (total: number, item: any) => {
-                                  if (getTaxType(item.taxType, countryCode) === 'GST') {
-                                    const taxAmount = typeof item.taxAmount === 'string'
-                                      ? parseFloat(item.taxAmount)
-                                      : Number(item.taxAmount || 0);
+                                  if (
+                                    getTaxType(item.taxType, countryCode) ===
+                                    "GST"
+                                  ) {
+                                    const taxAmount =
+                                      typeof item.taxAmount === "string"
+                                        ? parseFloat(item.taxAmount)
+                                        : Number(item.taxAmount || 0);
                                     return total + taxAmount / 2;
                                   }
                                   return total;
@@ -549,15 +578,21 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
                               currencyCode
                             )}
                           </td>
-                          <td className="border border-gray-300 p-1 text-xs text-right">-</td>
+                          <td className="border border-gray-300 p-1 text-xs text-right">
+                            -
+                          </td>
                           <td className="border border-gray-300 p-1 text-xs text-right">
                             {formatCurrency(
                               document.items.reduce(
                                 (total: number, item: any) => {
-                                  if (getTaxType(item.taxType, countryCode) === 'IGST') {
-                                    const taxAmount = typeof item.taxAmount === 'string'
-                                      ? parseFloat(item.taxAmount)
-                                      : Number(item.taxAmount || 0);
+                                  if (
+                                    getTaxType(item.taxType, countryCode) ===
+                                    "IGST"
+                                  ) {
+                                    const taxAmount =
+                                      typeof item.taxAmount === "string"
+                                        ? parseFloat(item.taxAmount)
+                                        : Number(item.taxAmount || 0);
                                     return total + taxAmount;
                                   }
                                   return total;
@@ -570,13 +605,15 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
                         </>
                       ) : (
                         <>
-                          <td className="border border-gray-300 p-1 text-xs text-right">-</td>
+                          <td className="border border-gray-300 p-1 text-xs text-right">
+                            -
+                          </td>
                           <td className="border border-gray-300 p-1 text-xs text-right">
                             {formatCurrency(document.taxAmount, currencyCode)}
                           </td>
                         </>
                       )}
-                      
+
                       <td className="border border-gray-300 p-1 text-xs text-right">
                         {formatCurrency(document.taxAmount, currencyCode)}
                       </td>
@@ -595,38 +632,49 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
                 <span>{formatCurrency(taxableValue, currencyCode)}</span>
               </div>
 
-              {document.discountAmount && Number(document.discountAmount) > 0 && (
-                <div className="flex justify-between text-xs mb-1">
-                  <span>Discount ({document.discountPercentage || 0}%):</span>
-                  <span>- {formatCurrency(document.discountAmount, currencyCode)}</span>
-                </div>
-              )}
+              {document.discountAmount &&
+                Number(document.discountAmount) > 0 && (
+                  <div className="flex justify-between text-xs mb-1">
+                    <span>Discount ({document.discountPercentage || 0}%):</span>
+                    <span>
+                      - {formatCurrency(document.discountAmount, currencyCode)}
+                    </span>
+                  </div>
+                )}
 
               {document.taxAmount && Number(document.taxAmount) > 0 && (
                 <div className="flex justify-between text-xs mb-1">
-                  <span>{countryCode === 'IN' ? 'GST' : 'VAT'}:</span>
-                  <span>+ {formatCurrency(document.taxAmount, currencyCode)}</span>
+                  <span>{countryCode === "IN" ? "GST" : "VAT"}:</span>
+                  <span>
+                    + {formatCurrency(document.taxAmount, currencyCode)}
+                  </span>
                 </div>
               )}
 
               {document.shipping && Number(document.shipping) > 0 && (
                 <div className="flex justify-between text-xs mb-1">
                   <span>Shipping:</span>
-                  <span>+ {formatCurrency(document.shipping, currencyCode)}</span>
+                  <span>
+                    + {formatCurrency(document.shipping, currencyCode)}
+                  </span>
                 </div>
               )}
 
               {document.packaging && Number(document.packaging) > 0 && (
                 <div className="flex justify-between text-xs mb-1">
                   <span>Packaging:</span>
-                  <span>+ {formatCurrency(document.packaging, currencyCode)}</span>
+                  <span>
+                    + {formatCurrency(document.packaging, currencyCode)}
+                  </span>
                 </div>
               )}
 
               {document.adjustment && Number(document.adjustment) > 0 && (
                 <div className="flex justify-between text-xs mb-1">
                   <span>Adjustment:</span>
-                  <span>+ {formatCurrency(document.adjustment, currencyCode)}</span>
+                  <span>
+                    + {formatCurrency(document.adjustment, currencyCode)}
+                  </span>
                 </div>
               )}
 
@@ -634,7 +682,7 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
                 <div className="flex justify-between text-xs mb-1">
                   <span>Round Off:</span>
                   <span>
-                    {Number(document.roundOff) > 0 ? '+' : ''}{' '}
+                    {Number(document.roundOff) > 0 ? "+" : ""}{" "}
                     {formatCurrency(document.roundOff, currencyCode)}
                   </span>
                 </div>
@@ -648,7 +696,18 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
               {document.balanceAmount > 0 && (
                 <div className="flex justify-between text-xs mt-2">
                   <span>Balance Amount Due:</span>
-                  <span>{formatCurrency(document.balanceAmount, currencyCode)}</span>
+                  <span>
+                    {formatCurrency(document.balanceAmount, currencyCode)}
+                  </span>
+                </div>
+              )}
+
+              {document.balanceAmount > 0 && (
+                <div className="flex justify-between text-xs mt-2">
+                  <span>Received Amount :</span>
+                  <span>
+                    {formatCurrency(document.paidAmount, currencyCode)}
+                  </span>
                 </div>
               )}
             </div>
@@ -668,32 +727,32 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
               </div>
               <div className="text-xs grid grid-cols-1 gap-2">
                 <div>
-                  <span className="font-medium">Bank Name:</span>{' '}
-                  {bankDetails?.bankName || 'N/A'}
+                  <span className="font-medium">Bank Name:</span>{" "}
+                  {bankDetails?.bankName || "N/A"}
                 </div>
                 <div>
-                  <span className="font-medium">Account Number:</span>{' '}
-                  {bankDetails?.accountNumber || 'N/A'}
+                  <span className="font-medium">Account Number:</span>{" "}
+                  {bankDetails?.accountNumber || "N/A"}
                 </div>
                 <div>
-                  <span className="font-medium">Account Holder Name:</span>{' '}
-                  {bankDetails?.accountHolderName || 'N/A'}
+                  <span className="font-medium">Account Holder Name:</span>{" "}
+                  {bankDetails?.accountHolderName || "N/A"}
                 </div>
                 <div>
                   <span className="font-medium">
-                    {countryCode === 'IN' ? 'IFSC Code' : 'SWIFT/BIC'}:
-                  </span>{' '}
-                  {bankDetails?.ifscCode || bankDetails?.swiftCode || 'N/A'}
+                    {countryCode === "IN" ? "IFSC Code" : "SWIFT/BIC"}:
+                  </span>{" "}
+                  {bankDetails?.ifscCode || bankDetails?.swiftCode || "N/A"}
                 </div>
-                {bankDetails?.upiId && countryCode === 'IN' && (
+                {bankDetails?.upiId && countryCode === "IN" && (
                   <div>
-                    <span className="font-medium">UPI ID:</span>{' '}
+                    <span className="font-medium">UPI ID:</span>{" "}
                     {bankDetails.upiId}
                   </div>
                 )}
-                {bankDetails?.iban && countryCode !== 'IN' && (
+                {bankDetails?.iban && countryCode !== "IN" && (
                   <div>
-                    <span className="font-medium">IBAN:</span>{' '}
+                    <span className="font-medium">IBAN:</span>{" "}
                     {bankDetails.iban}
                   </div>
                 )}
@@ -711,6 +770,5 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
     </>
   );
 };
-
 
 export default DocumentPrinter;

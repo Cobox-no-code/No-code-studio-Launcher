@@ -1,16 +1,16 @@
-import { Request, Response } from 'express';
-import { db, initializeDatabase } from './../lib/db';
-import { v4 as uuidv4 } from 'uuid';
-import { FirmDTO } from '../models/firm/firm.mode.';
-import axios from 'axios';
+import { Request, Response } from "express";
+import { db, initializeDatabase } from "./../lib/db";
+import { v4 as uuidv4 } from "uuid";
+import { FirmDTO } from "../models/firm/firm.mode.";
+import axios from "axios";
 
 // GET /firms - List all firms
 export const getAllFirms = async (_req: Request, res: Response) => {
   try {
-    const firms = await db('firms').select();
+    const firms = await db("firms").select();
     res.json(firms);
   } catch (error: any) {
-    console.error('Error fetching firms:', error);
+    console.error("Error fetching firms:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -20,25 +20,27 @@ export const createFirm = async (req: Request, res: Response): Promise<any> => {
   try {
     const body: FirmDTO = req.body;
     const now = new Date().toISOString();
-   const existingFirm = await db('firms').where('name', body.name).first();
+    const existingFirm = await db("firms").where("name", body.name).first();
     if (existingFirm) {
-      return res.status(400).json({ success: false, error: 'Firm name must be unique' });
+      return res
+        .status(400)
+        .json({ success: false, error: "Firm name must be unique" });
     }
     const newFirm = {
       id: uuidv4(),
       name: body.name,
-      country: body.country || '',
-      phone: body.phone || '',
-      gstNumber: body.gstNumber || '',
-      ownerName: body.ownerName || '',
-      businessName: body.businessName || '',
-      businessLogo: body.businessLogo || '', // assume base64/binary string
+      country: body.country || "",
+      phone: body.phone || "",
+      gstNumber: body.gstNumber || "",
+      ownerName: body.ownerName || "",
+      businessName: body.businessName || "",
+      businessLogo: body.businessLogo || "", // assume base64/binary string
       createdAt: now,
       updatedAt: now,
-      address:body.address
+      address: body.address,
     };
 
-    await db('firms').insert(newFirm);
+    await db("firms").insert(newFirm);
     await axios.post(`${body.cloudurl}/sync/`, {
       table: "firms",
       records: [newFirm],
@@ -47,64 +49,76 @@ export const createFirm = async (req: Request, res: Response): Promise<any> => {
 
     res.status(201).json(newFirm);
   } catch (error: any) {
-    console.error('Error creating firm:', error);
+    console.error("Error creating firm:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
 
-
 // GET /firms/:id - Get a single firm by ID
-export const getFirmById = async (req: Request, res: Response):Promise<any> => {
+export const getFirmById = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
     const { id } = req.params;
-    const firm = await db('firms').where('id', id).first();
+    const firm = await db("firms").where("id", id).first();
 
     if (!firm) {
-      return res.status(404).json({ success: false, error: 'Firm not found' });
+      return res.status(404).json({ success: false, error: "Firm not found" });
     }
 
     res.json(firm);
   } catch (error: any) {
-    console.error('Error fetching firm:', error);
+    console.error("Error fetching firm:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
 
 // PUT /firms/:id - Update a firm by ID
-export const updateFirm = async (req: Request, res: Response):Promise<any> => {
+export const updateFirm = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
     const body = req.body;
     const now = new Date().toISOString();
-   const existingFirm = await db('firms').where('name', body.name).first();
-    if (existingFirm) {
-      return res.status(400).json({ success: false, error: 'Firm name must be unique' });
-    }
-    await db('firms').where('id', id).update({
-      ...body,
-      updatedAt: now,
-    });
 
-    res.json({ success: true, message: 'Firm updated successfully' });
+    const existingFirm = await db("firms")
+      .where("name", body.name)
+      .andWhereNot("id", id)
+      .first();
+
+    if (existingFirm) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Firm name must be unique" });
+    }
+
+    await db("firms")
+      .where("id", id)
+      .update({
+        ...body,
+        updatedAt: now,
+      });
+
+    res.json({ success: true, message: "Firm updated successfully" });
   } catch (error: any) {
-    console.error('Error updating firm:', error);
+    console.error("Error updating firm:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
 
 // DELETE /firms/:id - Delete a firm by ID
-export const deleteFirm = async (req: Request, res: Response):Promise<any> => {
+export const deleteFirm = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
-    const deleted = await db('firms').where('id', id).delete();
+    const deleted = await db("firms").where("id", id).delete();
 
     if (!deleted) {
-      return res.status(404).json({ success: false, error: 'Firm not found' });
+      return res.status(404).json({ success: false, error: "Firm not found" });
     }
 
-    res.json({ success: true, message: 'Firm deleted successfully' });
+    res.json({ success: true, message: "Firm deleted successfully" });
   } catch (error: any) {
-    console.error('Error deleting firm:', error);
+    console.error("Error deleting firm:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
