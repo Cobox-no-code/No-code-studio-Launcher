@@ -118,9 +118,9 @@ const DocumentViewerPage: React.FC = () => {
           </h1>
           <p className="text-gray-500">
             {document.billingName ? document.billingName : businessName} •{" "}
-            {new Date(document.documentDate).toLocaleDateString()}
+            {new Date(document.documentDate).toLocaleDateString()}•{" "}
+            {document.documentTime}
           </p>
-          <p className="text-gray-500">• {document.documentTime}</p>
         </div>
 
         <div className="mt-4 md:mt-0 flex flex-wrap gap-2">

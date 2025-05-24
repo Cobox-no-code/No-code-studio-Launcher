@@ -1,12 +1,16 @@
-'use client'
-import React, { ChangeEvent, useEffect, useState } from 'react'
-import { useDispatch } from 'react-redux'
-import { AppDispatch } from '@/redux/store'
-import { openModal } from '@/redux/slices/modal'
-import { useGetPartiesQuery, useGetGroupsQuery, useDeletePartyMutation } from '@/redux/api/partiesApi'
+"use client";
+import React, { ChangeEvent, useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
+import { AppDispatch } from "@/redux/store";
+import { openModal } from "@/redux/slices/modal";
+import {
+  useGetPartiesQuery,
+  useGetGroupsQuery,
+  useDeletePartyMutation,
+} from "@/redux/api/partiesApi";
 
 // UI Components
-import { Button } from '@/components/ui/button'
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -15,21 +19,21 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+} from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Icons
 import {
@@ -57,29 +61,34 @@ import {
   Settings,
   Pencil,
   Tag,
-  Delete
-} from 'lucide-react'
-import { openCreateForm, openEditForm } from '@/redux/slices/partySlice'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+  Delete,
+} from "lucide-react";
+import { openCreateForm, openEditForm } from "@/redux/slices/partySlice";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 // Helper to format currency
 const formatCurrency = (amount: string | number | bigint) => {
-  const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 2
+  const numericAmount =
+    typeof amount === "string" ? parseFloat(amount) : amount;
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
   }).format(numericAmount);
 };
 
 // Helper to format dates
 const formatDate = (dateString: string) => {
-  if (!dateString) return '—';
+  if (!dateString) return "—";
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
   });
 };
 
@@ -88,41 +97,41 @@ const Parties = () => {
 
   // State management
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [filterParty, setFilterParty] = useState('');
-  const [filterTransaction, setFilterTransaction] = useState('');
-  const [currentTab, setCurrentTab] = useState('all');
-  const [deleteParty] = useDeletePartyMutation()
+  const [filterParty, setFilterParty] = useState("");
+  const [filterTransaction, setFilterTransaction] = useState("");
+  const [currentTab, setCurrentTab] = useState("all");
+  const [deleteParty] = useDeletePartyMutation();
   // Use RTK Query to fetch parties
   const {
     data: parties,
     isLoading,
     isError,
     error,
-    refetch
-  } = useGetPartiesQuery({},{
-        // Refetch on window focus (when user comes back to this tab)
-    refetchOnFocus: true,
-    
-    // Refetch when reconnecting after being offline
-    refetchOnReconnect: true,
-  });
- useEffect(() => {
+    refetch,
+  } = useGetPartiesQuery(
+    {},
+    {
+      // Refetch on window focus (when user comes back to this tab)
+      refetchOnFocus: true,
+
+      // Refetch when reconnecting after being offline
+      refetchOnReconnect: true,
+    }
+  );
+  useEffect(() => {
     // Immediately refetch data when component mounts
     refetch();
-    
+
     // Set up interval for periodic refetching (every 5 seconds)
     const intervalId = setInterval(() => {
       refetch();
     }, 5000); // Adjust this time as needed
-    
+
     // Clean up interval on unmount
     return () => clearInterval(intervalId);
   }, [refetch]);
   // Use RTK Query to fetch groups
-  const {
-    data: groups,
-    isLoading: isLoadingGroups
-  } = useGetGroupsQuery();
+  const { data: groups, isLoading: isLoadingGroups } = useGetGroupsQuery();
 
   // Handle party selection
   const handleSelectParty = (id: string) => {
@@ -131,77 +140,102 @@ const Parties = () => {
 
   // Open modal with specific type
   const openCreateModal = () => {
-    dispatch(openCreateForm())
-  }
-  
+    dispatch(openCreateForm());
+  };
+
   const openEditModal = (itemId: string) => {
-    dispatch(openEditForm(itemId))
-  }
+    dispatch(openEditForm(itemId));
+  };
 
   // Get the selected party details
-  const selectedParty = selectedId 
-    ? parties?.find(party => party.id === selectedId) 
+  const selectedParty = selectedId
+    ? parties?.find((party) => party.id === selectedId)
     : null;
 
   // Filter parties based on search and tab
-  const filteredParties = parties?.filter(party => {
-    const matchesSearch = 
-      party.name.toLowerCase().includes(filterParty.toLowerCase()) || 
+  const filteredParties = parties?.filter((party) => {
+    const matchesSearch =
+      party.name.toLowerCase().includes(filterParty.toLowerCase()) ||
       (party.phone && party.phone.includes(filterParty)) ||
-      (party.email && party.email.toLowerCase().includes(filterParty.toLowerCase())) ||
-      (party.gstNumber && party.gstNumber.toLowerCase().includes(filterParty.toLowerCase()));
-    
-    if (currentTab === 'all') return matchesSearch;
-    if (currentTab === 'credit' && party.creditLimitType === 'custom') return matchesSearch;
-    if (currentTab === 'to_pay' && party.openingBalanceType === 'to_pay' && party?.openingBalance > 0) return matchesSearch;
-    if (currentTab === 'to_receive' && party.openingBalanceType === 'to_receive' && party?.openingBalance > 0) return matchesSearch;
-    
+      (party.email &&
+        party.email.toLowerCase().includes(filterParty.toLowerCase())) ||
+      (party.gstNumber &&
+        party.gstNumber.toLowerCase().includes(filterParty.toLowerCase()));
+
+    if (currentTab === "all") return matchesSearch;
+    if (currentTab === "credit" && party.creditLimitType === "custom")
+      return matchesSearch;
+    if (
+      currentTab === "to_pay" &&
+      party.openingBalanceType === "to_pay" &&
+      party?.openingBalance > 0
+    )
+      return matchesSearch;
+    if (
+      currentTab === "to_receive" &&
+      party.openingBalanceType === "to_receive" &&
+      party?.openingBalance > 0
+    )
+      return matchesSearch;
+
     return false;
   });
 
   // Get group name for a party
   const getGroupName = (groupId?: string) => {
-    if (!groupId || !groups) return '—';
-    const group = groups.find(g => g.id === groupId);
-    return group ? group.groupName : '—';
+    if (!groupId || !groups) return "—";
+    const group = groups.find((g) => g.id === groupId);
+    return group ? group.groupName : "—";
   };
 
   // Parties summary
   const totalParties = parties?.length || 0;
-  const totalWithCredit = parties?.filter(party => party.creditLimitType === 'custom').length || 0;
-  const totalToPay = parties?.filter(party => 
-    party.openingBalanceType === 'to_pay' && party.openingBalance > 0
-  ).length || 0;
-  const totalToReceive = parties?.filter(party => 
-    party.openingBalanceType === 'to_receive' && party.openingBalance > 0
-  ).length || 0;
+  const totalWithCredit =
+    parties?.filter((party) => party.creditLimitType === "custom").length || 0;
+  const totalToPay =
+    parties?.filter(
+      (party) =>
+        party.openingBalanceType === "to_pay" && party.openingBalance > 0
+    ).length || 0;
+  const totalToReceive =
+    parties?.filter(
+      (party) =>
+        party.openingBalanceType === "to_receive" && party.openingBalance > 0
+    ).length || 0;
 
   // Get transaction history data (mock data)
-  const transactionHistory = selectedParty ? [
-    {
-      id: '1',
-      type: 'Sale',
-      invoiceNo: 'INV-001',
-      date: '2025-04-15',
-      total: 12500,
-      balance: 0,
-      direction: 'out'
-    },
-    {
-      id: '2',
-      type: 'Purchase',
-      invoiceNo: 'PO-002',
-      date: '2025-04-10',
-      total: 8750,
-      balance: 1250,
-      direction: 'in'
-    }
-  ] : [];
+  const transactionHistory = selectedParty
+    ? [
+        {
+          id: "1",
+          type: "Sale",
+          invoiceNo: "INV-001",
+          date: "2025-04-15",
+          total: 12500,
+          balance: 0,
+          direction: "out",
+        },
+        {
+          id: "2",
+          type: "Purchase",
+          invoiceNo: "PO-002",
+          date: "2025-04-10",
+          total: 8750,
+          balance: 1250,
+          direction: "in",
+        },
+      ]
+    : [];
 
   // Filter transactions
-  const filteredTransactions = transactionHistory.filter(transaction => 
-    transaction.type.toLowerCase().includes(filterTransaction.toLowerCase()) ||
-    transaction.invoiceNo.toLowerCase().includes(filterTransaction.toLowerCase())
+  const filteredTransactions = transactionHistory.filter(
+    (transaction) =>
+      transaction.type
+        .toLowerCase()
+        .includes(filterTransaction.toLowerCase()) ||
+      transaction.invoiceNo
+        .toLowerCase()
+        .includes(filterTransaction.toLowerCase())
   );
 
   return (
@@ -272,7 +306,7 @@ const Parties = () => {
               />
               {filterParty && (
                 <button
-                  onClick={() => setFilterParty('')}
+                  onClick={() => setFilterParty("")}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2"
                 >
                   <X className="h-4 w-4 text-gray-400" />
@@ -328,7 +362,7 @@ const Parties = () => {
                           <AlertCircle className="h-4 w-4" />
                           <AlertTitle>Error</AlertTitle>
                           <AlertDescription>
-                            {error?.toString() || 'Failed to load parties'}
+                            {error?.toString() || "Failed to load parties"}
                           </AlertDescription>
                         </Alert>
                       </TableCell>
@@ -347,7 +381,7 @@ const Parties = () => {
                       <TableRow
                         key={party.id}
                         className={`cursor-pointer hover:bg-gray-50 ${
-                          selectedId === party.id ? 'bg-primary/5' : ''
+                          selectedId === party.id ? "bg-primary/5" : ""
                         }`}
                         onClick={() => handleSelectParty(party.id)}
                       >
@@ -357,11 +391,11 @@ const Parties = () => {
                             <div className="flex items-center gap-2 mt-1">
                               <Badge
                                 variant={
-                                  party.gstType === 'Consumer'
-                                    ? 'secondary'
-                                    : party.gstType === 'Unregistered'
-                                    ? 'outline'
-                                    : 'default'
+                                  party.gstType === "Consumer"
+                                    ? "secondary"
+                                    : party.gstType === "Unregistered"
+                                    ? "outline"
+                                    : "default"
                                 }
                                 className="text-xs"
                               >
@@ -376,30 +410,32 @@ const Parties = () => {
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          {party.openingBalance ? (
+                          {party.currentBalance ? (
                             <span
                               className={
-                                party.openingBalanceType === 'to_pay'
-                                  ? 'text-red-600'
-                                  : 'text-green-600'
+                                party.currentBalanceType === "to_pay"
+                                  ? "text-red-600"
+                                  : "text-green-600"
                               }
                             >
-                              {formatCurrency(party.openingBalance)}
+                              {formatCurrency(party.currentBalance)}
                             </span>
                           ) : (
-                            '₹0.00'
+                            "₹0.00"
                           )}
                         </TableCell>
                         <TableCell className="text-right w-10">
                           <Popover>
-                            <PopoverTrigger onClick={(e) => e.stopPropagation()}>
+                            <PopoverTrigger
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <EllipsisVertical className="h-4 w-4 text-gray-500" />
                             </PopoverTrigger>
                             <PopoverContent className="w-40" align="end">
                               <div className="flex flex-col space-y-1">
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   className="justify-start"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -409,16 +445,15 @@ const Parties = () => {
                                   <Pencil className="h-4 w-4 mr-2" />
                                   Edit Party
                                 </Button>
-                                  <Button 
-                                  variant="ghost" 
-                                  size="sm" 
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   className="justify-start"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     deleteParty(party.id);
                                   }}
                                 >
-                      
                                   Delete Party
                                 </Button>
                               </div>
@@ -446,11 +481,11 @@ const Parties = () => {
                       {selectedParty.name}
                       <Badge
                         variant={
-                          selectedParty.gstType === 'Consumer'
-                            ? 'secondary'
-                            : selectedParty.gstType === 'Unregistered'
-                            ? 'outline'
-                            : 'default'
+                          selectedParty.gstType === "Consumer"
+                            ? "secondary"
+                            : selectedParty.gstType === "Unregistered"
+                            ? "outline"
+                            : "default"
                         }
                         className="ml-2"
                       >
@@ -458,11 +493,14 @@ const Parties = () => {
                       </Badge>
                     </div>
                   ) : (
-                    'Party Details'
+                    "Party Details"
                   )}
                 </CardTitle>
                 {selectedParty && (
-                  <Button variant="outline" onClick={() => openEditModal(selectedParty.id)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => openEditModal(selectedParty.id)}
+                  >
                     <Pencil className="h-4 w-4 mr-1" /> Edit Party
                   </Button>
                 )}
@@ -497,7 +535,7 @@ const Parties = () => {
                               Phone Number
                             </p>
                             <p className="text-base font-medium">
-                              {selectedParty.phone || '—'}
+                              {selectedParty.phone || "—"}
                             </p>
                           </div>
                           <div>
@@ -505,16 +543,16 @@ const Parties = () => {
                               Email Address
                             </p>
                             <p className="text-base font-medium">
-                              {selectedParty.email || '—'}
+                              {selectedParty.email || "—"}
                             </p>
                           </div>
-                          {selectedParty.gstType === 'Regular' && (
+                          {selectedParty.gstType === "Regular" && (
                             <div>
                               <p className="text-xs text-muted-foreground">
                                 GST Number
                               </p>
                               <p className="text-base font-medium">
-                                {selectedParty.gstNumber || '—'}
+                                {selectedParty.gstNumber || "—"}
                               </p>
                             </div>
                           )}
@@ -525,7 +563,7 @@ const Parties = () => {
                             <p className="text-base font-medium">
                               {selectedParty.groupId
                                 ? getGroupName(selectedParty.groupId)
-                                : '—'}
+                                : "—"}
                             </p>
                           </div>
                         </div>
@@ -546,7 +584,7 @@ const Parties = () => {
                               State
                             </p>
                             <p className="text-base font-medium">
-                              {selectedParty.state || '—'}
+                              {selectedParty.state || "—"}
                             </p>
                           </div>
                           <div>
@@ -554,7 +592,7 @@ const Parties = () => {
                               Billing Address
                             </p>
                             <p className="text-base font-medium whitespace-pre-line">
-                              {selectedParty.billingAddress || '—'}
+                              {selectedParty.billingAddress || "—"}
                             </p>
                           </div>
                           {selectedParty.shippingEnabled &&
@@ -590,25 +628,33 @@ const Parties = () => {
                             <div className="flex items-center">
                               <p
                                 className={`text-lg font-semibold ${
-                                  selectedParty.openingBalance && 
-                                  selectedParty.openingBalanceType === 'to_pay'
-                                    ? 'text-red-600'
-                                    : selectedParty.openingBalance && 
-                                      selectedParty.openingBalanceType === 'to_receive'
-                                    ? 'text-green-600'
-                                    : ''
+                                  selectedParty.openingBalance &&
+                                  selectedParty.openingBalanceType === "to_pay"
+                                    ? "text-red-600"
+                                    : selectedParty.openingBalance &&
+                                      selectedParty.openingBalanceType ===
+                                        "to_receive"
+                                    ? "text-green-600"
+                                    : ""
                                 }`}
                               >
                                 {selectedParty.openingBalance
                                   ? formatCurrency(selectedParty.openingBalance)
-                                  : '₹0.00'}
+                                  : "₹0.00"}
                               </p>
                               {selectedParty?.openingBalance > 0 && (
-                                <Badge 
+                                <Badge
                                   className="ml-2"
-                                  variant={selectedParty.openingBalanceType === 'to_pay' ? 'destructive' : 'default'}
+                                  variant={
+                                    selectedParty.openingBalanceType ===
+                                    "to_pay"
+                                      ? "destructive"
+                                      : "default"
+                                  }
                                 >
-                                  {selectedParty.openingBalanceType === 'to_pay' ? 'To Pay' : 'To Receive'}
+                                  {selectedParty.openingBalanceType === "to_pay"
+                                    ? "To Pay"
+                                    : "To Receive"}
                                 </Badge>
                               )}
                             </div>
@@ -620,7 +666,7 @@ const Parties = () => {
                             <p className="text-base font-medium">
                               {selectedParty.openingBalanceDate
                                 ? formatDate(selectedParty.openingBalanceDate)
-                                : '—'}
+                                : "—"}
                             </p>
                           </div>
                           <div>
@@ -628,10 +674,10 @@ const Parties = () => {
                               Credit Limit
                             </p>
                             <p className="text-base font-medium">
-                              {selectedParty.creditLimitType === 'custom' &&
+                              {selectedParty.creditLimitType === "custom" &&
                               selectedParty.creditLimitValue
                                 ? formatCurrency(selectedParty.creditLimitValue)
-                                : 'No Limit'}
+                                : "No Limit"}
                             </p>
                           </div>
                         </div>
@@ -647,17 +693,20 @@ const Parties = () => {
                           </h3>
                         </div>
                         <div className="space-y-4 mt-4">
-                          {selectedParty.additionalFields && selectedParty.additionalFields.length > 0 ? (
-                            selectedParty.additionalFields.map((field, index) => (
-                              <div key={index}>
-                                <p className="text-xs text-muted-foreground">
-                                  {field.key}
-                                </p>
-                                <p className="text-base font-medium">
-                                  {field.value || '—'}
-                                </p>
-                              </div>
-                            ))
+                          {selectedParty.additionalFields &&
+                          selectedParty.additionalFields.length > 0 ? (
+                            selectedParty.additionalFields.map(
+                              (field, index) => (
+                                <div key={index}>
+                                  <p className="text-xs text-muted-foreground">
+                                    {field.key}
+                                  </p>
+                                  <p className="text-base font-medium">
+                                    {field.value || "—"}
+                                  </p>
+                                </div>
+                              )
+                            )
                           ) : (
                             <p className="text-sm text-muted-foreground">
                               No additional fields
@@ -666,7 +715,7 @@ const Parties = () => {
                         </div>
                       </CardContent>
                     </Card>
-                    
+
                     <Card className="border-0 shadow-none bg-gray-50 mt-6">
                       <CardContent className="p-4">
                         <div className="flex items-center gap-2 mb-2">
@@ -685,7 +734,7 @@ const Parties = () => {
                                 ? `Enabled (${
                                     selectedParty.paymentReminderDays || 0
                                   } days)`
-                                : 'Disabled'}
+                                : "Disabled"}
                             </p>
                           </div>
                           <div>
@@ -694,8 +743,8 @@ const Parties = () => {
                             </p>
                             <p className="text-base font-medium">
                               {selectedParty.loyaltyPointsEnabled
-                                ? 'Enabled'
-                                : 'Disabled'}
+                                ? "Enabled"
+                                : "Disabled"}
                             </p>
                           </div>
                         </div>
@@ -825,10 +874,9 @@ const Parties = () => {
             </CardContent>
           </Card> */}
         </div>
-
       </div>
     </div>
   );
-}
+};
 
 export default Parties;

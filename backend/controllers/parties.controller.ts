@@ -83,6 +83,8 @@ export const createParty = async (
     const newParty = {
       id: partyId,
       name,
+      currentBalance: partyData.openingBalance,
+      currentBalanceType: partyData.openingBalanceType,
       ...partyData,
       createdAt: now,
       updatedAt: now,
@@ -155,7 +157,6 @@ export const getPartyById = async (
 };
 
 // PUT /parties/:id - Update party
-// PUT /parties/:id - Update party
 export const updateParty = async (
   req: Request,
   res: Response
@@ -163,7 +164,14 @@ export const updateParty = async (
   try {
     const firmId = (req.headers["x-firm-id"] as string) || "";
     const { id } = req.params;
-    const { additionalFields, name, ...updateData } = req.body;
+    const {
+      additionalFields,
+      name,
+      openingBalance,
+      openingBalanceType,
+      currentBalanceType,
+      ...updateData
+    } = req.body;
 
     const existingParty = await db("parties", firmId).where("id", id).first();
     if (!existingParty) {
@@ -188,7 +196,9 @@ export const updateParty = async (
     const now = new Date().toISOString();
     updateData.updatedAt = now;
     if (name) updateData.name = name;
-
+    if (openingBalance) updateData.currentBalance = openingBalance;
+    if (openingBalance) updateData.openingBalance = openingBalance;
+    if (currentBalanceType) updateData.currentBalanceType = openingBalanceType;
     await db("parties", firmId).where("id", id).update(updateData);
 
     if (additionalFields) {

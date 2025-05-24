@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
-import { db } from "./../lib/db";
 import {
+  CreatePaymentDTO,
   Payment,
   PaymentDirection,
-  CreatePaymentDTO,
   UpdatePaymentDTO,
 } from "../models/payment/payment.model";
+import { db } from "./../lib/db";
 
 // GET /payments
 export const getAllPayments = async (
@@ -139,53 +139,53 @@ export const createPayment = async (
     if (payment.partyId) {
       const party = await db("parties").where("id", payment.partyId).first();
       if (party) {
-        let balance = party.openingBalance || 0;
+        let balance = party.currentBalance || 0;
 
         if (payment.direction === PaymentDirection.IN) {
-          if (party.openingBalanceType === "to_receive") {
+          if (party.currentBalanceType === "to_receive") {
             if (balance - payment.amount < 0) {
               const surplus = payment.amount - balance;
               balance = surplus;
               await db("parties").where("id", payment.partyId).update({
-                openingBalance: balance,
-                openingBalanceType: "to_pay",
+                currentBalance: balance,
+                currentBalanceType: "to_pay",
                 updatedAt: now,
               });
             } else {
               balance -= payment.amount;
               await db("parties").where("id", payment.partyId).update({
-                openingBalance: balance,
+                currentBalance: balance,
                 updatedAt: now,
               });
             }
           } else {
             balance += payment.amount;
             await db("parties").where("id", payment.partyId).update({
-              openingBalance: balance,
+              currentBalance: balance,
               updatedAt: now,
             });
           }
         } else if (payment.direction === PaymentDirection.OUT) {
-          if (party.openingBalanceType === "to_pay") {
+          if (party.currentBalanceType === "to_pay") {
             if (balance - payment.amount < 0) {
               const surplus = payment.amount - balance;
               balance = surplus;
               await db("parties").where("id", payment.partyId).update({
-                openingBalance: balance,
-                openingBalanceType: "to_receive",
+                currentBalance: balance,
+                currentBalanceType: "to_receive",
                 updatedAt: now,
               });
             } else {
               balance -= payment.amount;
               await db("parties").where("id", payment.partyId).update({
-                openingBalance: balance,
+                currentBalance: balance,
                 updatedAt: now,
               });
             }
           } else {
             balance += payment.amount;
             await db("parties").where("id", payment.partyId).update({
-              openingBalance: balance,
+              currentBalance: balance,
               updatedAt: now,
             });
           }
@@ -314,15 +314,15 @@ export const deletePayment = async (
     if (payment.partyId) {
       const party = await db("parties").where("id", payment.partyId).first();
       if (party) {
-        let balance = party.openingBalance || 0;
+        let balance = party.currentBalance || 0;
         if (payment.direction === PaymentDirection.IN) {
-          if (party.openingBalanceType === "to_receive") {
+          if (party.currentBalanceType === "to_receive") {
             balance += payment.amount;
           } else {
             balance -= payment.amount;
           }
         } else {
-          if (party.openingBalanceType === "to_pay") {
+          if (party.currentBalanceType === "to_pay") {
             balance += payment.amount;
           } else {
             balance -= payment.amount;
@@ -332,7 +332,7 @@ export const deletePayment = async (
         await db("parties")
           .where("id", party.id)
           .update({
-            openingBalance: Math.abs(balance),
+            currentBalance: Math.abs(balance),
             updatedAt: now,
           });
       }
