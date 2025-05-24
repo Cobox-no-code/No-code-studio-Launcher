@@ -1,17 +1,20 @@
-'use client'
+"use client";
 
-import React, { useState, useRef } from 'react'
-import { useReactToPrint } from 'react-to-print'
-import { format } from 'date-fns'
-import { useGetSaleInvoicesQuery } from '@/redux/api/documentApi'
-import { useGetPurchaseInvoicesQuery } from '@/redux/api/documentApi'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import React, { useState, useRef } from "react";
+import { useReactToPrint } from "react-to-print";
+import { format } from "date-fns";
+import {
+  useGetSaleInvoicesQuery,
+  useGetPurchaseInvoicesQuery,
+} from "@/redux/api/documentApi";
+import { useGetPaymentsQuery } from "@/redux/api/paymentApi";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -19,7 +22,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from "@/components/ui/table";
 import {
   DownloadIcon,
   FileTextIcon,
@@ -29,17 +32,18 @@ import {
   RefreshCwIcon,
   ArrowUpIcon,
   ArrowDownIcon,
-} from 'lucide-react'
+  ArrowRightLeftIcon,
+} from "lucide-react";
+import { PaymentDirection } from "@/models/payment/payment.model";
 
 const AllTransactionsReport = () => {
-  // To this (to show all dates by default)
-  const [startDate, setStartDate] = useState<string>('')
-  const [endDate, setEndDate] = useState<string>('')
+  // Date filter state
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<string>("all");
+  const printRef = useRef<HTMLDivElement>(null);
 
- 
-  const [activeTab, setActiveTab] = useState<string>('all')
-  const printRef = useRef<HTMLDivElement>(null)
-
+  // Fetch sale invoices
   const {
     data: saleInvoices,
     isLoading: isLoadingSales,
@@ -48,8 +52,9 @@ const AllTransactionsReport = () => {
   } = useGetSaleInvoicesQuery({
     startDate: startDate || undefined,
     endDate: endDate || undefined,
-  })
+  });
 
+  // Fetch purchase invoices
   const {
     data: purchaseInvoices,
     isLoading: isLoadingPurchases,
@@ -58,76 +63,164 @@ const AllTransactionsReport = () => {
   } = useGetPurchaseInvoicesQuery({
     startDate: startDate || undefined,
     endDate: endDate || undefined,
-  })
+  });
+
+  // Fetch payments
+  const {
+    data: payments,
+    isLoading: isLoadingPayments,
+    isError: isPaymentsError,
+    refetch: refetchPayments,
+  } = useGetPaymentsQuery({
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
+  });
 
   // Handle printing
   const handlePrint = useReactToPrint({
     contentRef: printRef,
-    documentTitle: 'Day Book',
+    documentTitle: "Transactions Report",
     pageStyle: `
       @page {
         size: A4;
         margin: 20mm 10mm;
       }
     `,
-
-    onAfterPrint: () => console.log('Print completed'),
-  })
+    onAfterPrint: () => console.log("Print completed"),
+  });
 
   // Calculate totals
   const calculateTotals = () => {
     const salesTotal =
-      saleInvoices?.reduce((sum, invoice) => sum + invoice.total, 0) || 0
+      saleInvoices?.reduce((sum, invoice) => sum + invoice.total, 0) || 0;
     const purchasesTotal =
-      purchaseInvoices?.reduce((sum, invoice) => sum + invoice.total, 0) || 0
+      purchaseInvoices?.reduce((sum, invoice) => sum + invoice.total, 0) || 0;
+
+    // Calculate payment totals
+    const paymentsIn =
+      payments?.filter((p) => p.direction === PaymentDirection.IN) || [];
+    const paymentsOut =
+      payments?.filter((p) => p.direction === PaymentDirection.OUT) || [];
+
+    const paymentsInTotal =
+      paymentsIn.reduce((sum, payment) => sum + payment.amount, 0) || 0;
+    const paymentsOutTotal =
+      paymentsOut.reduce((sum, payment) => sum + payment.amount, 0) || 0;
+
+    // Calculate combined totals (sales + payments in) and (purchases + payments out)
+    const totalInflow = salesTotal + paymentsInTotal;
+    const totalOutflow = purchasesTotal + paymentsOutTotal;
 
     return {
       salesCount: saleInvoices?.length || 0,
       purchasesCount: purchaseInvoices?.length || 0,
+      paymentsInCount: paymentsIn.length,
+      paymentsOutCount: paymentsOut.length,
       salesTotal,
       purchasesTotal,
-      netCashFlow: salesTotal - purchasesTotal,
-    }
-  }
+      paymentsInTotal,
+      paymentsOutTotal,
+      totalInflow,
+      totalOutflow,
+      netCashFlow: totalInflow - totalOutflow,
+    };
+  };
 
-  const totals = calculateTotals()
+  const totals = calculateTotals();
 
   // Get the company name and phone from localStorage if available
   const companyName =
-    typeof window !== 'undefined'
-      ? localStorage.getItem('firmName') || 'My Company'
-      : 'My Company'
+    typeof window !== "undefined"
+      ? localStorage.getItem("firmName") || "My Company"
+      : "My Company";
   const companyPhone =
-    typeof window !== 'undefined'
-      ? localStorage.getItem('firmPhone') || '9752133459'
-      : '9752133459'
+    typeof window !== "undefined"
+      ? localStorage.getItem("firmPhone") || "9752133459"
+      : "9752133459";
 
   // Combine and sort transactions for "All" tab
-  const allTransactions = [...(saleInvoices || []), ...(purchaseInvoices || [])]
-    .map((invoice) => {
-      const isSale = invoice.documentType.includes('sale')
-      return {
-        ...invoice,
-        transactionType: isSale ? 'Sale' : 'Purchase',
-        counterparty: isSale
-          ? (invoice as any).customer
-          : (invoice as any).supplier,
-        amountReceived: isSale ? (invoice as any).receivedAmount : 0,
-        amountPaid: !isSale ? (invoice as any).paidAmount : 0,
-      }
-    })
-    .sort((a, b) => {
-      // Sort by date and time if available
-      return new Date(b.documentDate).getTime() - new Date(a.documentDate).getTime()
-    })
+  const allTransactions = [
+    // Sales invoices
+    ...(saleInvoices || []).map((invoice) => ({
+      ...invoice,
+      transactionType: "Sale",
+      counterparty: invoice.partyName,
+      amountReceived: invoice.paidAmount || 0,
+      amountPaid: 0,
+      date: invoice.documentDate,
+      sourceType: "invoice",
+    })),
 
+    // Purchase invoices
+    ...(purchaseInvoices || []).map((invoice) => ({
+      ...invoice,
+      transactionType: "Purchase",
+      counterparty: invoice.partyName,
+      amountReceived: 0,
+      amountPaid: invoice.paidAmount || 0,
+      date: invoice.documentDate,
+      sourceType: "invoice",
+    })),
+
+    // Payment transactions
+    ...(payments || []).map((payment) => ({
+      ...payment,
+      transactionType:
+        payment.direction === PaymentDirection.IN
+          ? "Payment In"
+          : "Payment Out",
+      documentNumber:
+        payment.receiptNumber || `PMT-${payment.id.substring(0, 8)}`,
+      counterparty: payment.partyName,
+      total: payment.amount,
+      amountReceived:
+        payment.direction === PaymentDirection.IN ? payment.amount : 0,
+      amountPaid:
+        payment.direction === PaymentDirection.OUT ? payment.amount : 0,
+      date: payment.paymentDate,
+      sourceType: "payment",
+    })),
+  ].sort((a, b) => {
+    // Sort by date descending (newest first)
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
+
+  // Filter payments for the "Payments" tab
+  const paymentTransactions =
+    payments?.map((payment) => ({
+      ...payment,
+      transactionType:
+        payment.direction === PaymentDirection.IN
+          ? "Payment In"
+          : "Payment Out",
+      documentNumber:
+        payment.receiptNumber || `PMT-${payment.id.substring(0, 8)}`,
+    })) || [];
+
+  // Refresh all data
   const refreshAllData = () => {
-    refetchSales()
-    refetchPurchases()
-  }
+    refetchSales();
+    refetchPurchases();
+    refetchPayments();
+  };
+
+  // Format currency function
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+      .format(amount)
+      .replace("₹", "₹ ");
+  };
+
+  // Check if any data is loading
+  const isLoading = isLoadingSales || isLoadingPurchases || isLoadingPayments;
 
   return (
-    <div className="space-y-6 ">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold">All Transactions</h1>
         <div className="flex items-center gap-2">
@@ -153,7 +246,6 @@ const AllTransactionsReport = () => {
       </div>
 
       {/* Date Filter */}
-      {/* Replace the single date selector with a date range */}
       <Card className="print:hidden">
         <CardContent className="p-4">
           <div className="flex items-end gap-4">
@@ -197,12 +289,21 @@ const AllTransactionsReport = () => {
           <CardContent className="p-4">
             <p className="text-sm text-gray-500">Total Transactions</p>
             <h3 className="text-2xl font-bold mt-1">
-              {totals.salesCount + totals.purchasesCount}
+              {totals.salesCount +
+                totals.purchasesCount +
+                totals.paymentsInCount +
+                totals.paymentsOutCount}
             </h3>
-            <div className="flex justify-between text-xs mt-2">
+            <div className="flex flex-wrap justify-between text-xs mt-2">
               <span className="text-green-600">Sales: {totals.salesCount}</span>
               <span className="text-blue-600">
                 Purchases: {totals.purchasesCount}
+              </span>
+              <span className="text-green-600">
+                Payments In: {totals.paymentsInCount}
+              </span>
+              <span className="text-blue-600">
+                Payments Out: {totals.paymentsOutCount}
               </span>
             </div>
           </CardContent>
@@ -210,26 +311,26 @@ const AllTransactionsReport = () => {
 
         <Card className="bg-green-50 border-green-200">
           <CardContent className="p-4">
-            <p className="text-sm text-gray-500">Sales Income</p>
+            <p className="text-sm text-gray-500">Total Inflow</p>
             <h3 className="text-2xl font-bold mt-1 text-green-600">
-              ₹{totals.salesTotal.toFixed(2)}
+              {formatCurrency(totals.totalInflow)}
             </h3>
             <div className="text-xs mt-2 flex items-center">
               <ArrowUpIcon className="h-3 w-3 text-green-500 mr-1" />
-              <span>Inflows</span>
+              <span>Sales + Payments In</span>
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-blue-50 border-blue-200">
           <CardContent className="p-4">
-            <p className="text-sm text-gray-500">Purchase Expenses</p>
+            <p className="text-sm text-gray-500">Total Outflow</p>
             <h3 className="text-2xl font-bold mt-1 text-blue-600">
-              ₹{totals.purchasesTotal.toFixed(2)}
+              {formatCurrency(totals.totalOutflow)}
             </h3>
             <div className="text-xs mt-2 flex items-center">
               <ArrowDownIcon className="h-3 w-3 text-blue-500 mr-1" />
-              <span>Outflows</span>
+              <span>Purchases + Payments Out</span>
             </div>
           </CardContent>
         </Card>
@@ -237,18 +338,18 @@ const AllTransactionsReport = () => {
         <Card
           className={`${
             totals.netCashFlow >= 0
-              ? 'bg-green-50 border-green-200'
-              : 'bg-red-50 border-red-200'
+              ? "bg-green-50 border-green-200"
+              : "bg-red-50 border-red-200"
           }`}
         >
           <CardContent className="p-4">
             <p className="text-sm text-gray-500">Net Cash Flow</p>
             <h3
               className={`text-2xl font-bold mt-1 ${
-                totals.netCashFlow >= 0 ? 'text-green-600' : 'text-red-600'
+                totals.netCashFlow >= 0 ? "text-green-600" : "text-red-600"
               }`}
             >
-              ₹{Math.abs(totals.netCashFlow).toFixed(2)}
+              {formatCurrency(Math.abs(totals.netCashFlow))}
             </h3>
             <div className="text-xs mt-2 flex items-center">
               {totals.netCashFlow >= 0 ? (
@@ -275,20 +376,20 @@ const AllTransactionsReport = () => {
             {startDate && endDate
               ? `Transactions from ${format(
                   new Date(startDate),
-                  'dd MMM, yyyy'
-                )} to ${format(new Date(endDate), 'dd MMM, yyyy')}`
-              : 'All Transactions'}
+                  "dd MMM, yyyy"
+                )} to ${format(new Date(endDate), "dd MMM, yyyy")}`
+              : "All Transactions"}
           </CardTitle>
         </CardHeader>
 
         <CardContent>
-          {isLoadingSales || isLoadingPurchases ? (
+          {isLoading ? (
             <div className="space-y-3 print:hidden">
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-20 w-full" />
               <Skeleton className="h-20 w-full" />
             </div>
-          ) : isSalesError || isPurchasesError ? (
+          ) : isSalesError || isPurchasesError || isPaymentsError ? (
             <Alert variant="destructive" className="print:hidden">
               <AlertCircleIcon className="h-4 w-4" />
               <AlertDescription>
@@ -306,15 +407,15 @@ const AllTransactionsReport = () => {
                   <TabsTrigger value="all">All Transactions</TabsTrigger>
                   <TabsTrigger value="sales">Sales</TabsTrigger>
                   <TabsTrigger value="purchases">Purchases</TabsTrigger>
+                  <TabsTrigger value="payments">Payments</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="all">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                      <TableHead>Date</TableHead>
-                      
-                        <TableHead>Invoice #</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Document #</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Party</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
@@ -325,20 +426,22 @@ const AllTransactionsReport = () => {
                     <TableBody>
                       {allTransactions.length > 0 ? (
                         allTransactions.map((transaction) => (
-                          <TableRow key={transaction.id}>
-                                <TableCell>
-          {format(new Date(transaction.documentDate), 'dd/MM/yyyy')} {/* Add this cell */}
-        </TableCell>
-                           
+                          <TableRow
+                            key={`${transaction.sourceType}-${transaction.id}`}
+                          >
+                            <TableCell>
+                              {format(new Date(transaction.date), "dd/MM/yyyy")}
+                            </TableCell>
                             <TableCell className="font-medium">
                               {transaction.documentNumber}
                             </TableCell>
                             <TableCell>
                               <span
                                 className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  transaction.transactionType === 'Sale'
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-blue-100 text-blue-700'
+                                  transaction.transactionType === "Sale" ||
+                                  transaction.transactionType === "Payment In"
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-blue-100 text-blue-700"
                                 }`}
                               >
                                 {transaction.transactionType}
@@ -346,17 +449,17 @@ const AllTransactionsReport = () => {
                             </TableCell>
                             <TableCell>{transaction.counterparty}</TableCell>
                             <TableCell className="text-right">
-                              ₹{transaction.total.toFixed(2)}
+                              {formatCurrency(transaction.total)}
                             </TableCell>
                             <TableCell className="text-right">
                               {transaction.amountReceived > 0
-                                ? `₹${transaction.amountReceived.toFixed(2)}`
-                                : '-'}
+                                ? formatCurrency(transaction.amountReceived)
+                                : "-"}
                             </TableCell>
                             <TableCell className="text-right">
                               {transaction.amountPaid > 0
-                                ? `₹${transaction.amountPaid.toFixed(2)}`
-                                : '-'}
+                                ? formatCurrency(transaction.amountPaid)
+                                : "-"}
                             </TableCell>
                           </TableRow>
                         ))
@@ -366,7 +469,7 @@ const AllTransactionsReport = () => {
                             colSpan={7}
                             className="text-center py-4 text-gray-500"
                           >
-                            No transactions found for this date
+                            No transactions found for this period
                           </TableCell>
                         </TableRow>
                       )}
@@ -378,7 +481,7 @@ const AllTransactionsReport = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        
+                        <TableHead>Date</TableHead>
                         <TableHead>Invoice #</TableHead>
                         <TableHead>Customer</TableHead>
                         <TableHead>Payment Type</TableHead>
@@ -391,20 +494,25 @@ const AllTransactionsReport = () => {
                       {saleInvoices && saleInvoices?.length > 0 ? (
                         saleInvoices.map((invoice) => (
                           <TableRow key={invoice.id}>
-                         
+                            <TableCell>
+                              {format(
+                                new Date(invoice.documentDate),
+                                "dd/MM/yyyy"
+                              )}
+                            </TableCell>
                             <TableCell className="font-medium">
                               {invoice.documentNumber}
                             </TableCell>
                             <TableCell>{invoice.partyName}</TableCell>
                             <TableCell>{invoice.paymentType}</TableCell>
                             <TableCell className="text-right">
-                              ₹{invoice.total.toFixed(2)}
+                              {formatCurrency(invoice.total)}
                             </TableCell>
                             <TableCell className="text-right">
-                              ₹{invoice.paidAmount.toFixed(2)}
+                              {formatCurrency(invoice.paidAmount)}
                             </TableCell>
                             <TableCell className="text-right">
-                              ₹{invoice.balanceAmount.toFixed(2)}
+                              {formatCurrency(invoice.balanceAmount)}
                             </TableCell>
                           </TableRow>
                         ))
@@ -414,7 +522,7 @@ const AllTransactionsReport = () => {
                             colSpan={7}
                             className="text-center py-4 text-gray-500"
                           >
-                            No sales found for this date
+                            No sales found for this period
                           </TableCell>
                         </TableRow>
                       )}
@@ -426,7 +534,7 @@ const AllTransactionsReport = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                       
+                        <TableHead>Date</TableHead>
                         <TableHead>Invoice #</TableHead>
                         <TableHead>Supplier</TableHead>
                         <TableHead>Payment Type</TableHead>
@@ -439,20 +547,25 @@ const AllTransactionsReport = () => {
                       {purchaseInvoices && purchaseInvoices?.length > 0 ? (
                         purchaseInvoices.map((invoice) => (
                           <TableRow key={invoice.id}>
-                        
+                            <TableCell>
+                              {format(
+                                new Date(invoice.documentDate),
+                                "dd/MM/yyyy"
+                              )}
+                            </TableCell>
                             <TableCell className="font-medium">
                               {invoice.documentNumber}
                             </TableCell>
                             <TableCell>{invoice.partyName}</TableCell>
                             <TableCell>{invoice.paymentType}</TableCell>
                             <TableCell className="text-right">
-                              ₹{invoice.total.toFixed(2)}
+                              {formatCurrency(invoice.total)}
                             </TableCell>
                             <TableCell className="text-right">
-                              ₹{invoice.paidAmount.toFixed(2)}
+                              {formatCurrency(invoice.paidAmount)}
                             </TableCell>
                             <TableCell className="text-right">
-                              ₹{invoice.balanceAmount.toFixed(2)}
+                              {formatCurrency(invoice.balanceAmount)}
                             </TableCell>
                           </TableRow>
                         ))
@@ -462,7 +575,71 @@ const AllTransactionsReport = () => {
                             colSpan={7}
                             className="text-center py-4 text-gray-500"
                           >
-                            No purchases found for this date
+                            No purchases found for this period
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TabsContent>
+
+                {/* New Payments Tab */}
+                <TabsContent value="payments">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Receipt #</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Party</TableHead>
+                        <TableHead>Payment Method</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead>Reference</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paymentTransactions.length > 0 ? (
+                        paymentTransactions.map((payment) => (
+                          <TableRow key={payment.id}>
+                            <TableCell>
+                              {format(
+                                new Date(payment.paymentDate),
+                                "dd/MM/yyyy"
+                              )}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {payment.documentNumber}
+                            </TableCell>
+                            <TableCell>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  payment.direction === PaymentDirection.IN
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-blue-100 text-blue-700"
+                                }`}
+                              >
+                                {payment.direction === PaymentDirection.IN
+                                  ? "Payment In"
+                                  : "Payment Out"}
+                              </span>
+                            </TableCell>
+                            <TableCell>{payment.partyName}</TableCell>
+                            <TableCell>{payment.paymentType}</TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(payment.amount)}
+                            </TableCell>
+                            <TableCell>
+                              {payment.referenceNumber || "-"}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell
+                            colSpan={7}
+                            className="text-center py-4 text-gray-500"
+                          >
+                            No payments found for this period
                           </TableCell>
                         </TableRow>
                       )}
@@ -486,16 +663,20 @@ const AllTransactionsReport = () => {
 
             {/* Date */}
             <p className="mb-4">
-  {startDate && endDate 
-    ? `Duration: From ${format(new Date(startDate), 'dd/MM/yyyy')} to ${format(new Date(endDate), 'dd/MM/yyyy')}`
-    : 'All Transactions'}
-</p>
+              {startDate && endDate
+                ? `Duration: From ${format(
+                    new Date(startDate),
+                    "dd/MM/yyyy"
+                  )} to ${format(new Date(endDate), "dd/MM/yyyy")}`
+                : "All Transactions"}
+            </p>
 
             {/* Sales Transactions Table */}
             <h3 className="text-md font-semibold mb-2">Sales Transactions</h3>
             <table className="w-full border-collapse mb-6">
               <thead>
                 <tr className="bg-gray-200">
+                  <th className="border border-gray-300 p-2 text-left">DATE</th>
                   <th className="border border-gray-300 p-2 text-left">TIME</th>
                   <th className="border border-gray-300 p-2 text-left">
                     INVOICE NO.
@@ -523,14 +704,17 @@ const AllTransactionsReport = () => {
                   saleInvoices?.map((invoice) => (
                     <tr key={invoice.id}>
                       <td className="border border-gray-300 p-2">
+                        {format(new Date(invoice.documentDate), "dd/MM/yyyy")}
+                      </td>
+                      <td className="border border-gray-300 p-2">
                         {invoice.documentTime
                           ? format(
                               new Date(
                                 `${invoice.documentDate}T${invoice.documentTime}`
                               ),
-                              'hh:mm a'
+                              "hh:mm a"
                             )
-                          : '-'}
+                          : "-"}
                       </td>
                       <td className="border border-gray-300 p-2">
                         {invoice.documentNumber}
@@ -542,23 +726,23 @@ const AllTransactionsReport = () => {
                         {invoice.paymentType}
                       </td>
                       <td className="border border-gray-300 p-2">
-                        ₹ {invoice.total.toFixed(2)}
+                        {formatCurrency(invoice.total)}
                       </td>
                       <td className="border border-gray-300 p-2">
-                        ₹ {invoice.paidAmount.toFixed(2)}
+                        {formatCurrency(invoice.paidAmount)}
                       </td>
                       <td className="border border-gray-300 p-2">
-                        ₹ {invoice.balanceAmount.toFixed(2)}
+                        {formatCurrency(invoice.balanceAmount)}
                       </td>
                     </tr>
                   ))}
                 {(!saleInvoices || saleInvoices.length === 0) && (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="border border-gray-300 p-2 text-center"
                     >
-                      No sales found for this date
+                      No sales found for this period
                     </td>
                   </tr>
                 )}
@@ -566,13 +750,13 @@ const AllTransactionsReport = () => {
               <tfoot>
                 <tr className="bg-gray-100">
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="border border-gray-300 p-2 text-right font-semibold"
                   >
                     Total Sales:
                   </td>
                   <td className="border border-gray-300 p-2 font-semibold">
-                    ₹ {totals.salesTotal.toFixed(2)}
+                    {formatCurrency(totals.salesTotal)}
                   </td>
                   <td colSpan={2} className="border border-gray-300 p-2"></td>
                 </tr>
@@ -586,6 +770,7 @@ const AllTransactionsReport = () => {
             <table className="w-full border-collapse mb-6">
               <thead>
                 <tr className="bg-gray-200">
+                  <th className="border border-gray-300 p-2 text-left">DATE</th>
                   <th className="border border-gray-300 p-2 text-left">TIME</th>
                   <th className="border border-gray-300 p-2 text-left">
                     INVOICE NO.
@@ -611,14 +796,17 @@ const AllTransactionsReport = () => {
                   purchaseInvoices?.map((invoice) => (
                     <tr key={invoice.id}>
                       <td className="border border-gray-300 p-2">
+                        {format(new Date(invoice.documentDate), "dd/MM/yyyy")}
+                      </td>
+                      <td className="border border-gray-300 p-2">
                         {invoice.documentTime
                           ? format(
                               new Date(
                                 `${invoice.documentDate}T${invoice.documentTime}`
                               ),
-                              'hh:mm a'
+                              "hh:mm a"
                             )
-                          : '-'}
+                          : "-"}
                       </td>
                       <td className="border border-gray-300 p-2">
                         {invoice.documentNumber}
@@ -630,23 +818,23 @@ const AllTransactionsReport = () => {
                         {invoice.paymentType}
                       </td>
                       <td className="border border-gray-300 p-2">
-                        ₹ {invoice.total.toFixed(2)}
+                        {formatCurrency(invoice.total)}
                       </td>
                       <td className="border border-gray-300 p-2">
-                        ₹ {invoice.paidAmount.toFixed(2)}
+                        {formatCurrency(invoice.paidAmount)}
                       </td>
                       <td className="border border-gray-300 p-2">
-                        ₹ {invoice.balanceAmount.toFixed(2)}
+                        {formatCurrency(invoice.balanceAmount)}
                       </td>
                     </tr>
                   ))}
                 {(!purchaseInvoices || purchaseInvoices.length === 0) && (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="border border-gray-300 p-2 text-center"
                     >
-                      No purchases found for this date
+                      No purchases found for this period
                     </td>
                   </tr>
                 )}
@@ -654,57 +842,169 @@ const AllTransactionsReport = () => {
               <tfoot>
                 <tr className="bg-gray-100">
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="border border-gray-300 p-2 text-right font-semibold"
                   >
                     Total Purchases:
                   </td>
                   <td className="border border-gray-300 p-2 font-semibold">
-                    ₹ {totals.purchasesTotal.toFixed(2)}
+                    {formatCurrency(totals.purchasesTotal)}
                   </td>
                   <td colSpan={2} className="border border-gray-300 p-2"></td>
                 </tr>
               </tfoot>
             </table>
 
-            {/* Day Summary */}
+            {/* Payment Transactions Table */}
+            <h3 className="text-md font-semibold mb-2">Payment Transactions</h3>
+            <table className="w-full border-collapse mb-6">
+              <thead>
+                <tr className="bg-gray-200">
+                  <th className="border border-gray-300 p-2 text-left">DATE</th>
+                  <th className="border border-gray-300 p-2 text-left">
+                    RECEIPT NO.
+                  </th>
+                  <th className="border border-gray-300 p-2 text-left">TYPE</th>
+                  <th className="border border-gray-300 p-2 text-left">
+                    PARTY
+                  </th>
+                  <th className="border border-gray-300 p-2 text-left">
+                    PAYMENT METHOD
+                  </th>
+                  <th className="border border-gray-300 p-2 text-left">
+                    AMOUNT
+                  </th>
+                  <th className="border border-gray-300 p-2 text-left">
+                    REFERENCE
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {!isLoadingPayments &&
+                  !isPaymentsError &&
+                  paymentTransactions.map((payment) => (
+                    <tr key={payment.id}>
+                      <td className="border border-gray-300 p-2">
+                        {format(new Date(payment.paymentDate), "dd/MM/yyyy")}
+                      </td>
+                      <td className="border border-gray-300 p-2">
+                        {payment.receiptNumber ||
+                          `PMT-${payment.id.substring(0, 8)}`}
+                      </td>
+                      <td className="border border-gray-300 p-2">
+                        {payment.direction === PaymentDirection.IN
+                          ? "Payment In"
+                          : "Payment Out"}
+                      </td>
+                      <td className="border border-gray-300 p-2">
+                        {payment.partyName}
+                      </td>
+                      <td className="border border-gray-300 p-2">
+                        {payment.paymentType}
+                      </td>
+                      <td className="border border-gray-300 p-2">
+                        {formatCurrency(payment.amount)}
+                      </td>
+                      <td className="border border-gray-300 p-2">
+                        {payment.referenceNumber || "-"}
+                      </td>
+                    </tr>
+                  ))}
+                {(!payments || payments.length === 0) && (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="border border-gray-300 p-2 text-center"
+                    >
+                      No payments found for this period
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              <tfoot>
+                <tr className="bg-gray-100">
+                  <td
+                    colSpan={5}
+                    className="border border-gray-300 p-2 text-right font-semibold"
+                  >
+                    Total Payments In:
+                  </td>
+                  <td className="border border-gray-300 p-2 font-semibold">
+                    {formatCurrency(totals.paymentsInTotal)}
+                  </td>
+                  <td className="border border-gray-300 p-2"></td>
+                </tr>
+                <tr className="bg-gray-100">
+                  <td
+                    colSpan={5}
+                    className="border border-gray-300 p-2 text-right font-semibold"
+                  >
+                    Total Payments Out:
+                  </td>
+                  <td className="border border-gray-300 p-2 font-semibold">
+                    {formatCurrency(totals.paymentsOutTotal)}
+                  </td>
+                  <td className="border border-gray-300 p-2"></td>
+                </tr>
+              </tfoot>
+            </table>
+
+            {/* Summary Section */}
             <div className="border border-gray-300 p-4 bg-gray-50">
               <h3 className="text-md font-semibold mb-2 border-b pb-2">
-                Day Summary
+                Transaction Summary
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p>
-                    Total Transactions:{' '}
-                    <strong>{totals.salesCount + totals.purchasesCount}</strong>
+                  <p className="mb-1">
+                    Total Transactions:{" "}
+                    <strong>
+                      {totals.salesCount +
+                        totals.purchasesCount +
+                        totals.paymentsInCount +
+                        totals.paymentsOutCount}
+                    </strong>
                   </p>
-                  <p>
-                    Sales Transactions: <strong>{totals.salesCount}</strong>
+                  <p className="mb-1">
+                    Sales: <strong>{totals.salesCount}</strong>
                   </p>
-                  <p>
-                    Purchase Transactions:{' '}
-                    <strong>{totals.purchasesCount}</strong>
+                  <p className="mb-1">
+                    Purchases: <strong>{totals.purchasesCount}</strong>
+                  </p>
+                  <p className="mb-1">
+                    Payments In: <strong>{totals.paymentsInCount}</strong>
+                  </p>
+                  <p className="mb-1">
+                    Payments Out: <strong>{totals.paymentsOutCount}</strong>
                   </p>
                 </div>
                 <div>
-                  <p>
-                    Total Sales:{' '}
-                    <strong>₹ {totals.salesTotal.toFixed(2)}</strong>
+                  <p className="mb-1">
+                    Sales Total:{" "}
+                    <strong>{formatCurrency(totals.salesTotal)}</strong>
                   </p>
-                  <p>
-                    Total Purchases:{' '}
-                    <strong>₹ {totals.purchasesTotal.toFixed(2)}</strong>
+                  <p className="mb-1">
+                    Payments In:{" "}
+                    <strong>{formatCurrency(totals.paymentsInTotal)}</strong>
                   </p>
-                  <p>
-                    Net Cash Flow:{' '}
+                  <p className="mb-1">
+                    Purchases Total:{" "}
+                    <strong>{formatCurrency(totals.purchasesTotal)}</strong>
+                  </p>
+                  <p className="mb-1">
+                    Payments Out:{" "}
+                    <strong>{formatCurrency(totals.paymentsOutTotal)}</strong>
+                  </p>
+                  <p className="mt-2 pt-2 border-t border-gray-300">
+                    Net Cash Flow:{" "}
                     <strong
                       className={
                         totals.netCashFlow >= 0
-                          ? 'text-green-600'
-                          : 'text-red-600'
+                          ? "text-green-600"
+                          : "text-red-600"
                       }
                     >
-                      ₹ {totals.netCashFlow.toFixed(2)}
+                      {formatCurrency(totals.netCashFlow)}
                     </strong>
                   </p>
                 </div>
@@ -739,7 +1039,7 @@ const AllTransactionsReport = () => {
         }
       `}</style>
     </div>
-  )
-}
+  );
+};
 
-export default AllTransactionsReport
+export default AllTransactionsReport;

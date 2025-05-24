@@ -148,7 +148,7 @@ function MyApp({ Component, pageProps }: AppProps) {
   const AppWrapper = () => {
     return (
       <>
-       {/* <Sync/> */}
+       <Sync/>
         <UserInfo/>
         <SubscriptionExpiredModal />
         

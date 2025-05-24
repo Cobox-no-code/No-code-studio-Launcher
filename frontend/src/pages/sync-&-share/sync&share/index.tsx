@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import {
   AlertDialog,
@@ -63,13 +63,15 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {description}
-          </AlertDialogDescription>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} disabled={isLoading} className="bg-red-500 hover:bg-red-600">
+          <AlertDialogAction
+            onClick={onConfirm}
+            disabled={isLoading}
+            className="bg-red-500 hover:bg-red-600"
+          >
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...
@@ -84,14 +86,11 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   );
 };
 
-
 import { toast } from "react-hot-toast";
 import { API_BASE_URL } from "@/redux/api/api.config";
 import ManagePermissionModal from "@/components/_modal/ModifySharePermision";
 
-
-
-type Role = 'admin' | 'editor' | 'viewer';
+type Role = "admin" | "editor" | "viewer";
 
 interface SyncedUser {
   name: string;
@@ -106,13 +105,13 @@ const SyncShare = () => {
   const [syncedUsers, setSyncedUsers] = useState<SyncedUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
-  const [firmData,setFirmData] = useState<any>(null)
-  const [isCurrentUserAdmin,setCurrentUserAdmin] = useState(false)
- 
+  const [firmData, setFirmData] = useState<any>(null);
+  const [isCurrentUserAdmin, setCurrentUserAdmin] = useState(false);
+
   // Permission management modal state
   const [permissionModalOpen, setPermissionModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<SyncedUser | null>(null);
-  
+
   // Confirm removal modal state
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [userToRemove, setUserToRemove] = useState<SyncedUser | null>(null);
@@ -121,9 +120,9 @@ const SyncShare = () => {
   useEffect(() => {
     fetchSyncedUsers();
   }, []);
- 
+
   const fetchSyncedUsers = async () => {
-    const firm_id = localStorage.getItem('firmId')
+    const firm_id = localStorage.getItem("firmId");
     try {
       setIsLoading(true);
       const response = await axios.get(
@@ -183,26 +182,26 @@ const SyncShare = () => {
   const handleAddUser = () => {
     setShowAddUserModal(true);
   };
-  
+
   const handleManagePermissions = (user: SyncedUser) => {
     setSelectedUser(user);
     setPermissionModalOpen(true);
   };
-  
+
   const handleUpdateRole = async (phone: string, role: Role) => {
     const firmId = localStorage.getItem("firmId");
     if (!phone || !role || !firmId) {
       toast.error("Missing required information");
       return;
     }
-    
+
     try {
       const res = await axios.post(`${backend_url}/change-role/`, {
         phone,
         firm_id: firmId,
-        role
+        role,
       });
-      
+
       if (res.data.status === "success") {
         toast.success("Permissions updated successfully");
         await fetchSyncedUsers();
@@ -219,23 +218,23 @@ const SyncShare = () => {
     setUserToRemove(user);
     setConfirmModalOpen(true);
   };
-  
+
   const handleRemoveUser = async () => {
     if (!userToRemove) return;
-    
+
     const firmId = localStorage.getItem("firmId");
     if (!firmId) {
       toast.error("Firm ID not found");
       return;
     }
-    
+
     try {
       setIsRemoving(true);
       const res = await axios.post(`${backend_url}/remove-shared-firm/`, {
         phone: userToRemove.phone,
-        firm_id: firmId
+        firm_id: firmId,
       });
-      
+
       if (res.data.status === "success") {
         toast.success("User removed successfully");
         await fetchSyncedUsers();
@@ -252,19 +251,24 @@ const SyncShare = () => {
   };
 
   // Determine if current user is an admin (to show/hide certain controls)
-
+  useEffect(() => {
+    if (userInfo) {
+      const firmPhone = localStorage.getItem("firmPhone");
+      setCurrentUserAdmin(firmPhone == userInfo.phone);
+    }
+  }, [userInfo]);
 
   // Get role badge color
   const getRoleBadgeColor = (role: Role) => {
     switch (role) {
-      case 'admin':
-        return 'bg-blue-100 text-blue-800';
-      case 'editor':
-        return 'bg-green-100 text-green-800';
-      case 'viewer':
-        return 'bg-gray-100 text-gray-800';
+      case "admin":
+        return "bg-blue-100 text-blue-800";
+      case "editor":
+        return "bg-green-100 text-green-800";
+      case "viewer":
+        return "bg-gray-100 text-gray-800";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -316,7 +320,6 @@ const SyncShare = () => {
                   {userInfo.email ? `(${userInfo.email})` : ""}
                 </p>
               )}
-              
             </div>
           </div>
 
@@ -356,15 +359,20 @@ const SyncShare = () => {
                       <div className="flex items-center gap-2">
                         <p className="font-medium">{user.name || "User"}</p>
                         {user.role && (
-                          <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium ${getRoleBadgeColor(user.role)} rounded-full`}>
-                            {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 text-xs font-medium ${getRoleBadgeColor(
+                              user.role
+                            )} rounded-full`}
+                          >
+                            {user.role.charAt(0).toUpperCase() +
+                              user.role.slice(1)}
                           </span>
                         )}
                       </div>
                       <p className="text-sm text-gray-500">{user.phone}</p>
                     </div>
                   </div>
-                  
+
                   {isCurrentUserAdmin && (
                     <DropdownMenu>
                       <DropdownMenuTrigger>
@@ -376,11 +384,13 @@ const SyncShare = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => handleManagePermissions(user)}>
+                        <DropdownMenuItem
+                          onClick={() => handleManagePermissions(user)}
+                        >
                           <UserCog className="h-4 w-4 mr-2" />
                           Manage Permissions
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           className="text-red-600"
                           onClick={() => openRemoveConfirmation(user)}
                         >
@@ -424,7 +434,7 @@ const SyncShare = () => {
         onClose={() => setShowAddUserModal(false)}
         onShareSuccess={fetchSyncedUsers}
       />
-      
+
       {/* Manage Permissions Modal */}
       <ManagePermissionModal
         open={permissionModalOpen}
@@ -435,7 +445,7 @@ const SyncShare = () => {
         user={selectedUser}
         onUpdateRole={handleUpdateRole}
       />
-      
+
       {/* Confirm Remove User Modal */}
       <ConfirmModal
         open={confirmModalOpen}
@@ -444,7 +454,11 @@ const SyncShare = () => {
           setUserToRemove(null);
         }}
         title="Remove User"
-        description={`Are you sure you want to remove ${userToRemove?.name || "this user"} (${userToRemove?.phone || ""})? They will no longer have access to this firm's data.`}
+        description={`Are you sure you want to remove ${
+          userToRemove?.name || "this user"
+        } (${
+          userToRemove?.phone || ""
+        })? They will no longer have access to this firm's data.`}
         actionLabel="Remove User"
         isLoading={isRemoving}
         onConfirm={handleRemoveUser}
