@@ -342,8 +342,23 @@ const PaymentOutForm: React.FC = () => {
                             {party.phone && (
                               <div className="text-xs text-gray-500">
                                 {party.phone}
-                              </div>
+                            </div>
                             )}
+                            {
+                              party.currentBalance && (
+                               
+                                <div
+                                className={`text-xs ${
+                                  party.currentBalanceType === "to_receive"
+                                    ? "text-green-500"
+                                    : "text-red-500"
+                                } `}
+                              >
+                                ₹{party.currentBalance}
+                              </div>
+                              )
+                            }
+                                
                           </div>
                         ))}
                       </div>
