@@ -1,11 +1,17 @@
-'use client'
-import React, { ChangeEvent, useEffect, useState } from 'react'
-import { useDispatch } from 'react-redux'
-import { AppDispatch } from '@/redux/store'
-import { useGetItemsQuery, useGetCategoriesQuery, useGetUnitsQuery, useGetUnitConversionsQuery, useDeleteItemMutation } from '@/redux/api'
+"use client";
+import React, { ChangeEvent, useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
+import { AppDispatch } from "@/redux/store";
+import {
+  useGetItemsQuery,
+  useGetCategoriesQuery,
+  useGetUnitsQuery,
+  useGetUnitConversionsQuery,
+  useDeleteItemMutation,
+} from "@/redux/api";
 
 // UI Components
-import { Button } from '@/components/ui/button'
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -14,7 +20,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from "@/components/ui/table";
 import {
   Card,
   CardContent,
@@ -22,13 +28,13 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Icons
 import {
@@ -51,215 +57,229 @@ import {
   ShoppingCart,
   ArrowDownRight,
   ArrowUpRight,
-} from 'lucide-react'
+} from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
-import { useAppDispatch } from '@/redux/hooks'
-import { openCreateForm, openEditForm } from '@/redux/slices/itemsSlice'
+} from "@/components/ui/popover";
+import { useAppDispatch } from "@/redux/hooks";
+import { openCreateForm, openEditForm } from "@/redux/slices/itemsSlice";
+import toast from "react-hot-toast";
 
 // Helper to format currency
 const formatCurrency = (amount: string | number | bigint) => {
-  const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
+  const numericAmount =
+    typeof amount === "string" ? parseFloat(amount) : amount;
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
     maximumFractionDigits: 2,
-  }).format(numericAmount)
-}
+  }).format(numericAmount);
+};
 
 // Helper to format dates
 const formatDate = (dateString: string) => {
-  if (!dateString) return '—'
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
-}
+  if (!dateString) return "—";
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
 
 const Items = () => {
-  const dispatch = useDispatch<AppDispatch>()
+  const dispatch = useDispatch<AppDispatch>();
 
   // State management
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [filterProduct, setFilterProduct] = useState('')
-  const [filterTransaction, setFilterTransaction] = useState('')
-  const [currentTab, setCurrentTab] = useState('all')
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filterProduct, setFilterProduct] = useState("");
+  const [filterTransaction, setFilterTransaction] = useState("");
+  const [currentTab, setCurrentTab] = useState("all");
 
   // Use RTK Query to fetch items, categories, and units
-  const { data: items, isLoading, isError, error ,refetch} = useGetItemsQuery({})
-  const { data: categories, isLoading: isLoadingCategories } = useGetCategoriesQuery()
-  const { data: units, isLoading: isLoadingUnits } = useGetUnitsQuery()
-  const { data: unitConversions, isLoading: isLoadingConversions } = useGetUnitConversionsQuery()
- const [deleteItem, { isLoading: isCreatingItem }] = useDeleteItemMutation()
+  const {
+    data: items,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useGetItemsQuery({});
+  const { data: categories, isLoading: isLoadingCategories } =
+    useGetCategoriesQuery();
+  const { data: units, isLoading: isLoadingUnits } = useGetUnitsQuery();
+  const { data: unitConversions, isLoading: isLoadingConversions } =
+    useGetUnitConversionsQuery();
+  const [deleteItem, { isLoading: isDeleting, error: deleteError }] =
+    useDeleteItemMutation();
   // Helper functions to get names from IDs
   const getCategoryName = (categoryId: string | undefined) => {
-    if (!categoryId || !categories) return '—'
-    const category = categories.find(cat => cat.id === categoryId)
-    return category ? category.name : '—'
-  }
-  
+    if (!categoryId || !categories) return "—";
+    const category = categories.find((cat) => cat.id === categoryId);
+    return category ? category.name : "—";
+  };
+
   // Get unit details based on unitId or unit_conversionId
-  const getUnitInfo = (item:any) => {
-    if (!units) return { name: '—', shortName: '' }
-    
+  const getUnitInfo = (item: any) => {
+    if (!units) return { name: "—", shortName: "" };
+
     // First try to get unit from unit_conversionId
     if (item.unit_conversionId && unitConversions) {
-      const conversion = unitConversions.find(uc => uc.id === item.unit_conversionId)
+      const conversion = unitConversions.find(
+        (uc) => uc.id === item.unit_conversionId
+      );
       if (conversion) {
-        const unit = units.find(u => u.id === conversion.primaryUnitId)
+        const unit = units.find((u) => u.id === conversion.primaryUnitId);
         return {
-          name: unit ? unit.fullname : '—',
-          shortName: unit ? unit.shortname : '',
+          name: unit ? unit.fullname : "—",
+          shortName: unit ? unit.shortname : "",
           secondaryUnitId: conversion.secondaryUnitId,
-          conversionRate: conversion.conversionRate || 1
-        }
+          conversionRate: conversion.conversionRate || 1,
+        };
       }
     }
-    
+
     // Fallback to unitId for backward compatibility
     if (item.unitId) {
-      const unit = units.find(u => u.id === item.unitId)
+      const unit = units.find((u) => u.id === item.unitId);
       return {
-        name: unit ? unit.fullname : '—',
-        shortName: unit ? unit.shortname : '',
-        conversionRate: 1
-      }
+        name: unit ? unit.fullname : "—",
+        shortName: unit ? unit.shortname : "",
+        conversionRate: 1,
+      };
     }
-    
-    return { name: '—', shortName: '', conversionRate: 1 }
-  }
-  
+
+    return { name: "—", shortName: "", conversionRate: 1 };
+  };
+
   // Get secondary unit info
-  const getSecondaryUnitInfo = (secondaryUnitId:any) => {
-    if (!secondaryUnitId || !units) return { name: '—', shortName: '' }
-    const unit = units.find(u => u.id === secondaryUnitId)
+  const getSecondaryUnitInfo = (secondaryUnitId: any) => {
+    if (!secondaryUnitId || !units) return { name: "—", shortName: "" };
+    const unit = units.find((u) => u.id === secondaryUnitId);
     return {
-      name: unit ? unit.fullname : '—',
-      shortName: unit ? unit.shortname : ''
-    }
-  }
- useEffect(() => {
+      name: unit ? unit.fullname : "—",
+      shortName: unit ? unit.shortname : "",
+    };
+  };
+  useEffect(() => {
     // Immediately refetch data when component mounts
     refetch();
-    
+
     // Set up interval for periodic refetching (every 5 seconds)
     const intervalId = setInterval(() => {
       refetch();
     }, 5000); // Adjust this time as needed
-    
+
     // Clean up interval on unmount
     return () => clearInterval(intervalId);
   }, [refetch]);
   // Calculate stock value considering both primary and secondary quantities
-  const calculateStockValue = (item:any) => {
-    if (!item || !item.purchasePrice) return '—'
-    
-    let totalValue = 0
-    
+  const calculateStockValue = (item: any) => {
+    if (!item || !item.purchasePrice) return "—";
+
+    let totalValue = 0;
+
     // Add primary quantity value
     if (item.primaryQuantity) {
-      totalValue += item.primaryQuantity * item.purchasePrice
+      totalValue += item.primaryQuantity * item.purchasePrice;
     }
-    
+
     // Add secondary quantity value if exists
     if (item.secondaryQuantity && item.unit_conversionId) {
-      const unitInfo = getUnitInfo(item)
+      const unitInfo = getUnitInfo(item);
       if (unitInfo.conversionRate) {
         // Convert secondary units to primary units for value calculation
-        const primaryEquivalent = item.secondaryQuantity / unitInfo.conversionRate
-        totalValue += primaryEquivalent * item.purchasePrice
+        const primaryEquivalent =
+          item.secondaryQuantity / unitInfo.conversionRate;
+        totalValue += primaryEquivalent * item.purchasePrice;
       }
     }
-    
-    return totalValue > 0 ? formatCurrency(totalValue) : '—'
-  }
+
+    return totalValue > 0 ? formatCurrency(totalValue) : "—";
+  };
 
   // Handle item selection
   const handleSelectItem = (id: string) => {
-    setSelectedId(id)
-  }
+    setSelectedId(id);
+  };
 
   // Open modals
   const openCreateModal = () => {
-    dispatch(openCreateForm())
-  }
-  
+    dispatch(openCreateForm());
+  };
+
   const openEditModal = (itemId: string) => {
-    dispatch(openEditForm(itemId))
-  }
+    dispatch(openEditForm(itemId));
+  };
 
   // Get the selected item details
   const selectedItem = selectedId
     ? items?.find((item) => item.id === selectedId)
-    : null
+    : null;
 
   // Filter products based on search and tab
   const filteredItems = items?.filter((item) => {
     const matchesSearch = item.name
       .toLowerCase()
-      .includes(filterProduct.toLowerCase())
+      .includes(filterProduct.toLowerCase());
 
-    if (currentTab === 'all') return matchesSearch
-    if (currentTab === 'products' && item.type === 'PRODUCT')
-      return matchesSearch
-    if (currentTab === 'services' && item.type === 'SERVICE')
-      return matchesSearch
+    if (currentTab === "all") return matchesSearch;
+    if (currentTab === "products" && item.type === "PRODUCT")
+      return matchesSearch;
+    if (currentTab === "services" && item.type === "SERVICE")
+      return matchesSearch;
     if (
-      currentTab === 'lowStock' &&
-      item.type === 'PRODUCT' &&
-      'primaryOpeningQuantity' in item &&
-      'minStockLevel' in item &&
+      currentTab === "lowStock" &&
+      item.type === "PRODUCT" &&
+      "primaryOpeningQuantity" in item &&
+      "minStockLevel" in item &&
       item.primaryOpeningQuantity <= (item.minStockLevel || 0)
     )
-      return matchesSearch
+      return matchesSearch;
 
-    return false
-  })
+    return false;
+  });
 
   // Items summary
-  const totalItems = items?.length || 0
+  const totalItems = items?.length || 0;
   const totalProducts =
-    items?.filter((item) => item.type === 'PRODUCT').length || 0
+    items?.filter((item) => item.type === "PRODUCT").length || 0;
   const totalServices =
-    items?.filter((item) => item.type === 'SERVICE').length || 0
+    items?.filter((item) => item.type === "SERVICE").length || 0;
   const lowStockItems =
     items?.filter(
       (item) =>
-        item.type === 'PRODUCT' &&
-        'primaryOpeningQuantity' in item &&
-        'minStockLevel' in item &&
+        item.type === "PRODUCT" &&
+        "primaryOpeningQuantity" in item &&
+        "minStockLevel" in item &&
         item.primaryOpeningQuantity <= (item.minStockLevel || 0)
-    ).length || 0
+    ).length || 0;
 
   // Get transaction history data (mock data)
   const transactionHistory = selectedItem
     ? [
         {
-          id: '1',
-          type: 'Sale',
-          invoiceNo: 'INV-001',
-          date: '2025-04-15',
+          id: "1",
+          type: "Sale",
+          invoiceNo: "INV-001",
+          date: "2025-04-15",
           quantity: 5,
           pricePerUnit: selectedItem.salePrice,
-          direction: 'out',
+          direction: "out",
         },
         {
-          id: '2',
-          type: 'Purchase',
-          invoiceNo: 'PO-002',
-          date: '2025-04-10',
+          id: "2",
+          type: "Purchase",
+          invoiceNo: "PO-002",
+          date: "2025-04-10",
           quantity: 10,
           pricePerUnit:
-            'purchasePrice' in selectedItem ? selectedItem.purchasePrice : 0,
-          direction: 'in',
+            "purchasePrice" in selectedItem ? selectedItem.purchasePrice : 0,
+          direction: "in",
         },
       ]
-    : []
+    : [];
 
   // Filter transactions
   const filteredTransactions = transactionHistory.filter(
@@ -270,7 +290,7 @@ const Items = () => {
       transaction.invoiceNo
         .toLowerCase()
         .includes(filterTransaction.toLowerCase())
-  )
+  );
 
   return (
     <div className="p-4 space-y-4 bg-gray-50 min-h-screen">
@@ -340,7 +360,7 @@ const Items = () => {
               />
               {filterProduct && (
                 <button
-                  onClick={() => setFilterProduct('')}
+                  onClick={() => setFilterProduct("")}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2"
                 >
                   <X className="h-4 w-4 text-gray-400" />
@@ -400,7 +420,7 @@ const Items = () => {
                           <AlertCircle className="h-4 w-4" />
                           <AlertTitle>Error</AlertTitle>
                           <AlertDescription>
-                            {error?.toString() || 'Failed to load items'}
+                            {error?.toString() || "Failed to load items"}
                           </AlertDescription>
                         </Alert>
                       </TableCell>
@@ -421,7 +441,7 @@ const Items = () => {
                         <TableRow
                           key={item.id}
                           className={`cursor-pointer hover:bg-gray-50 ${
-                            selectedId === item.id ? 'bg-primary/5' : ''
+                            selectedId === item.id ? "bg-primary/5" : ""
                           }`}
                           onClick={() => handleSelectItem(item.id)}
                         >
@@ -431,15 +451,15 @@ const Items = () => {
                               <div className="flex items-center gap-2 mt-1">
                                 <Badge
                                   variant={
-                                    item.type === 'PRODUCT'
-                                      ? 'outline'
-                                      : 'secondary'
+                                    item.type === "PRODUCT"
+                                      ? "outline"
+                                      : "secondary"
                                   }
                                   className="text-xs"
                                 >
-                                  {item.type === 'PRODUCT'
-                                    ? 'Product'
-                                    : 'Service'}
+                                  {item.type === "PRODUCT"
+                                    ? "Product"
+                                    : "Service"}
                                 </Badge>
                                 {item.categoryId && (
                                   <Badge variant="outline" className="text-xs">
@@ -450,35 +470,37 @@ const Items = () => {
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
-                            {item.type === 'PRODUCT' &&
-                            'primaryQuantity' in item ? (
+                            {item.type === "PRODUCT" &&
+                            "primaryQuantity" in item ? (
                               <span
                                 className={
-                                  'minStockLevel' in item &&
+                                  "minStockLevel" in item &&
                                   (item.primaryQuantity ?? 0) <=
                                     (item.minStockLevel || 0)
-                                    ? 'text-red-600 font-medium'
-                                    : ''
+                                    ? "text-red-600 font-medium"
+                                    : ""
                                 }
                               >
-                                {item.primaryQuantity}{' '}
-                                {unitInfo.shortName}
+                                {item.primaryQuantity} {unitInfo.shortName}
                               </span>
                             ) : (
-                              '—'
+                              "—"
                             )}
                           </TableCell>
                           <TableCell className="text-right">
-                            {item.type === 'PRODUCT' &&
-                            'secondaryQuantity' in item &&
+                            {item.type === "PRODUCT" &&
+                            "secondaryQuantity" in item &&
                             (item.secondaryQuantity ?? 0) > 0 &&
                             unitInfo.secondaryUnitId ? (
                               <span>
-                                {item.secondaryQuantity }{' '}
-                                {getSecondaryUnitInfo(unitInfo.secondaryUnitId).shortName}
+                                {item.secondaryQuantity}{" "}
+                                {
+                                  getSecondaryUnitInfo(unitInfo.secondaryUnitId)
+                                    .shortName
+                                }
                               </span>
                             ) : (
-                              '—'
+                              "—"
                             )}
                           </TableCell>
                           <TableCell className="text-right w-10">
@@ -491,16 +513,25 @@ const Items = () => {
                                   <button
                                     className="text-left px-2 py-1 hover:bg-gray-100 rounded-md text-sm"
                                     onClick={(e) => {
-                                      e.stopPropagation()
-                                      openEditModal(item.id)
+                                      e.stopPropagation();
+                                      openEditModal(item.id);
                                     }}
                                   >
                                     Edit Item
                                   </button>
                                   <button
                                     className="text-left px-2 py-1 hover:bg-gray-100 rounded-md text-sm"
-                                    onClick={(e) => {
-                                  deleteItem(item.id)
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      try {
+                                        await deleteItem(item.id).unwrap();
+                                        toast.success(
+                                          "Item deleted successfully"
+                                        );
+                                      } catch (error) {
+                                        toast.error("Failed to delete Item");
+                                        console.error("Delete error:", error);
+                                      }
                                     }}
                                   >
                                     Delete Item
@@ -508,7 +539,7 @@ const Items = () => {
                                   <button
                                     className="text-left px-2 py-1 hover:bg-gray-100 rounded-md text-sm"
                                     onClick={(e) => {
-                                      e.stopPropagation()
+                                      e.stopPropagation();
                                       // Add your delete or other actions here
                                     }}
                                   >
@@ -540,19 +571,19 @@ const Items = () => {
                       {selectedItem.name}
                       <Badge
                         variant={
-                          selectedItem.type === 'PRODUCT'
-                            ? 'outline'
-                            : 'secondary'
+                          selectedItem.type === "PRODUCT"
+                            ? "outline"
+                            : "secondary"
                         }
                         className="ml-2"
                       >
-                        {selectedItem.type === 'PRODUCT'
-                          ? 'Product'
-                          : 'Service'}
+                        {selectedItem.type === "PRODUCT"
+                          ? "Product"
+                          : "Service"}
                       </Badge>
                     </div>
                   ) : (
-                    'Item Details'
+                    "Item Details"
                   )}
                 </CardTitle>
                 {selectedItem && (
@@ -563,9 +594,7 @@ const Items = () => {
                   >
                     Edit Item
                   </Button>
-                  
                 )}
-
               </div>
             </CardHeader>
             <CardContent>
@@ -599,7 +628,6 @@ const Items = () => {
                             <p className="text-lg font-semibold text-green-600">
                               {formatCurrency(selectedItem.salePrice)}
                             </p>
-                           
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground">
@@ -608,22 +636,21 @@ const Items = () => {
                             <p className="text-lg font-semibold">
                               {selectedItem.wholesalePrice
                                 ? formatCurrency(selectedItem.wholesalePrice)
-                                : '—'}
+                                : "—"}
                             </p>
                           </div>
-                          {selectedItem.type === 'PRODUCT' && (
+                          {selectedItem.type === "PRODUCT" && (
                             <>
                               <div>
                                 <p className="text-xs text-muted-foreground">
                                   Purchase Price
                                 </p>
                                 <p className="text-lg font-semibold">
-                                  {'purchasePrice' in selectedItem &&
+                                  {"purchasePrice" in selectedItem &&
                                   selectedItem.purchasePrice
                                     ? formatCurrency(selectedItem.purchasePrice)
-                                    : '—'}
+                                    : "—"}
                                 </p>
-                              
                               </div>
                               <div>
                                 <p className="text-xs text-muted-foreground">
@@ -632,7 +659,7 @@ const Items = () => {
                                 <p className="text-lg font-semibold">
                                   {selectedItem.taxRate
                                     ? `${selectedItem.taxRate}`
-                                    : 'No Tax'}
+                                    : "No Tax"}
                                 </p>
                               </div>
                             </>
@@ -641,7 +668,7 @@ const Items = () => {
                       </CardContent>
                     </Card>
 
-                    {selectedItem.type === 'PRODUCT' && (
+                    {selectedItem.type === "PRODUCT" && (
                       <Card className="border-0 shadow-none bg-gray-50">
                         <CardContent className="p-4">
                           <div className="flex items-center gap-2 mb-2">
@@ -653,10 +680,10 @@ const Items = () => {
                           <div className="grid grid-cols-2 gap-4 mt-4">
                             {(() => {
                               const unitInfo = getUnitInfo(selectedItem);
-                              const secondaryUnitInfo = unitInfo.secondaryUnitId 
-                                ? getSecondaryUnitInfo(unitInfo.secondaryUnitId) 
+                              const secondaryUnitInfo = unitInfo.secondaryUnitId
+                                ? getSecondaryUnitInfo(unitInfo.secondaryUnitId)
                                 : null;
-                              
+
                               return (
                                 <>
                                   <div>
@@ -665,16 +692,19 @@ const Items = () => {
                                     </p>
                                     <p
                                       className={`text-lg font-semibold ${
-                                        'minStockLevel' in selectedItem &&
+                                        "minStockLevel" in selectedItem &&
                                         selectedItem.primaryOpeningQuantity <=
                                           (selectedItem.minStockLevel || 0)
-                                          ? 'text-red-600'
-                                          : ''
+                                          ? "text-red-600"
+                                          : ""
                                       }`}
                                     >
-                                      {'primaryOpeningQuantity' in selectedItem
-                                        ? `${selectedItem.primaryOpeningQuantity || 0} ${unitInfo.shortName}`
-                                        : '—'}
+                                      {"primaryOpeningQuantity" in selectedItem
+                                        ? `${
+                                            selectedItem.primaryOpeningQuantity ||
+                                            0
+                                          } ${unitInfo.shortName}`
+                                        : "—"}
                                     </p>
                                   </div>
                                   <div>
@@ -682,11 +712,13 @@ const Items = () => {
                                       Secondary Opening Quantity
                                     </p>
                                     <p className="text-lg font-semibold">
-                                      {'secondaryOpeningQuantity' in selectedItem && 
-                                       selectedItem.secondaryOpeningQuantity > 0 &&
-                                       secondaryUnitInfo
+                                      {"secondaryOpeningQuantity" in
+                                        selectedItem &&
+                                      selectedItem.secondaryOpeningQuantity >
+                                        0 &&
+                                      secondaryUnitInfo
                                         ? `${selectedItem.secondaryOpeningQuantity} ${secondaryUnitInfo.shortName}`
-                                        : '—'}
+                                        : "—"}
                                     </p>
                                   </div>
                                   <div>
@@ -694,9 +726,11 @@ const Items = () => {
                                       Minimum Stock Level
                                     </p>
                                     <p className="text-lg font-semibold">
-                                      {'minStockLevel' in selectedItem
-                                        ? `${selectedItem.minStockLevel || 0} ${unitInfo.shortName}`
-                                        : '—'}
+                                      {"minStockLevel" in selectedItem
+                                        ? `${selectedItem.minStockLevel || 0} ${
+                                            unitInfo.shortName
+                                          }`
+                                        : "—"}
                                     </p>
                                   </div>
                                   <div>
@@ -712,10 +746,10 @@ const Items = () => {
                                       Storage Location
                                     </p>
                                     <p className="text-lg font-semibold">
-                                      {'location' in selectedItem &&
+                                      {"location" in selectedItem &&
                                       selectedItem.location
                                         ? selectedItem.location
-                                        : '—'}
+                                        : "—"}
                                     </p>
                                   </div>
                                   <div>
@@ -723,9 +757,12 @@ const Items = () => {
                                       Price per Unit
                                     </p>
                                     <p className="text-lg font-semibold">
-                                      {'pricePerUnit' in selectedItem && selectedItem.pricePerUnit
-                                        ? `${formatCurrency(selectedItem.pricePerUnit)} / ${unitInfo.name}`
-                                        : '—'}
+                                      {"pricePerUnit" in selectedItem &&
+                                      selectedItem.pricePerUnit
+                                        ? `${formatCurrency(
+                                            selectedItem.pricePerUnit
+                                          )} / ${unitInfo.name}`
+                                        : "—"}
                                     </p>
                                   </div>
                                 </>
@@ -752,7 +789,7 @@ const Items = () => {
                               Item Code
                             </p>
                             <p className="text-base font-medium">
-                              {selectedItem.itemCode || '—'}
+                              {selectedItem.itemCode || "—"}
                             </p>
                           </div>
                           <div>
@@ -760,7 +797,7 @@ const Items = () => {
                               HSN Code
                             </p>
                             <p className="text-base font-medium">
-                              {selectedItem.hsnCode || '—'}
+                              {selectedItem.hsnCode || "—"}
                             </p>
                           </div>
                           <div>
@@ -782,26 +819,30 @@ const Items = () => {
                               })()}
                             </p>
                           </div>
-                          
-                          {selectedItem.unit_conversionId && unitConversions && (
-                            <div>
-                              <p className="text-xs text-muted-foreground">
-                                Unit Conversion
-                              </p>
-                              <p className="text-base font-medium">
-                                {(() => {
-                                  const unitInfo = getUnitInfo(selectedItem);
-                                  const secondaryUnitInfo = unitInfo.secondaryUnitId
-                                    ? getSecondaryUnitInfo(unitInfo.secondaryUnitId)
-                                    : null;
-                                  
-                                  return secondaryUnitInfo
-                                    ? `1 ${unitInfo.name} = ${unitInfo.conversionRate} ${secondaryUnitInfo.name}`
-                                    : '—';
-                                })()}
-                              </p>
-                            </div>
-                          )}
+
+                          {selectedItem.unit_conversionId &&
+                            unitConversions && (
+                              <div>
+                                <p className="text-xs text-muted-foreground">
+                                  Unit Conversion
+                                </p>
+                                <p className="text-base font-medium">
+                                  {(() => {
+                                    const unitInfo = getUnitInfo(selectedItem);
+                                    const secondaryUnitInfo =
+                                      unitInfo.secondaryUnitId
+                                        ? getSecondaryUnitInfo(
+                                            unitInfo.secondaryUnitId
+                                          )
+                                        : null;
+
+                                    return secondaryUnitInfo
+                                      ? `1 ${unitInfo.name} = ${unitInfo.conversionRate} ${secondaryUnitInfo.name}`
+                                      : "—";
+                                  })()}
+                                </p>
+                              </div>
+                            )}
                         </div>
                       </CardContent>
                     </Card>
@@ -810,12 +851,10 @@ const Items = () => {
               )}
             </CardContent>
           </Card>
-
-    
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Items
+export default Items;

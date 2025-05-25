@@ -178,12 +178,10 @@ export const updateParty = async (
       return res.status(404).json({ success: false, error: "Party not found" });
     }
 
-    // Check if the new name already exists for another party
-    if (name) {
+    if (name && name !== existingParty.name) {
       const duplicate = await db("parties", firmId)
-        .where("name", updateData.name)
-        .whereOp("id", "!=", id)
-
+        .where("name", name) // Use the name from destructured variable
+        .andWhereNot("id", id) // Exclude current party from duplicate check
         .first();
 
       if (duplicate) {

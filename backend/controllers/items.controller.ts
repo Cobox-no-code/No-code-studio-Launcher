@@ -103,13 +103,17 @@ export const updateItem = async (req: Request, res: Response): Promise<any> => {
     const firmId = (req.headers["x-firm-id"] as string) || "";
     const { id } = req.params;
     const body = req.body;
-    const existingItem = await db("items", firmId)
-      .where("name", body.name)
-      .first();
-    if (existingItem) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Item name must be unique" });
+    if (body.name) {
+      const existingItem = await db("items", firmId)
+        .where("name", body.name)
+        .andWhereNot("id", id)
+        .first();
+
+      if (existingItem) {
+        return res
+          .status(400)
+          .json({ success: false, error: "Item name must be unique" });
+      }
     }
     if (body.customFields && typeof body.customFields === "object") {
       body.customFields = JSON.stringify(body.customFields);

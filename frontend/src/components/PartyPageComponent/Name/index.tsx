@@ -69,6 +69,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import toast from "react-hot-toast";
 
 // Helper to format currency
 const formatCurrency = (amount: string | number | bigint) => {
@@ -100,7 +101,8 @@ const Parties = () => {
   const [filterParty, setFilterParty] = useState("");
   const [filterTransaction, setFilterTransaction] = useState("");
   const [currentTab, setCurrentTab] = useState("all");
-  const [deleteParty] = useDeletePartyMutation();
+  const [deleteParty, { isLoading: isDeleting, error: deleteError }] =
+    useDeletePartyMutation();
   // Use RTK Query to fetch parties
   const {
     data: parties,
@@ -449,12 +451,28 @@ const Parties = () => {
                                   variant="ghost"
                                   size="sm"
                                   className="justify-start"
-                                  onClick={(e) => {
+                                  disabled={isDeleting}
+                                  onClick={async (e) => {
                                     e.stopPropagation();
-                                    deleteParty(party.id);
+                                    try {
+                                      await deleteParty(party.id).unwrap();
+                                      toast.success(
+                                        "Party deleted successfully"
+                                      );
+                                    } catch (error) {
+                                      toast.error("Failed to delete party");
+                                      console.error("Delete error:", error);
+                                    }
                                   }}
                                 >
-                                  Delete Party
+                                  {isDeleting ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      Deleting...
+                                    </>
+                                  ) : (
+                                    "Delete Party"
+                                  )}
                                 </Button>
                               </div>
                             </PopoverContent>

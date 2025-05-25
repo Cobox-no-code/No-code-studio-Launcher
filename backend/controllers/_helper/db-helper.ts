@@ -432,3 +432,79 @@ export async function updatePartyBalance(
     [newBalance, newBalanceType, document.partyId, firmId]
   );
 }
+
+/**
+ * Updates bank account balance when payment type is bank
+ * @param {any} document - Document containing payment information
+ * @param {string} firmId - ID of the firm
+ * @param {boolean} reverse - Whether to reverse the bank operation (e.g. for cancellations/updates)
+ */
+export async function updateBankBalance(
+  document: any,
+  firmId: string,
+  reverse: boolean = false
+) {
+  // Only update bank balance if payment type is bank and bankId is provided
+  if (document.paymentType !== "bank" || !document.bankId) {
+    return;
+  }
+
+  const paidAmount = Number(document.paidAmount) || 0;
+
+  // Skip if no payment was made
+  if (paidAmount === 0) {
+    return;
+  }
+
+  try {
+    // Fetch current bank account balance
+    const bankResult = await db.raw(
+      "SELECT currentBalance FROM bank_accounts WHERE id = ? AND firmId = ?",
+      [document.bankId, firmId]
+    );
+
+    if (!bankResult || bankResult.length === 0) {
+      console.log(
+        `Bank account ${document.bankId} not found, skipping balance update`
+      );
+      return;
+    }
+
+    const currentBalance = Number(bankResult[0].currentBalance) || 0;
+
+    // Determine if this is money coming in or going out
+    const isSale =
+      document.documentType.startsWith("sale_") ||
+      document.documentType === "sale";
+    const isPurchase = document.documentType.startsWith("purchase_");
+
+    let newBalance = currentBalance;
+
+    if (isSale) {
+      // Sale: Money comes into bank account
+      if (reverse) {
+        newBalance = currentBalance - paidAmount; // Reverse: subtract
+      } else {
+        newBalance = currentBalance + paidAmount; // Normal: add
+      }
+    } else if (isPurchase) {
+      // Purchase: Money goes out of bank account (can go negative)
+      if (reverse) {
+        newBalance = currentBalance + paidAmount; // Reverse: add back
+      } else {
+        newBalance = currentBalance - paidAmount; // Normal: subtract (allows negative)
+      }
+    }
+
+    // Update bank account balance (no restriction on negative balances)
+    await db.raw(
+      "UPDATE bank_accounts SET currentBalance = ?, updatedAt = ? WHERE id = ? AND firmId = ?",
+      [newBalance, new Date().toISOString(), document.bankId, firmId]
+    );
+  } catch (error) {
+    console.error(
+      `Error updating bank balance for account ${document.bankId}:`,
+      error
+    );
+  }
+}

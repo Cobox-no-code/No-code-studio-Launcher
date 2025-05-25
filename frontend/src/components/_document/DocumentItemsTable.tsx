@@ -39,7 +39,7 @@ import { useDocument } from "./Context";
 // API Hooks
 import { countryTaxMap } from "@/lib/data";
 import { useGetUnitsQuery } from "@/redux/api";
-import { useGetItemsQuery } from "@/redux/api/itemsApi";
+import { useCreateItemMutation, useGetItemsQuery } from "@/redux/api/itemsApi";
 import { useGetUnitConversionsQuery } from "@/redux/api/unitConversionsApi";
 
 // Document item model
@@ -63,7 +63,7 @@ const DocumentItemsTable: React.FC = () => {
   // Get document state and dispatch from context
   const { state, dispatch, calculateTotals } = useDocument();
   const dispatchOther = useAppDispatch();
-
+  const [createItem, { isLoading: isCreatingItem }] = useCreateItemMutation();
   // Local state
   const [dropdownPosition, setDropdownPosition] = useState<{
     top: number;
@@ -502,7 +502,47 @@ const DocumentItemsTable: React.FC = () => {
 
     calculateTotals();
   };
+  // Add this new function
+  const handleItemInputKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>
+  ): void => {
+    if (e.key === "Enter") {
+      e.preventDefault();
 
+      const searchTerm = itemSearchTerm.trim();
+      if (searchTerm && filteredItems.length === 0) {
+        // Create new item with the search term
+        const newItemData: any = {
+          name: searchTerm,
+          itemCode: "",
+          salePrice: 0,
+          taxRate: "",
+          hsnCode: "",
+          description: "",
+          // Add other required fields based on your item model
+        };
+
+        // Call your create item mutation
+        createItem(newItemData)
+          .unwrap()
+          .then((newItem) => {
+            // Select the newly created item
+            handleItemSelection(index, newItem);
+            toast.success(`Item "${searchTerm}" created and selected`);
+            // Refetch items to update the list
+            refetchItems();
+          })
+          .catch((error) => {
+            toast.error("Failed to create item");
+            console.error("Error creating item:", error);
+          });
+      } else if (filteredItems.length > 0) {
+        // Select the first filtered item
+        handleItemSelection(index, filteredItems[0]);
+      }
+    }
+  };
   // Handle item selection from dropdown
   const handleItemSelection = (index: number, item: Item): void => {
     if (items && index >= items?.length) return;
@@ -977,6 +1017,7 @@ const DocumentItemsTable: React.FC = () => {
                             onChange={(e) =>
                               handleItemInputChange(index, e.target.value)
                             }
+                            onKeyDown={(e) => handleItemInputKeyDown(index, e)}
                           />
                         </div>
                       </td>

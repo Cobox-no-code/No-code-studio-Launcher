@@ -6,6 +6,7 @@ import {
   insertDocumentCharges,
   insertDocumentItems,
   insertDocumentTransportation,
+  updateBankBalance,
   updatePartyBalance,
   updateStockQuantities,
 } from "./_helper/db-helper";
@@ -135,7 +136,7 @@ export const createDocument = async (
     );
     await updateStockQuantities(body.documentType, body.items || [], firmId);
     await updatePartyBalance(body, firmId);
-
+    await updateBankBalance(body, firmId);
     const created = await db.raw("SELECT * FROM documents WHERE id = ?", [
       documentId,
     ]);
@@ -310,7 +311,7 @@ export const updateDocument = async (
     // Apply new stock quantities and party balance updates
     await updateStockQuantities(body.documentType, items || [], firmId);
     await updatePartyBalance(body, firmId);
-
+    await updateBankBalance(body, firmId);
     // Fetch the updated document
     const updated = await db.raw(
       "SELECT * FROM documents WHERE id = ? AND firmId = ?",
@@ -378,7 +379,7 @@ export const deleteDocument = async (
       true
     );
     await updatePartyBalance(document, firmId, true);
-
+    await updateBankBalance(document, firmId, true);
     // Delete related records
     await db.raw("DELETE FROM document_items WHERE documentId = ?", [id]);
     await db.raw("DELETE FROM document_charges WHERE documentId = ?", [id]);
