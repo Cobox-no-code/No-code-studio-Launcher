@@ -1,7 +1,8 @@
-import { app, BrowserWindow, } from "electron";
+import { app, BrowserWindow } from "electron";
 import { join } from "node:path";
 import { initLogs, isDev, prepareNext } from "./utils";
 import backendProcess from "./app";
+import { downloadAndUpdate } from "./downloadAndUpdate";
 
 /**
  * Creates the main application window.
@@ -39,7 +40,7 @@ function createWindow(): void {
     win.maximize();
   } else {
     win.loadFile(join(__dirname, "..", "frontend", "out", "index.html"));
-   win.setMenu(null)
+    win.setMenu(null);
   }
 }
 function startBackendServer() {
@@ -68,10 +69,10 @@ app.whenReady().then(async () => {
 
   await initLogs();
 
-  startBackendServer()
+  startBackendServer();
 
   createWindow();
-
+  downloadAndUpdate();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -81,5 +82,3 @@ app.whenReady().then(async () => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
-
-

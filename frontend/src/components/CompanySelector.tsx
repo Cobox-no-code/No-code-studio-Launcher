@@ -30,7 +30,7 @@ import { API_BASE_URL } from "@/redux/api/api.config";
 import { backend_url } from "@/backend.config";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { Badge } from "@/components/ui/badge";
-import { setCurrentFirm } from "@/redux/slices/firmSlice";
+import { setCurrentFirm, updateRole } from "@/redux/slices/firmSlice";
 import { setUserInfo } from "@/redux/slices/userinfoSlice";
 import { syncAllToCloud } from "@/lib/sync-cloud";
 import toast from "react-hot-toast";
@@ -104,7 +104,7 @@ const CompanySelector = ({
     }
   };
 
-  const handleCompanyChange = async(company: any)=> {
+  const handleCompanyChange = async (company: any) => {
     // Use the utility function to update firm data and trigger events
     const firmId = localStorage.getItem("firmId");
     dispatch(setCurrentFirm(company));
@@ -114,13 +114,17 @@ const CompanySelector = ({
     // Close the popover
     setOpen(false);
     if (company.isShared && !user.sync_enabled) {
+      dispatch(updateRole(company.role));
       try {
         const payload = {
           phone: user.phone,
           sync_enabled: !user.sync_enabled,
         };
 
-        const response = await axios.post(`${backend_url}/toggle-sync/`, payload);
+        const response = await axios.post(
+          `${backend_url}/toggle-sync/`,
+          payload
+        );
 
         if (response.data.status === "success") {
           dispatch(setUserInfo({ ...user, sync_enabled: !user.sync_enabled }));
@@ -132,8 +136,9 @@ const CompanySelector = ({
         } else {
           toast.error(response.data.message || "Failed to toggle sync");
         }
-      } catch (e) { }
+      } catch (e) {}
     }
+    router.push("/");
   };
 
   const handleRemoveCompany = (): void => {

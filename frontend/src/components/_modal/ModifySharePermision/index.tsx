@@ -38,7 +38,7 @@ interface ManagePermissionModalProps {
     phone: string;
     role: Role;
   } | null;
-  onUpdateRole: (phone: string, role: Role) => Promise<void>;
+  onUpdateRole: (phone: string, role: any) => Promise<void>;
 }
 
 const ManagePermissionModal: React.FC<ManagePermissionModalProps> = ({
@@ -136,7 +136,7 @@ const ManagePermissionModal: React.FC<ManagePermissionModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Manage User Permissions</DialogTitle>
           <DialogDescription>
@@ -161,7 +161,7 @@ const ManagePermissionModal: React.FC<ManagePermissionModalProps> = ({
           <RadioGroup
             value={selectedRole}
             onValueChange={(value) => setSelectedRole(value as Role)}
-            className="flex flex-col space-y-3"
+            className="grid gap-3 grid-cols-2"
           >
             {roles.map((role) => (
               <div

@@ -16,10 +16,12 @@ interface FirmState {
   firms: Firm[];
   loading: boolean;
   error: string | null;
+  role: string | null;
 }
 
 const initialState: FirmState = {
   currentFirm: null,
+  role: "admin",
   firms: [],
   loading: false,
   error: null,
@@ -80,6 +82,7 @@ const firmSlice = createSlice({
   reducers: {
     setCurrentFirm(state, action: PayloadAction<Firm>) {
       state.currentFirm = action.payload;
+
       console.log(action.payload);
       localStorage.setItem("firmId", action.payload.id);
       localStorage.setItem("firmName", action.payload.name);
@@ -88,6 +91,9 @@ const firmSlice = createSlice({
     },
     clearFirmError(state) {
       state.error = null;
+    },
+    updateRole(state, action: PayloadAction<any>) {
+      state.role = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -121,5 +127,5 @@ const firmSlice = createSlice({
   },
 });
 
-export const { setCurrentFirm, clearFirmError } = firmSlice.actions;
+export const { setCurrentFirm, clearFirmError, updateRole } = firmSlice.actions;
 export default firmSlice.reducer;

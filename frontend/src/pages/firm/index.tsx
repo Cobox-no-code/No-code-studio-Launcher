@@ -111,9 +111,12 @@ const FirmCreationScreen = (): JSX.Element => {
     e: FormEvent<HTMLFormElement>
   ): Promise<void> => {
     e.preventDefault();
-    await dispatch(
+    const res = await dispatch(
       createFirm({ name: firmName, country, phone, cloudurl: backend_url })
-    );
+    ).unwrap();
+
+    console.log(res);
+    dispatch(setCurrentFirm({ id: res.id, name: firmName, country, phone }));
     router.push("/");
   };
 

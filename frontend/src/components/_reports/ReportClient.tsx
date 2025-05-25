@@ -19,7 +19,6 @@ import PurchasesReport from "./PurchaseReport";
 import SalesReport from "./SaleReport";
 import StockDetailsPage from "./StockDetails";
 import StockSummaryReport from "./StockSummary";
-import { useAppSelector } from "@/redux/hooks";
 import TaxReport from "./TaxesReport";
 import TaxRateReport from "./TaxesRateReport";
 

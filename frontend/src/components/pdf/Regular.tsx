@@ -195,9 +195,7 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
                 className="h-full w-32"
               />
               <div>
-                <div className="text-lg font-bold">
-                  {document.billingName ? document.billingName : businessName}
-                </div>
+                <div className="text-lg font-bold">{businessName}</div>
                 <div className="text-sm">Address:{firmData?.address}</div>
                 <div className="text-sm">
                   Invoice #: {document.documentNumber}
@@ -213,7 +211,11 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
           <div className="flex mb-4">
             {/* Party Details */}
             <div className="w-1/2 border border-gray-300 p-2">
-              <div className="font-bold">{document.partyName}</div>
+              <div className="font-bold">
+                {document.billingName
+                  ? document.billingName
+                  : document.partyName}
+              </div>
               <div className="text-sm">
                 Address: {document.billingAddress || "N/A"}
               </div>

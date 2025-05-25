@@ -95,7 +95,7 @@ type Role = "admin" | "editor" | "viewer";
 interface SyncedUser {
   name: string;
   phone: string;
-  role: Role;
+  role: any;
 }
 
 const SyncShare = () => {
@@ -417,8 +417,7 @@ const SyncShare = () => {
             </span>
             {sync_enabled && isCurrentUserAdmin && (
               <Button
-                className="p-1 hover:bg-gray-800 h-10 w-40 text-lg rounded-full bg-black text-white"
-                variant={"outline"}
+                className="p-1  h-10 w-40 text-lg rounded-full bg-black text-white"
                 onClick={handleAddUser}
               >
                 <Plus className="mr-1" /> Add User

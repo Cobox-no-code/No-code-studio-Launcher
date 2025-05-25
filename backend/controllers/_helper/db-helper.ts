@@ -316,7 +316,7 @@ export async function updateStockQuantities(
         const newPrimaryQty =
           operator === "+"
             ? currentPrimaryQty + primaryQtyChange
-            : Math.max(0, currentPrimaryQty - primaryQtyChange);
+            : currentPrimaryQty - primaryQtyChange; // Removed Math.max(0,...)
 
         console.log(`🟢 Only primary stock update for item ${item.itemId}:`, {
           currentPrimaryQty,
@@ -340,7 +340,7 @@ export async function updateStockQuantities(
         const newTotalInSecondary =
           operator === "+"
             ? currentTotalInSecondary + changeInSecondary
-            : Math.max(0, currentTotalInSecondary - changeInSecondary);
+            : currentTotalInSecondary - changeInSecondary; // Removed Math.max(0,...)
 
         const newPrimaryQty = Math.floor(newTotalInSecondary / conversionRate);
         const newSecondaryQty = newTotalInSecondary % conversionRate;
@@ -373,74 +373,60 @@ export async function updatePartyBalance(
   firmId: string,
   reverse: boolean = false
 ) {
-  // Skip if no party ID
   if (!document.partyId) return;
 
-  // Get current party information
-  const party = await db.raw(
+  const partyResult = await db.raw(
     "SELECT currentBalance, currentBalanceType FROM parties WHERE id = ? AND firmId = ?",
     [document.partyId, firmId]
   );
 
-  if (!party || party.length === 0) return;
+  if (!partyResult || partyResult.length === 0) return;
 
-  const currentBalance = Number(party[0].currentBalance) || 0;
-  const balanceType = party[0].currentBalanceType || "to_pay";
+  const party = partyResult[0];
+  const currentBalance = Number(party.currentBalance) || 0;
+  const balanceType = party.currentBalanceType || "to_pay";
 
-  let newBalance = currentBalance;
-  let newBalanceType = balanceType;
-
-  // Calculate how this transaction affects the balance
   const transactionAmount = Number(document.total) || 0;
   const paidAmount = Number(document.paidAmount) || 0;
   const balanceAmount = transactionAmount - paidAmount;
 
-  if (balanceAmount <= 0) return; // Fully paid, no balance to update
+  if (balanceAmount === 0) return; // fully paid
 
-  // Determine if this is a customer or supplier transaction
   const isCustomer = document.documentType.startsWith("sale_");
-
-  // Reverse the transaction type if we're undoing previous balance changes
   const effectiveIsCustomer = reverse ? !isCustomer : isCustomer;
 
+  let newBalance = currentBalance;
+  let newBalanceType = balanceType;
+
   if (effectiveIsCustomer) {
-    // For sales: customer owes money to business
+    // customer owes us money
     if (balanceType === "to_pay") {
-      // Business already owes money to customer
-      if (currentBalance > balanceAmount) {
-        // Reduce existing payable
+      if (currentBalance >= balanceAmount) {
         newBalance = currentBalance - balanceAmount;
       } else {
-        // Switch to receivable
         newBalance = balanceAmount - currentBalance;
         newBalanceType = "to_receive";
       }
     } else {
-      // Business is owed money by customer, add to receivable
       newBalance = currentBalance + balanceAmount;
     }
   } else {
-    // For purchases: business owes money to supplier
+    // we owe supplier money
     if (balanceType === "to_receive") {
-      // Customer already owes money to business
-      if (currentBalance > balanceAmount) {
-        // Reduce existing receivable
+      if (currentBalance >= balanceAmount) {
         newBalance = currentBalance - balanceAmount;
       } else {
-        // Switch to payable
         newBalance = balanceAmount - currentBalance;
         newBalanceType = "to_pay";
       }
     } else {
-      // Business owes money to supplier, add to payable
       newBalance = currentBalance + balanceAmount;
     }
   }
 
-  // Update the party balance
   await db.raw(
     `UPDATE parties SET 
-     currentBalance = ?,
+     currentBalance = ?, 
      currentBalanceType = ?
      WHERE id = ? AND firmId = ?`,
     [newBalance, newBalanceType, document.partyId, firmId]

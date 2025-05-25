@@ -110,15 +110,47 @@ export const updateFirm = async (req: Request, res: Response): Promise<any> => {
 export const deleteFirm = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
-    const deleted = await db("firms").where("id", id).delete();
+    const cloudurl = req.query.cloudurl as string;
 
-    if (!deleted) {
+    console.log(`➡️ Delete request for firm ID: ${id}`);
+    console.log(`🌐 Cloud URL from query: ${cloudurl}`);
+
+    // Fetch firm before deletion
+    const firm = await db("firms").where("id", id).first();
+    if (!firm) {
+      console.warn(`⚠️ Firm not found with ID: ${id}`);
       return res.status(404).json({ success: false, error: "Firm not found" });
+    }
+
+    console.log(`✅ Firm found:`, firm);
+
+    // Perform deletion
+    await db("firms").where("id", id).delete();
+    console.log(`🗑️ Firm deleted: ${id}`);
+
+    // Fetch updated firms list
+    const updatedFirms = await db("firms").select();
+    console.log(`📦 Updated firms count: ${updatedFirms.length}`);
+
+    // Sync to cloud
+    if (cloudurl) {
+      try {
+        console.log(`🚀 Sending updated firms to cloud...`);
+        const response = await axios.post(`${cloudurl}/sync/`, {
+          table: "firms",
+          records: updatedFirms,
+        });
+        console.log(`✅ Cloud sync successful. Response:`, response.data);
+      } catch (syncErr: any) {
+        console.error(`❌ Error syncing to cloud:`, syncErr.message || syncErr);
+      }
+    } else {
+      console.warn(`⚠️ Cloud URL not provided. Skipping sync.`);
     }
 
     res.json({ success: true, message: "Firm deleted successfully" });
   } catch (error: any) {
-    console.error("Error deleting firm:", error);
+    console.error("❌ Error deleting firm:", error.message || error);
     res.status(500).json({ success: false, error: error.message });
   }
 };

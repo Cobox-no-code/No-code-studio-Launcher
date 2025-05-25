@@ -40,10 +40,14 @@ const DocumentViewerPage: React.FC = () => {
     data: document,
     isLoading,
     error,
+    refetch,
   } = useGetDocumentByIdQuery(documentId || "", { skip: !documentId });
 
-  const { data: bankDetails, isLoading: isBankLoading } =
-    useGetBankAccountByIdQuery(document?.bankId || "");
+  const {
+    data: bankDetails,
+    isLoading: isBankLoading,
+    refetch: refetchBank,
+  } = useGetBankAccountByIdQuery(document?.bankId || "");
   // Go back to documents list
   const handleBack = () => {
     router.push("/");
@@ -75,6 +79,19 @@ const DocumentViewerPage: React.FC = () => {
         .catch(() => toast.error("Failed to load firm data"));
     }
   }, [firmId]);
+
+  useEffect(() => {
+    // Immediately refetch data when component mounts
+    refetch();
+    refetchBank();
+    // Set up interval for periodic refetching (every 5 seconds)
+    const intervalId = setInterval(() => {
+      refetch();
+    }, 5000); // Adjust this time as needed
+
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [refetch, refetchBank]);
 
   if (isLoading) {
     return (
@@ -117,7 +134,7 @@ const DocumentViewerPage: React.FC = () => {
             #{document.documentNumber}
           </h1>
           <p className="text-gray-500">
-            {document.billingName ? document.billingName : businessName} •{" "}
+            {businessName} •{" "}
             {new Date(document.documentDate).toLocaleDateString()}•{" "}
             {document.documentTime}
           </p>
@@ -187,9 +204,7 @@ const DocumentViewerPage: React.FC = () => {
         <InvoicePrinter
           document={document}
           bankDetails={document.bankId ? bankDetails : null}
-          businessName={
-            document.billingName ? document.billingName : businessName
-          }
+          businessName={businessName}
           contentRef={contentRef}
           countryCode={countryCode}
           firmData={firm}

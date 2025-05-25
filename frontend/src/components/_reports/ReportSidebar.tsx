@@ -65,8 +65,9 @@ const ReportCategory: React.FC<ReportCategoryProps> = ({
 };
 
 const ReportSidebar = () => {
-  const firmCountry = useAppSelector((state) => state.firm.currentFirm.country);
-  console.log(firmCountry);
+  const firmCountry = useAppSelector(
+    (state) => state.firm?.currentFirm?.country
+  );
 
   // Determine if firm is in India
   const isIndianFirm = firmCountry === "IN";

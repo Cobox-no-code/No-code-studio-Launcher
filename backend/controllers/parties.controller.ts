@@ -253,7 +253,16 @@ export const deleteParty = async (
     const existingParty = await db("parties", firmId).where("id", id).first();
     if (!existingParty)
       return res.status(404).json({ success: false, error: "Party not found" });
-
+    const documentRef = await db("documents", firmId)
+      .where("partyId", id)
+      .first();
+    if (documentRef) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "Cannot delete party because it is referenced in one or more documents",
+      });
+    }
     await db("party_additional_fields", firmId).where("partyId", id).delete();
     await db("parties", firmId).where("id", id).delete();
 

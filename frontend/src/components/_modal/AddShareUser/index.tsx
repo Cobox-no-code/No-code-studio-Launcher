@@ -132,7 +132,7 @@ const AddUserModal = ({ open, onClose, onShareSuccess }: AddUserModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add User to Firm</DialogTitle>
         </DialogHeader>
@@ -169,7 +169,7 @@ const AddUserModal = ({ open, onClose, onShareSuccess }: AddUserModalProps) => {
             <RadioGroup
               value={role}
               onValueChange={(value) => setRole(value as Role)}
-              className="flex flex-col space-y-2"
+              className="grid gap-3 grid-cols-2"
               disabled={loading}
             >
               {roles.map((roleOption) => (

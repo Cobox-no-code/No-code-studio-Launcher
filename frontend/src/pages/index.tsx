@@ -1,5 +1,5 @@
-'use client'
-import { useState, useEffect, useMemo } from 'react'
+"use client";
+import { useState, useEffect, useMemo } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -8,15 +8,15 @@ import {
   Wallet,
   TrendingUp,
   AlertCircle,
-} from 'lucide-react'
+} from "lucide-react";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   LineChart,
   Line,
@@ -30,49 +30,49 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-} from 'recharts'
-import DateRangeSelect from '@/components/DateRangeSelect'
-import { format, subDays, isWithinInterval } from 'date-fns'
-import { formatCurrencyINR, } from '@/hooks/utils'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
+} from "recharts";
+import DateRangeSelect from "@/components/DateRangeSelect";
+import { format, subDays, isWithinInterval } from "date-fns";
+import { formatCurrencyINR } from "@/hooks/utils";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
-import { useGetItemsQuery } from '@/redux/api/itemsApi'
-import { useGetBankAccountsQuery } from '@/redux/api/bankingApi'
-import { Skeleton } from '@/components/ui/skeleton'
+import { useGetItemsQuery } from "@/redux/api/itemsApi";
+import { useGetBankAccountsQuery } from "@/redux/api/bankingApi";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   useGetSaleInvoicesQuery,
   useGetPurchaseInvoicesQuery,
-} from '@/redux/api/documentApi'
+} from "@/redux/api/documentApi";
 const HomePage = () => {
-  const [salesRange, setSalesRange] = useState('week')
-  const [chartView, setChartView] = useState('line')
+  const [salesRange, setSalesRange] = useState("week");
+  const [chartView, setChartView] = useState("line");
   function getDateRange(range: string) {
     const today = new Date();
     let startDate = new Date(today);
     let endDate = new Date(today);
-    
+
     // Set times to start/end of day to ensure we capture all entries
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(23, 59, 59, 999);
-    
+
     switch (range) {
-      case 'today':
+      case "today":
         // Start and end dates are already today
         break;
-      case 'week':
+      case "week":
         // Start date is 7 days ago
         startDate.setDate(today.getDate() - 6);
         break;
-      case 'month':
+      case "month":
         // Start date is first day of current month
         startDate.setDate(1);
         break;
-      case 'quarter':
+      case "quarter":
         // Start date is 3 months ago, first day of month
         startDate.setMonth(today.getMonth() - 2, 1);
         break;
-      case 'year':
+      case "year":
         // Start date is January 1st of current year
         startDate.setMonth(0, 1);
         break;
@@ -80,46 +80,56 @@ const HomePage = () => {
         // Default to week if invalid range
         startDate.setDate(today.getDate() - 6);
     }
-    
-    return { 
-      startDate: startDate, 
-      endDate: endDate 
+
+    return {
+      startDate: startDate,
+      endDate: endDate,
     };
   }
   const { startDate: salesStart, endDate: salesEnd } = useMemo(() => {
-    return getDateRange(salesRange)
-  }, [salesRange])
+    return getDateRange(salesRange);
+  }, [salesRange]);
 
   // Fetch data using RTK Query
-// Fetch data using RTK Query
-const {
-  data: salesInvoices = [],
-  isLoading: isLoadingSales,
-  refetch: refetchSales,
-} = useGetSaleInvoicesQuery({
-  startDate: format(salesStart, 'yyyy-MM-dd'),
-  endDate: format(salesEnd, 'yyyy-MM-dd'),
-});
-
-const { data: purchaseInvoices = [], isLoading: isLoadingPurchases } =
-  useGetPurchaseInvoicesQuery({
-    startDate: format(salesStart, 'yyyy-MM-dd'),
-    endDate: format(salesEnd, 'yyyy-MM-dd'),
+  // Fetch data using RTK Query
+  const {
+    data: salesInvoices = [],
+    isLoading: isLoadingSales,
+    refetch: refetchSales,
+  } = useGetSaleInvoicesQuery({
+    startDate: format(salesStart, "yyyy-MM-dd"),
+    endDate: format(salesEnd, "yyyy-MM-dd"),
   });
 
-  const { data: items = [], isLoading: isLoadingItems } = useGetItemsQuery({})
+  const {
+    data: purchaseInvoices = [],
+    isLoading: isLoadingPurchases,
+    refetch: refetchPurchase,
+  } = useGetPurchaseInvoicesQuery({
+    startDate: format(salesStart, "yyyy-MM-dd"),
+    endDate: format(salesEnd, "yyyy-MM-dd"),
+  });
 
-  const { data: bankAccounts = [], isLoading: isLoadingBankAccounts } =
-    useGetBankAccountsQuery()
+  const {
+    data: items = [],
+    isLoading: isLoadingItems,
+    refetch: refetchItems,
+  } = useGetItemsQuery({});
 
-  const filteredSales = salesInvoices || []
-  const filteredPurchases = purchaseInvoices || []
+  const {
+    data: bankAccounts = [],
+    isLoading: isLoadingBankAccounts,
+    refetch: refetchBank,
+  } = useGetBankAccountsQuery();
+
+  const filteredSales = salesInvoices || [];
+  const filteredPurchases = purchaseInvoices || [];
   // Calculate low stock items
   const lowStockItems = useMemo(() => {
     return items
       .filter(
         (item) =>
-          item.type === 'PRODUCT' &&
+          item.type === "PRODUCT" &&
           item.primaryQuantity !== undefined &&
           item.minStockLevel !== undefined &&
           item.primaryQuantity <= item.minStockLevel
@@ -127,83 +137,87 @@ const { data: purchaseInvoices = [], isLoading: isLoadingPurchases } =
       .map((item: any) => ({
         name: item.name,
         quantity: item.primaryQuantity,
-        unit: 'pcs', // Get actual unit from unit conversion
+        unit: "pcs", // Get actual unit from unit conversion
         minQuantity: item.minStockLevel,
         price: item.purchasePrice || 0,
       }))
       .sort((a, b) => a.quantity / a.minQuantity - b.quantity / b.minQuantity)
-      .slice(0, 5)
-  }, [items])
+      .slice(0, 5);
+  }, [items]);
 
   // Calculate totals
   const totalSales = useMemo(
     () => filteredSales.reduce((sum, sale) => sum + (sale.total || 0), 0),
     [filteredSales]
-  )
+  );
 
   // Calculate receivables
   const totalReceivables = useMemo(
     () =>
       filteredSales.reduce((sum, sale) => sum + (sale.balanceAmount || 0), 0),
     [filteredSales]
-  )
+  );
 
   // Calculate stock value
   const stockValue = useMemo(
     () =>
       items
-        .filter((item) => item.type === 'PRODUCT')
+        .filter((item) => item.type === "PRODUCT")
         .reduce(
           (sum, item) =>
             sum + (item.purchasePrice || 0) * (item.primaryQuantity || 0),
           0
         ),
     [items]
-  )
+  );
 
   // Format chart data by date
   const chartData = useMemo(() => {
     console.log("Re-calculating chart data");
-    
+
     // Ensure dates are proper Date objects
     const start = new Date(salesStart);
     const end = new Date(salesEnd);
-    
+
     console.log("Start date:", start.toISOString());
     console.log("End date:", end.toISOString());
-    
+
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       console.error("Invalid date objects");
       return [];
     }
-    
+
     // Create a map of dates to easily aggregate data
     const dateMap = new Map();
-    
+
     // Initialize with dates from the date range
     let currentDate = new Date(start);
     while (currentDate <= end) {
-      const dateStr = format(currentDate, 'yyyy-MM-dd');
+      const dateStr = format(currentDate, "yyyy-MM-dd");
       dateMap.set(dateStr, {
-        date: format(currentDate, 'dd MMM'),
+        date: format(currentDate, "dd MMM"),
         rawDate: dateStr,
         sales: 0,
         purchases: 0,
       });
       currentDate = new Date(currentDate.setDate(currentDate.getDate() + 1));
     }
-  
+
     console.log("Date map keys:", Array.from(dateMap.keys()));
-    console.log("Sales invoices dates:", salesInvoices.map(s => s.documentDate));
-    
+    console.log(
+      "Sales invoices dates:",
+      salesInvoices.map((s) => s.documentDate)
+    );
+
     // Add sales data
     if (salesInvoices && salesInvoices.length > 0) {
       salesInvoices.forEach((sale) => {
         // Make sure we get just the date part and handle potential format issues
-        const dateStr = typeof sale.documentDate === 'string' 
-          ? sale.documentDate.split('T')[0] 
-          : format(new Date(sale.documentDate), 'yyyy-MM-dd');
-        
+        const dateStr =
+          typeof sale.documentDate === "string"
+            ? sale.documentDate.split("T")[0]
+            : format(new Date(sale.documentDate), "yyyy-MM-dd");
+
         if (dateMap.has(dateStr)) {
           const entry = dateMap.get(dateStr);
           entry.sales += Number(sale.total) || 0;
@@ -213,15 +227,16 @@ const { data: purchaseInvoices = [], isLoading: isLoadingPurchases } =
         }
       });
     }
-  
+
     // Add purchase data
     if (purchaseInvoices && purchaseInvoices.length > 0) {
       purchaseInvoices.forEach((purchase) => {
         // Make sure we get just the date part and handle potential format issues
-        const dateStr = typeof purchase.documentDate === 'string'
-          ? purchase.documentDate.split('T')[0]
-          : format(new Date(purchase.documentDate), 'yyyy-MM-dd');
-        
+        const dateStr =
+          typeof purchase.documentDate === "string"
+            ? purchase.documentDate.split("T")[0]
+            : format(new Date(purchase.documentDate), "yyyy-MM-dd");
+
         if (dateMap.has(dateStr)) {
           const entry = dateMap.get(dateStr);
           entry.purchases += Number(purchase.total) || 0;
@@ -231,30 +246,30 @@ const { data: purchaseInvoices = [], isLoading: isLoadingPurchases } =
         }
       });
     }
-  
+
     // Convert map to array and sort by date
     const result = Array.from(dateMap.values()).sort(
       (a, b) => new Date(a.rawDate).getTime() - new Date(b.rawDate).getTime()
     );
-    
+
     console.log("Chart data result:", result);
     return result;
   }, [salesInvoices, purchaseInvoices, salesStart, salesEnd]);
   // Calculate bank balances
   const totalCashInHand = useMemo(() => {
     const cashAccount = bankAccounts.find((account) =>
-      account.displayName.toLowerCase().includes('cash')
-    )
-    return cashAccount?.currentBalance || 0
-  }, [bankAccounts])
+      account.displayName.toLowerCase().includes("cash")
+    );
+    return cashAccount?.currentBalance || 0;
+  }, [bankAccounts]);
 
   const bankAccountsData = useMemo(
     () =>
       bankAccounts.filter(
-        (account) => !account.displayName.toLowerCase().includes('cash')
+        (account) => !account.displayName.toLowerCase().includes("cash")
       ),
     [bankAccounts]
-  )
+  );
 
   const totalBankBalance = useMemo(
     () =>
@@ -263,8 +278,24 @@ const { data: purchaseInvoices = [], isLoading: isLoadingPurchases } =
         0
       ),
     [bankAccountsData]
-  )
+  );
+  useEffect(() => {
+    // Immediately refetch data when component mounts
+    refetchPurchase();
+    refetchBank();
+    refetchItems();
+    refetchSales();
+    // Set up interval for periodic refetching (every 5 seconds)
+    const intervalId = setInterval(() => {
+      refetchPurchase();
+      refetchBank();
+      refetchItems();
+      refetchSales();
+    }, 5000); // Adjust this time as needed
 
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [refetchPurchase, refetchBank, refetchItems, refetchSales]);
   return (
     <main className="flex flex-col md:flex-row gap-4 p-4 pt-3 w-full bg-slate-50">
       <section className="gap-2 w-full md:w-3/4 flex flex-col">
@@ -280,7 +311,7 @@ const { data: purchaseInvoices = [], isLoading: isLoadingPurchases } =
                 <DateRangeSelect
                   className="w-28"
                   onChange={(newRange) => {
-                    setSalesRange(newRange)
+                    setSalesRange(newRange);
                   }}
                   initialValue="month"
                 />
@@ -383,9 +414,9 @@ const { data: purchaseInvoices = [], isLoading: isLoadingPurchases } =
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                {chartView === 'line' ? (
+                {chartView === "line" ? (
                   <LineChart
-                  key={`line-${salesRange}`}
+                    key={`line-${salesRange}`}
                     data={chartData}
                     margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
                   >
@@ -409,9 +440,9 @@ const { data: purchaseInvoices = [], isLoading: isLoadingPurchases } =
                       strokeWidth={2}
                     />
                   </LineChart>
-                ) : chartView === 'area' ? (
+                ) : chartView === "area" ? (
                   <AreaChart
-                  key={`area-${salesRange}`}
+                    key={`area-${salesRange}`}
                     data={chartData}
                     margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
                   >
@@ -439,7 +470,7 @@ const { data: purchaseInvoices = [], isLoading: isLoadingPurchases } =
                   </AreaChart>
                 ) : (
                   <BarChart
-                  key={`bar-${salesRange}`}
+                    key={`bar-${salesRange}`}
                     data={chartData}
                     margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
                   >
@@ -510,7 +541,7 @@ const { data: purchaseInvoices = [], isLoading: isLoadingPurchases } =
                       {formatCurrencyINR(stockValue)}
                     </p>
                     <p className="text-gray-500 text-sm">
-                      {items.filter((i) => i.type === 'PRODUCT').length}{' '}
+                      {items.filter((i) => i.type === "PRODUCT").length}{" "}
                       products in inventory
                     </p>
                   </>
@@ -560,8 +591,8 @@ const { data: purchaseInvoices = [], isLoading: isLoadingPurchases } =
                       <Badge
                         variant={
                           item.quantity <= item.minQuantity / 3
-                            ? 'destructive'
-                            : 'default'
+                            ? "destructive"
+                            : "default"
                         }
                       >
                         Low
@@ -625,8 +656,8 @@ const { data: purchaseInvoices = [], isLoading: isLoadingPurchases } =
                       <p
                         className={`font-semibold ${
                           account.currentBalance >= 0
-                            ? 'text-green-600'
-                            : 'text-red-600'
+                            ? "text-green-600"
+                            : "text-red-600"
                         }`}
                       >
                         {formatCurrencyINR(account.currentBalance)}
@@ -644,7 +675,7 @@ const { data: purchaseInvoices = [], isLoading: isLoadingPurchases } =
         </Card>
       </section>
     </main>
-  )
-}
+  );
+};
 
-export default HomePage
+export default HomePage;
