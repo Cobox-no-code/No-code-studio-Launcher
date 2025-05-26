@@ -1,5 +1,14 @@
+# Vypaar database files
+.vypaar.dev.db
+vypaar.db
+
+# Node modules
 /node_modules
+
+# Frontend build outputs
 /frontend/out
 /frontend/.next
+
+# General build and distribution folders
 /dist
 /out
