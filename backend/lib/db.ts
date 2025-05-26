@@ -237,6 +237,7 @@ export async function initializFirm() {
         country TEXT NOT NULL,
         name TEXT NOT NULL,
         phone TEXT NOT NULL,
+        owner TEXT NOT NULL,
         gstNumber TEXT,
         ownerName TEXT,
         businessName TEXT,

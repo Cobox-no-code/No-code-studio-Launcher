@@ -77,26 +77,26 @@ const CompanySelector = ({
       setLoading(true);
       const response = await axios.get<Company[]>(API_BASE_URL + "/firms");
       const ownedCompanies = response.data || [];
+      try {
+        // Fetch shared firms
+        const responseSharedFirm = await axios.get(
+          `${backend_url}/get-shared-firms?phone=${user.phone}`
+        );
+        const sharedFirms = responseSharedFirm.data.shared_firms || [];
 
-      // Fetch shared firms
-      const responseSharedFirm = await axios.get(
-        `${backend_url}/get-shared-firms?phone=${user.phone}`
-      );
+        // Add isShared flag to shared firms
+        const formattedSharedFirms = sharedFirms.map((firm: any) => ({
+          id: firm.firm_id,
+          name: firm.firm_name,
+          isShared: true,
+          role: firm.role,
+        }));
 
-      const sharedFirms = responseSharedFirm.data.shared_firms || [];
+        // Combine owned and shared companies
+        const allCompanies = [...ownedCompanies, ...formattedSharedFirms];
 
-      // Add isShared flag to shared firms
-      const formattedSharedFirms = sharedFirms.map((firm: any) => ({
-        id: firm.firm_id,
-        name: firm.firm_name,
-        isShared: true,
-        role: firm.role,
-      }));
-
-      // Combine owned and shared companies
-      const allCompanies = [...ownedCompanies, ...formattedSharedFirms];
-
-      setCompanies(allCompanies);
+        setCompanies(allCompanies);
+      } catch (e) {}
     } catch (err) {
       console.error("Error fetching companies:", err);
     } finally {
@@ -107,6 +107,7 @@ const CompanySelector = ({
   const handleCompanyChange = async (company: any) => {
     // Use the utility function to update firm data and trigger events
     const firmId = localStorage.getItem("firmId");
+    const owner = user.phone;
     dispatch(setCurrentFirm(company));
     // Update selected company state
     setSelectedCompany(company.name);
@@ -128,7 +129,7 @@ const CompanySelector = ({
 
         if (response.data.status === "success") {
           dispatch(setUserInfo({ ...user, sync_enabled: !user.sync_enabled }));
-          const result = await syncAllToCloud(backend_url, firmId);
+          const result = await syncAllToCloud(backend_url, firmId, owner);
 
           toast.success(
             `Sync ${!user.sync_enabled ? "enabled" : "disabled"} successfully`

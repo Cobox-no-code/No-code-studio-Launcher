@@ -14,7 +14,11 @@ interface SyncResponse {
   }[];
 }
 
-export async function syncAllToCloud(cloudUrl: string, firmId: string) {
+export async function syncAllToCloud(
+  cloudUrl: string,
+  firmId: string,
+  owner: string
+) {
   if (!cloudUrl || !firmId) {
     console.warn("Missing cloudUrl or firmId.");
     return;
@@ -22,11 +26,11 @@ export async function syncAllToCloud(cloudUrl: string, firmId: string) {
 
   try {
     const response = await axios.post<SyncResponse>(
-       `${API_BASE_URL}/sync-cloud/all` 
-     ,
+      `${API_BASE_URL}/sync-cloud/all`,
       {
         cloudUrl,
-        firmId
+        firmId,
+        owner,
       }
     );
 
@@ -35,7 +39,9 @@ export async function syncAllToCloud(cloudUrl: string, firmId: string) {
 
     for (const result of data.results) {
       if (result.status === "success") {
-        console.log(`✅ ${result.table}: Created ${result.created}, Updated ${result.updated}`);
+        console.log(
+          `✅ ${result.table}: Created ${result.created}, Updated ${result.updated}`
+        );
       } else if (result.status === "skipped") {
         console.log(`⚠️  ${result.table}: Skipped (${result.reason})`);
       } else {
@@ -50,7 +56,11 @@ export async function syncAllToCloud(cloudUrl: string, firmId: string) {
   }
 }
 
-export async function syncAllToLocal(cloudUrl: string, firmId: string) {
+export async function syncAllToLocal(
+  cloudUrl: string,
+  firmId: string,
+  owner: string
+) {
   if (!cloudUrl || !firmId) {
     console.warn("Missing cloudUrl or firmId.");
     return;
@@ -58,11 +68,11 @@ export async function syncAllToLocal(cloudUrl: string, firmId: string) {
 
   try {
     const response = await axios.post<SyncResponse>(
-       `${API_BASE_URL}/sync-local/all` 
-     ,
+      `${API_BASE_URL}/sync-local/all`,
       {
         cloudUrl,
-        firmId
+        firmId,
+        owner,
       }
     );
 
@@ -71,7 +81,9 @@ export async function syncAllToLocal(cloudUrl: string, firmId: string) {
 
     for (const result of data.results) {
       if (result.status === "success") {
-        console.log(`✅ ${result.table}: Created ${result.created}, Updated ${result.updated}`);
+        console.log(
+          `✅ ${result.table}: Created ${result.created}, Updated ${result.updated}`
+        );
       } else if (result.status === "skipped") {
         console.log(`⚠️  ${result.table}: Skipped (${result.reason})`);
       } else {

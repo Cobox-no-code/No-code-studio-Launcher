@@ -74,6 +74,7 @@ const FirmCreationScreen = (): JSX.Element => {
   const { firms, currentFirm, loading, error } = useAppSelector(
     (state) => state.firm
   );
+
   const userinfo = useAppSelector((state) => state.userinfo);
   const [firmName, setFirmName] = useState<string>("");
   const [country, setCountry] = useState<string>("");
@@ -111,8 +112,16 @@ const FirmCreationScreen = (): JSX.Element => {
     e: FormEvent<HTMLFormElement>
   ): Promise<void> => {
     e.preventDefault();
+    const owner = userinfo.phone;
     const res = await dispatch(
-      createFirm({ name: firmName, country, phone, cloudurl: backend_url })
+      createFirm({
+        name: firmName,
+        country,
+        phone,
+        cloudurl: backend_url,
+        address,
+        owner,
+      })
     ).unwrap();
 
     console.log(res);

@@ -25,6 +25,7 @@ const SYNC_TABLES = [
 interface SyncRequestBody {
   cloudUrl: string;
   firmId: string;
+  owner: string;
 }
 
 interface SyncResult {
@@ -40,7 +41,7 @@ export const syncToCloud = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { cloudUrl, firmId }: SyncRequestBody = req.body;
+  const { cloudUrl, firmId, owner }: SyncRequestBody = req.body;
 
   if (!cloudUrl || !firmId) {
     return res.status(400).json({ error: "cloudUrl and firmId are required." });
@@ -72,6 +73,7 @@ export const syncToCloud = async (
       const response = await axios.post(`${cloudUrl}/sync/`, {
         table,
         records,
+        owner,
       });
 
       results.push({
@@ -100,7 +102,7 @@ export const syncToLocal = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { cloudUrl, firmId }: SyncRequestBody = req.body;
+  const { cloudUrl, firmId, owner }: SyncRequestBody = req.body;
 
   if (!cloudUrl || !firmId) {
     return res.status(400).json({ error: "cloudUrl and firmId are required." });
@@ -110,7 +112,7 @@ export const syncToLocal = async (
 
   for (const table of SYNC_TABLES) {
     try {
-      const url = `${cloudUrl}/fetch/?table=${table}${
+      const url = `${cloudUrl}/fetch/?table=${table}&owner=${owner}${
         table !== "firms" ? `&firmId=${firmId}` : ""
       }`;
       const response = await axios.get(url);

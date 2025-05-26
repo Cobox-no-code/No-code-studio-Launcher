@@ -31,6 +31,7 @@ import { Camera, Upload, X, Building2, FileText } from "lucide-react";
 import { API_BASE_URL } from "@/redux/api/api.config";
 import { syncAllToCloud, syncAllToLocal } from "@/lib/sync-cloud";
 import { backend_url } from "@/backend.config";
+import { useAppSelector } from "@/redux/hooks";
 // Type definitions
 interface Country {
   code: string;
@@ -39,6 +40,7 @@ interface Country {
 
 export default function EditFirmPage(): JSX.Element {
   const router = useRouter();
+  const userinfo = useAppSelector((state) => state.userinfo);
   const firmId =
     typeof window !== "undefined" ? localStorage.getItem("firmId") : null;
   const [country, setCountry] = useState<string>("");
@@ -215,14 +217,14 @@ export default function EditFirmPage(): JSX.Element {
 
   const handleDelete = async () => {
     if (!firmId) return;
-
+    const owner = userinfo.phone;
     setLoading(true);
 
     try {
       await axios.delete(
         `${API_BASE_URL}/firms/${firmId}?cloudurl=${encodeURIComponent(
           backend_url
-        )}`
+        )}&owner=${owner}`
       );
 
       localStorage.removeItem("firmId");

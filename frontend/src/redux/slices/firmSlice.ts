@@ -51,7 +51,16 @@ export const createFirm = createAsyncThunk(
       country,
       phone,
       cloudurl,
-    }: { name: string; country?: string; phone?: string; cloudurl: string },
+      address,
+      owner,
+    }: {
+      name: string;
+      country?: string;
+      phone?: string;
+      cloudurl: string;
+      address: string;
+      owner: string;
+    },
     thunkAPI
   ) => {
     try {
@@ -60,6 +69,8 @@ export const createFirm = createAsyncThunk(
         country,
         phone,
         cloudurl,
+        address,
+        owner,
       });
 
       // Optionally init firm default data

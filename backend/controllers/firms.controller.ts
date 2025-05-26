@@ -30,6 +30,7 @@ export const createFirm = async (req: Request, res: Response): Promise<any> => {
       id: uuidv4(),
       name: body.name,
       country: body.country || "",
+      owner: body.owner || "",
       phone: body.phone || "",
       gstNumber: body.gstNumber || "",
       ownerName: body.ownerName || "",
@@ -44,6 +45,7 @@ export const createFirm = async (req: Request, res: Response): Promise<any> => {
     await axios.post(`${body.cloudurl}/sync/`, {
       table: "firms",
       records: [newFirm],
+      owner: body.owner,
     });
     await initializeDatabase();
 
@@ -111,6 +113,7 @@ export const deleteFirm = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
     const cloudurl = req.query.cloudurl as string;
+    const owner = req.query.owner as string;
 
     console.log(`➡️ Delete request for firm ID: ${id}`);
     console.log(`🌐 Cloud URL from query: ${cloudurl}`);
@@ -139,6 +142,7 @@ export const deleteFirm = async (req: Request, res: Response): Promise<any> => {
         const response = await axios.post(`${cloudurl}/sync/`, {
           table: "firms",
           records: updatedFirms,
+          owner,
         });
         console.log(`✅ Cloud sync successful. Response:`, response.data);
       } catch (syncErr: any) {
