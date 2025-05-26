@@ -50,6 +50,7 @@ import { DocumentItem } from "@/models/document/document.model";
 import {
   isProduct,
   Item,
+  ItemType,
   Product,
   UnitConversion,
 } from "@/models/item/item.model";
@@ -520,6 +521,7 @@ const DocumentItemsTable: React.FC = () => {
           taxRate: "",
           hsnCode: "",
           description: "",
+          type: ItemType.PRODUCT,
           // Add other required fields based on your item model
         };
 
