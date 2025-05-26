@@ -139,6 +139,7 @@ const SyncShare = () => {
 
   const handleToggleSync = async () => {
     const firmId = localStorage.getItem("firmId");
+    const owner = userInfo.phone;
     try {
       setIsLoading(true);
       const payload = {
@@ -150,7 +151,7 @@ const SyncShare = () => {
 
       if (response.data.status === "success") {
         dispatch(setUserInfo({ ...userInfo, sync_enabled: !sync_enabled }));
-        const result = await syncAllToCloud(backend_url, firmId);
+        const result = await syncAllToCloud(backend_url, firmId, owner);
 
         toast.success(
           `Sync ${!sync_enabled ? "enabled" : "disabled"} successfully`

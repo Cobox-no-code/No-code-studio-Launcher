@@ -1,6 +1,6 @@
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogClose,
@@ -9,23 +9,23 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
-import { ItemType } from '@/models/item/item.model'
-import { useAppDispatch, useAppSelector } from '@/redux/hooks'
-import { closeModal } from '@/redux/slices/modal'
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { ItemType } from "@/models/item/item.model";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { closeModal } from "@/redux/slices/modal";
 import {
   AlertCircle,
   Calendar,
@@ -33,10 +33,10 @@ import {
   Loader2,
   Plus,
   Save,
-  X
-} from 'lucide-react'
-import React, { useEffect, useState } from 'react'
-import { toast } from 'react-hot-toast'
+  X,
+} from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { toast } from "react-hot-toast";
 
 // Import from our new slices
 import {
@@ -49,11 +49,11 @@ import {
   setSubmitting,
   transformFormToModel,
   updateFormField,
-  validateFormData
-} from '@/redux/slices/itemsSlice'
+  validateFormData,
+} from "@/redux/slices/itemsSlice";
 
 // Import from our API slices
-import { countryTaxMap } from '@/lib/data'
+import { countryTaxMap } from "@/lib/data";
 import {
   useCreateCategoryMutation,
   useCreateItemMutation,
@@ -64,307 +64,352 @@ import {
   useGetUnitConversionsQuery,
   useGetUnitsQuery,
   useUpdateItemMutation,
-} from '@/redux/api'
+} from "@/redux/api";
 
 const AddItems = () => {
   // Redux state from our new slice
-  const dispatch = useAppDispatch()
-  const { formData, isSubmitting, submitError, validationErrors } =
-    useAppSelector((state) => state.items)
-  const { mode, currentItemId } = useAppSelector((state) => state.items)
-  const { data: editItem } = useGetItemByIdQuery(currentItemId ?? '', {
+  const dispatch = useAppDispatch();
+  const {
+    isSubmitting,
+    submitError,
+    validationErrors,
+    formData,
+    mode,
+    currentItemId,
+  } = useAppSelector((state) => state.items);
+
+  const { data: editItem } = useGetItemByIdQuery(currentItemId ?? "", {
     skip: !currentItemId,
-  })
-  
+  });
 
   // RTK Query hooks
-  const [createItem, { isLoading: isCreatingItem }] = useCreateItemMutation()
-  const [updateItem, { isLoading: isUpdatingItem }] = useUpdateItemMutation()
-  const [createCategory] = useCreateCategoryMutation()
-  const [createUnit] = useCreateUnitMutation()
-  const [createUnitConversion] = useCreateUnitConversionMutation()
+  const [createItem, { isLoading: isCreatingItem }] = useCreateItemMutation();
+  const [updateItem, { isLoading: isUpdatingItem }] = useUpdateItemMutation();
+  const [createCategory] = useCreateCategoryMutation();
+  const [createUnit] = useCreateUnitMutation();
+  const [createUnitConversion] = useCreateUnitConversionMutation();
 
   // Fetch reference data
   const { data: categories, isLoading: isLoadingCategories } =
-    useGetCategoriesQuery()
-  const { data: units, isLoading: isLoadingUnits } = useGetUnitsQuery()
-  const { data: unitConversions, isLoading: isLoadingUnitConversions } = 
-    useGetUnitConversionsQuery()
+    useGetCategoriesQuery();
+  const { data: units, isLoading: isLoadingUnits } = useGetUnitsQuery();
+  const { data: unitConversions, isLoading: isLoadingUnitConversions } =
+    useGetUnitConversionsQuery();
 
   // Local UI state
-  const [tab, setTab] = useState(0)
-  const [unitDialogOpen, setUnitDialogOpen] = useState(false)
-  const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false)
-  const [addUnitDialogOpen, setAddUnitDialogOpen] = useState(false)
+  const [tab, setTab] = useState(0);
+  const [unitDialogOpen, setUnitDialogOpen] = useState(false);
+  const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
+  const [addUnitDialogOpen, setAddUnitDialogOpen] = useState(false);
 
   // Unit dialog state
-  const [primaryUnitId, setPrimaryUnitId] = useState('')
-  const [secondaryUnitId, setSecondaryUnitId] = useState('')
-  const [conversionRate, setConversionRate] = useState('1')
-  const [newUnitName, setNewUnitName] = useState('')
-  const [newUnitShortName, setNewUnitShortName] = useState('')
-  const [isAddingPrimaryUnit, setIsAddingPrimaryUnit] = useState(true)
-  const [selectedUnitConversionId, setSelectedUnitConversionId] = useState('')
+  const [primaryUnitId, setPrimaryUnitId] = useState("");
+  const [secondaryUnitId, setSecondaryUnitId] = useState("");
+  const [conversionRate, setConversionRate] = useState("1");
+  const [newUnitName, setNewUnitName] = useState("");
+  const [newUnitShortName, setNewUnitShortName] = useState("");
+  const [isAddingPrimaryUnit, setIsAddingPrimaryUnit] = useState(true);
+  const [selectedUnitConversionId, setSelectedUnitConversionId] = useState("");
 
   // Category dialog state
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [newCategoryDescription, setNewCategoryDescription] = useState('')
-  const [taxOptions, setTaxOptions] = useState([
-    ...countryTaxMap.default
-  ])
-
-
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryDescription, setNewCategoryDescription] = useState("");
+  const [taxOptions, setTaxOptions] = useState([...countryTaxMap.default]);
 
   // Reset form when component mounts
-useEffect(() => {
-  dispatch(resetForm())
-  dispatch(setFormData({
-    type: ItemType.PRODUCT,
-    salePrice: 0,
-    salePriceTaxInclusive: false,
-    isActive: true,
-    name: '',
-    categoryId: '',
-  }))
-  return () => {
-    dispatch(resetForm())
-  }
-}, [dispatch])
+  useEffect(() => {
+    dispatch(resetForm());
+    dispatch(
+      setFormData({
+        type: ItemType.PRODUCT,
+        salePrice: 0,
+        salePriceTaxInclusive: false,
+        isActive: true,
+        name: "",
+        categoryId: "",
+      })
+    );
+    return () => {
+      dispatch(resetForm());
+    };
+  }, [dispatch]);
 
-// Separate effect to populate edit data when available
-useEffect(() => {
-  if (mode === 'edit' && editItem && unitConversions) {
-    dispatch(populateFromItem(editItem))
+  // Get current form data using useCallback to prevent stale closures
+  const getCurrentFormData = useCallback(() => {
+    return formData;
+  }, [formData]);
 
-    if (editItem.type === ItemType.PRODUCT && editItem.unit_conversionId) {
-      setSelectedUnitConversionId(editItem.unit_conversionId)
+  const handleSaveUnit = async () => {
+    console.log("=== SAVE UNIT FUNCTION ===");
+    console.log("Primary Unit ID:", primaryUnitId);
+    console.log("Secondary Unit ID:", secondaryUnitId);
+    console.log("Conversion Rate:", conversionRate);
 
-      const conversion = unitConversions.find(
-        (uc) => uc.id === editItem.unit_conversionId
-      )
+    if (!primaryUnitId) {
+      toast.error("Please select a primary unit");
+      return;
+    }
 
-      if (conversion) {
-        setPrimaryUnitId(conversion.primaryUnitId)
-        setSecondaryUnitId(conversion.secondaryUnitId || '')
-        setConversionRate(conversion.conversionRate?.toString() || '1')
+    try {
+      // Case 1: Only primary unit selected
+      if (
+        !secondaryUnitId ||
+        !parseFloat(conversionRate) ||
+        parseFloat(conversionRate) <= 0
+      ) {
+        console.log("Only primary unit selected, clearing conversion");
+
+        // Get fresh form data and clear conversion
+        const currentFormData = getCurrentFormData();
+        console.log("Form data before clearing conversion:", currentFormData);
+
+        // Clear the unit conversion ID
+        dispatch(updateFormField({ field: "unit_conversionId", value: "" }));
+
+        setSelectedUnitConversionId("");
+        handleUnitDialogClose();
+        toast.success("Unit settings saved");
+        return;
+      }
+
+      // Case 2: Create unit conversion
+      console.log("Creating unit conversion...");
+      const currentFormData = getCurrentFormData();
+      console.log("Form data before creating conversion:", currentFormData);
+
+      const conversionData = {
+        primaryUnitId,
+        secondaryUnitId,
+        conversionRate: parseFloat(conversionRate),
+      };
+
+      const conversionResponse = await createUnitConversion(
+        conversionData
+      ).unwrap();
+      console.log("Unit conversion created:", conversionResponse);
+
+      // Update the form data with the new unit conversion ID
+      console.log(
+        "Updating form with unit conversion ID:",
+        conversionResponse.id
+      );
+      dispatch(
+        updateFormField({
+          field: "unit_conversionId",
+          value: conversionResponse.id,
+        })
+      );
+
+      setSelectedUnitConversionId(conversionResponse.id);
+      handleUnitDialogClose();
+      toast.success("Unit conversion saved successfully");
+    } catch (error: any) {
+      console.error("Error saving unit conversion:", error);
+      toast.error(
+        `Failed to save unit settings: ${error.message || "Unknown error"}`
+      );
+    }
+  };
+
+  const handleSave = async () => {
+    // Get fresh form data to avoid stale closure issues
+    const currentFormData = getCurrentFormData();
+    console.log("=== FORM SUBMISSION DEBUG ===");
+    console.log("Fresh formData from Redux:", currentFormData);
+    console.log("Selected unit conversion ID:", selectedUnitConversionId);
+    console.log(
+      "Unit conversion ID from form:",
+      currentFormData.unit_conversionId
+    );
+
+    // Use the fresh form data for validation and submission
+    const errors = validateFormData(currentFormData);
+    if (Object.keys(errors).length > 0) {
+      Object.entries(errors).forEach(([field, message]) => {
+        toast.error(message);
+      });
+      return;
+    }
+
+    try {
+      dispatch(setSubmitting(true));
+
+      // Transform the FRESH form data
+      let itemData = await transformFormToModel(currentFormData);
+      itemData = {
+        ...itemData,
+        primaryQuantity: currentFormData.primaryOpeningQuantity || 0,
+        secondaryQuantity: currentFormData.secondaryOpeningQuantity || 0,
+      };
+
+      console.log("Final item data being sent:", itemData);
+      console.log("Unit conversion ID in payload:", itemData.unit_conversionId);
+
+      if (mode === "edit" && currentItemId) {
+        const finalPayload: any = {
+          id: currentItemId,
+          ...itemData,
+          unit_conversionId: selectedUnitConversionId,
+        };
+        await updateItem({
+          ...finalPayload,
+        }).unwrap();
+        toast.success("Item updated successfully!");
+      } else {
+        await createItem(itemData).unwrap();
+        toast.success("Item created successfully!");
+      }
+
+      dispatch(closeForm());
+    } catch (error: any) {
+      console.error("Submission error:", error);
+      dispatch(setSubmitError(error.message || "Failed to save item"));
+      toast.error(`Failed to save item: ${error.message || "Unknown error"}`);
+    } finally {
+      dispatch(setSubmitting(false));
+    }
+  };
+
+  // Separate effect to populate edit data when available
+  useEffect(() => {
+    if (mode === "edit" && editItem && unitConversions) {
+      dispatch(populateFromItem(editItem));
+
+      if (editItem.type === ItemType.PRODUCT && editItem.unit_conversionId) {
+        setSelectedUnitConversionId(editItem.unit_conversionId);
+
+        const conversion = unitConversions.find(
+          (uc) => uc.id === editItem.unit_conversionId
+        );
+
+        if (conversion) {
+          setPrimaryUnitId(conversion.primaryUnitId);
+          setSecondaryUnitId(conversion.secondaryUnitId || "");
+          setConversionRate(conversion.conversionRate?.toString() || "1");
+        }
       }
     }
-  }
-}, [editItem, unitConversions, mode, dispatch])
-// Only populate once, when editItem first becomes available
-useEffect(() => {
-  if (mode === 'edit' && editItem) {
-    dispatch(populateFromItem(editItem))
-  }
-}, [mode, editItem?.id]) // <- note: only triggers once per item
+  }, [editItem, unitConversions, mode, dispatch]);
 
   // Tab switching
   const handleTabChange = (newValue: React.SetStateAction<number>) => {
-    setTab(newValue)
-  }
+    setTab(newValue);
+  };
 
   // Handle field changes
   const handleInputChange = (
     field: keyof typeof formData,
     value: string | boolean
   ) => {
-    let processedValue = value
+    let processedValue = value;
 
     // Format numeric fields
-    if (
-      ['salePrice', 'wholesalePrice', 'purchasePrice', ].includes(
-        field
-      )
-    ) {
+    if (["salePrice", "wholesalePrice", "purchasePrice"].includes(field)) {
       // Allow only numbers and a single decimal point
       processedValue =
-        typeof value === 'string' ? value.replace(/[^0-9.]/g, '') : ''
+        typeof value === "string" ? value.replace(/[^0-9.]/g, "") : "";
 
       // Prevent multiple decimal points
-      const dotCount = (processedValue.match(/\./g) || []).length
+      const dotCount = (processedValue.match(/\./g) || []).length;
       if (dotCount > 1) {
         processedValue = processedValue.slice(
           0,
-          processedValue.lastIndexOf('.')
-        )
+          processedValue.lastIndexOf(".")
+        );
       }
 
       // Convert to number if not empty
-      if (processedValue !== '') {
-        processedValue = parseFloat(processedValue).toString()
+      if (processedValue !== "") {
+        processedValue = parseFloat(processedValue).toString();
       }
-    } else if (['openingQuantity', 'minStockLevel'].includes(field)) {
+    } else if (["openingQuantity", "minStockLevel"].includes(field)) {
       // Allow only whole numbers (no decimals)
-      processedValue = typeof value === 'string' ? value.replace(/\D/g, '') : ''
-      if (processedValue !== '') {
-        processedValue = parseInt(processedValue, 10).toString()
+      processedValue =
+        typeof value === "string" ? value.replace(/\D/g, "") : "";
+      if (processedValue !== "") {
+        processedValue = parseInt(processedValue, 10).toString();
       }
     }
- console.log(field,value)
+    console.log(field, value);
     // Dispatch the field change to Redux
-    dispatch(updateFormField({ field, value: processedValue }))
-  }
+    dispatch(updateFormField({ field, value: processedValue }));
+  };
 
   // Generate a unique code
   const generateUniqueCode = () => {
-    const timestamp = Date.now().toString().slice(-6)
+    const timestamp = Date.now().toString().slice(-6);
     const randomNum = Math.floor(Math.random() * 100000)
       .toString()
-      .padStart(5, '0')
-    return `ITEM-${timestamp}${randomNum}`
-  }
+      .padStart(5, "0");
+    return `ITEM-${timestamp}${randomNum}`;
+  };
 
   // Assign a code to the item
   const handleAssignCode = () => {
     dispatch(
-      updateFormField({ field: 'itemCode', value: generateUniqueCode() })
-    )
-  }
-
-// Form submission
-const handleSave = async () => {
-    // Validate form first
-    const errors = validateFormData(formData)
-    if (Object.keys(errors).length > 0) {
-      // Show validation errors
-      Object.entries(errors).forEach(([field, message]) => {
-        toast.error(message)
-      })
-      return
-    }
-
-    try {
-      dispatch(setSubmitting(true))
-
-      // Transform form data to the model structure
-      let itemData = await transformFormToModel(formData)
-       itemData =
-      {
-        ...itemData,
-          primaryQuantity: formData.primaryOpeningQuantity || 0,
-          secondaryQuantity: formData.secondaryOpeningQuantity || 0,
-      }
-      console.log(itemData)
-      // Submit using the createItem mutation
-      if (mode === 'edit' && currentItemId) {
-        // Use updateItem for edit mode
-        await updateItem({
-          id: currentItemId,
-          ...itemData,
-        }).unwrap()
-        toast.success('Item updated successfully!')
-      } else {
-        // Use createItem for create mode
-        await createItem(itemData).unwrap()
-        toast.success('Item created successfully!')
-      }
-
-      dispatch(closeForm())
-    } catch (error: any) {
-      dispatch(setSubmitError(error.message || 'Failed to create item'))
-      toast.error(`Failed to create item: ${error.message || 'Unknown error'}`)
-    } finally {
-      dispatch(setSubmitting(false))
-    }
-  }
+      updateFormField({ field: "itemCode", value: generateUniqueCode() })
+    );
+  };
 
   // Save and add another item
   const handleSaveAndNew = async () => {
     // First save the current item
-    await handleSave()
+    await handleSave();
 
     // Reset the form but keep some settings
-    dispatch(resetForm())
+    dispatch(resetForm());
+
+    // Get current form data for preserving settings
+    const currentFormData = getCurrentFormData();
 
     // Re-initialize with defaults
     dispatch(
       setFormData({
-        type: formData.type,
-        salePriceTaxInclusive: formData.salePriceTaxInclusive,
+        type: currentFormData.type,
+        salePriceTaxInclusive: currentFormData.salePriceTaxInclusive,
         salePrice: 0,
         isActive: true,
-        name: '',
-        categoryId: '',
+        name: "",
+        categoryId: "",
       })
-    )
+    );
 
     // Reset unit selection
-    setPrimaryUnitId('')
-    setSecondaryUnitId('')
-    setConversionRate('1')
-    setSelectedUnitConversionId('')
-  }
+    setPrimaryUnitId("");
+    setSecondaryUnitId("");
+    setConversionRate("1");
+    setSelectedUnitConversionId("");
+  };
 
   // Product/Service toggle
   const handleItemTypeToggle = (isProduct: boolean) => {
-    dispatch(setItemType(isProduct ? ItemType.PRODUCT : ItemType.SERVICE))
-  }
+    dispatch(setItemType(isProduct ? ItemType.PRODUCT : ItemType.SERVICE));
+  };
 
   // UNIT HANDLERS
-  const handleUnitDialogOpen = () => setUnitDialogOpen(true)
-  const handleUnitDialogClose = () => setUnitDialogOpen(false)
+  const handleUnitDialogOpen = () => setUnitDialogOpen(true);
+  const handleUnitDialogClose = () => setUnitDialogOpen(false);
 
   const handleAddUnitOpen = (isPrimary = true) => {
-    setIsAddingPrimaryUnit(isPrimary)
-    setAddUnitDialogOpen(true)
-  }
+    setIsAddingPrimaryUnit(isPrimary);
+    setAddUnitDialogOpen(true);
+  };
 
   const handleAddUnitClose = () => {
-    setAddUnitDialogOpen(false)
-    setNewUnitName('')
-    setNewUnitShortName('')
-  }
-
-  const handleSaveUnit = async () => {
-    if (!primaryUnitId) {
-      toast.error('Please select a primary unit')
-      return
-    }
-
-    try {
-      // If only primary unit is selected, just use that
-      if (!secondaryUnitId || !parseFloat(conversionRate)) {
-        // Update the form with just the unitId for compatibility
-   
-        dispatch(updateFormField({ field: 'unit_conversionId', value: '' }))
-        handleUnitDialogClose()
-        toast.success('Unit settings saved')
-        return
-      }
-
-      // If secondary unit is selected, create a unit conversion
-      const conversionResponse = await createUnitConversion({
-        primaryUnitId,
-        secondaryUnitId,
-        conversionRate: parseFloat(conversionRate),
-      }).unwrap()
-
-      // Update the form with the new unit_conversionId
-      dispatch(updateFormField({ 
-        field: 'unit_conversionId', 
-        value: conversionResponse.id 
-      }))
-      
-
-      setSelectedUnitConversionId(conversionResponse.id)
-      handleUnitDialogClose()
-      toast.success('Unit settings saved')
-    } catch (error: any) {
-      toast.error(
-        `Failed to save unit settings: ${error.message || 'Unknown error'}`
-      )
-    }
-  }
+    setAddUnitDialogOpen(false);
+    setNewUnitName("");
+    setNewUnitShortName("");
+  };
 
   const handleAddUnit = async () => {
     if (!newUnitName.trim()) {
-      toast.error('Please enter a valid unit name')
-      return
+      toast.error("Please enter a valid unit name");
+      return;
     }
 
     if (!newUnitShortName.trim()) {
-      toast.error('Please enter a valid unit short name')
-      return
+      toast.error("Please enter a valid unit short name");
+      return;
     }
 
     try {
@@ -372,86 +417,90 @@ const handleSave = async () => {
       const result = await createUnit({
         fullname: newUnitName.trim().toUpperCase(),
         shortname: newUnitShortName.trim(),
-      }).unwrap()
+      }).unwrap();
 
       // Set as selected unit
       if (isAddingPrimaryUnit) {
-        setPrimaryUnitId(result.id)
+        setPrimaryUnitId(result.id);
       } else {
-        setSecondaryUnitId(result.id)
+        setSecondaryUnitId(result.id);
       }
 
-      toast.success(`Unit "${newUnitName}" added successfully`)
-      handleAddUnitClose()
+      toast.success(`Unit "${newUnitName}" added successfully`);
+      handleAddUnitClose();
     } catch (error: any) {
-      toast.error(`Failed to add unit: ${error.message || 'Unknown error'}`)
+      toast.error(`Failed to add unit: ${error.message || "Unknown error"}`);
     }
-  }
+  };
 
   // CATEGORY HANDLERS
-  const handleAddCategoryOpen = () => setAddCategoryDialogOpen(true)
+  const handleAddCategoryOpen = () => setAddCategoryDialogOpen(true);
   const handleAddCategoryClose = () => {
-    setAddCategoryDialogOpen(false)
-    setNewCategoryName('')
-    setNewCategoryDescription('')
-  }
+    setAddCategoryDialogOpen(false);
+    setNewCategoryName("");
+    setNewCategoryDescription("");
+  };
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) {
-      toast.error('Please enter a valid category name')
-      return
+      toast.error("Please enter a valid category name");
+      return;
     }
 
     try {
       const result = await createCategory({
         name: newCategoryName.trim(),
         description: newCategoryDescription.trim(),
-      }).unwrap()
+      }).unwrap();
 
-      dispatch(updateFormField({ field: 'categoryId', value: result.id }))
-      toast.success(`Category "${newCategoryName}" added successfully`)
-      handleAddCategoryClose()
+      dispatch(updateFormField({ field: "categoryId", value: result.id }));
+      toast.success(`Category "${newCategoryName}" added successfully`);
+      handleAddCategoryClose();
     } catch (error: any) {
-      toast.error(`Failed to add category: ${error.message || 'Unknown error'}`)
+      toast.error(
+        `Failed to add category: ${error.message || "Unknown error"}`
+      );
     }
-  }
+  };
 
   // Find unit and category names from IDs
   const getUnitName = (id: string) => {
-    if (!units) return ''
-    const unit = units.find((u) => u.id === id)
-    return unit ? unit.fullname : ''
-  }
+    if (!units) return "";
+    const unit = units.find((u) => u.id === id);
+    return unit ? unit.fullname : "";
+  };
 
   const getCategoryName = (id: string) => {
-    if (!categories) return ''
-    const category = categories.find((c) => c.id === id)
-    return category ? category.name : ''
-  }
+    if (!categories) return "";
+    const category = categories.find((c) => c.id === id);
+    return category ? category.name : "";
+  };
 
   // Get display text for the current unit configuration
   const getUnitDisplayText = () => {
     if (selectedUnitConversionId && unitConversions) {
-      const conversion = unitConversions.find(uc => uc.id === selectedUnitConversionId)
+      const conversion = unitConversions.find(
+        (uc) => uc.id === selectedUnitConversionId
+      );
       if (conversion && units) {
-        const primaryUnit = units.find(u => u.id === conversion.primaryUnitId)
-        return primaryUnit ? primaryUnit.fullname : 'Selected Unit'
+        const primaryUnit = units.find(
+          (u) => u.id === conversion.primaryUnitId
+        );
+        return primaryUnit ? primaryUnit.fullname : "Selected Unit";
       }
     }
-    
 
-    
-    return 'Select Unit'
-  }
+    return "Select Unit";
+  };
 
   useEffect(() => {
     // Get country from localStorage
-    const storedCountry = localStorage.getItem('firmCountry')
-    console.log('Stored country:', storedCountry)
+    const storedCountry = localStorage.getItem("firmCountry");
+    console.log("Stored country:", storedCountry);
     if (storedCountry && countryTaxMap[storedCountry]) {
-      setTaxOptions(countryTaxMap[storedCountry])
+      setTaxOptions(countryTaxMap[storedCountry]);
     }
-  }, [])
+  }, []);
 
   return (
     <Dialog open={true} onOpenChange={() => dispatch(closeModal())}>
@@ -461,14 +510,14 @@ const handleSave = async () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <DialogTitle className="text-xl font-semibold">
-                  {mode === 'edit' ? 'Edit Item' : 'Add Item'}
+                  {mode === "edit" ? "Edit Item" : "Add Item"}
                 </DialogTitle>
                 <div className="flex items-center gap-2">
                   <span
                     className={`text-sm ${
                       formData.type === ItemType.PRODUCT
-                        ? 'text-primary'
-                        : 'text-gray-500'
+                        ? "text-primary"
+                        : "text-gray-500"
                     }`}
                   >
                     Product
@@ -482,8 +531,8 @@ const handleSave = async () => {
                   <span
                     className={`text-sm ${
                       formData.type === ItemType.SERVICE
-                        ? 'text-primary'
-                        : 'text-gray-500'
+                        ? "text-primary"
+                        : "text-gray-500"
                     }`}
                   >
                     Service
@@ -519,8 +568,8 @@ const handleSave = async () => {
               </Label>
               <Input
                 id="name"
-                value={formData.name || ''}
-                onChange={(e) => handleInputChange('name', e.target.value)}
+                value={formData.name || ""}
+                onChange={(e) => handleInputChange("name", e.target.value)}
                 className="mt-1"
                 placeholder="Enter item name"
               />
@@ -537,8 +586,8 @@ const handleSave = async () => {
               </Label>
               <Input
                 id="hsn"
-                value={formData.hsnCode || ''}
-                onChange={(e) => handleInputChange('hsnCode', e.target.value)}
+                value={formData.hsnCode || ""}
+                onChange={(e) => handleInputChange("hsnCode", e.target.value)}
                 className="mt-1"
                 placeholder="Enter HSN code"
               />
@@ -559,13 +608,13 @@ const handleSave = async () => {
                   {(() => {
                     const conversion = unitConversions.find(
                       (uc) => uc.id === selectedUnitConversionId
-                    )
+                    );
                     if (conversion) {
                       return `1 ${getUnitName(conversion.primaryUnitId)} = ${
                         conversion.conversionRate
-                      } ${getUnitName(conversion.secondaryUnitId)}`
+                      } ${getUnitName(conversion.secondaryUnitId)}`;
                     }
-                    return ''
+                    return "";
                   })()}
                 </p>
               )}
@@ -592,9 +641,9 @@ const handleSave = async () => {
                 <Skeleton className="h-10 w-full mt-1" />
               ) : (
                 <Select
-                  value={formData.categoryId || ''}
+                  value={formData.categoryId || ""}
                   onValueChange={(value) =>
-                    handleInputChange('categoryId', value)
+                    handleInputChange("categoryId", value)
                   }
                 >
                   <SelectTrigger className="mt-1 w-full">
@@ -619,9 +668,9 @@ const handleSave = async () => {
               <div className="flex mt-1">
                 <Input
                   id="itemCode"
-                  value={formData.itemCode || ''}
+                  value={formData.itemCode || ""}
                   onChange={(e) =>
-                    handleInputChange('itemCode', e.target.value)
+                    handleInputChange("itemCode", e.target.value)
                   }
                   placeholder="Item code"
                 />
@@ -660,9 +709,9 @@ const handleSave = async () => {
                           <Input
                             id="salePrice"
                             type="text"
-                            value={formData.salePrice || ''}
+                            value={formData.salePrice || ""}
                             onChange={(e) =>
-                              handleInputChange('salePrice', e.target.value)
+                              handleInputChange("salePrice", e.target.value)
                             }
                             className="mt-1"
                           />
@@ -672,13 +721,13 @@ const handleSave = async () => {
                           <Select
                             value={
                               formData?.salePriceTaxInclusive
-                                ? 'With Tax'
-                                : 'Without Tax'
+                                ? "With Tax"
+                                : "Without Tax"
                             }
                             onValueChange={(value) =>
                               handleInputChange(
-                                'salePriceTaxInclusive',
-                                value === 'With Tax'
+                                "salePriceTaxInclusive",
+                                value === "With Tax"
                               )
                             }
                           >
@@ -699,9 +748,9 @@ const handleSave = async () => {
                         <Input
                           id="wholesalePrice"
                           type="text"
-                          value={formData.wholesalePrice || ''}
+                          value={formData.wholesalePrice || ""}
                           onChange={(e) =>
-                            handleInputChange('wholesalePrice', e.target.value)
+                            handleInputChange("wholesalePrice", e.target.value)
                           }
                           className="mt-1"
                         />
@@ -727,10 +776,10 @@ const handleSave = async () => {
                             <Input
                               id="purchasePrice"
                               type="text"
-                              value={formData.purchasePrice || ''}
+                              value={formData.purchasePrice || ""}
                               onChange={(e) =>
                                 handleInputChange(
-                                  'purchasePrice',
+                                  "purchasePrice",
                                   e.target.value
                                 )
                               }
@@ -742,13 +791,13 @@ const handleSave = async () => {
                             <Select
                               value={
                                 formData?.purchasePriceTaxInclusive
-                                  ? 'With Tax'
-                                  : 'Without Tax'
+                                  ? "With Tax"
+                                  : "Without Tax"
                               }
                               onValueChange={(value) =>
                                 handleInputChange(
-                                  'purchasePriceTaxInclusive',
-                                  value === 'With Tax'
+                                  "purchasePriceTaxInclusive",
+                                  value === "With Tax"
                                 )
                               }
                             >
@@ -778,15 +827,15 @@ const handleSave = async () => {
                     </CardHeader>
                     <CardContent>
                       <Select
-                        value={formData.taxRate || 'None'}
+                        value={formData.taxRate || "None"}
                         onValueChange={(selectedValue) => {
-                          console.log('Selected tax rate:', selectedValue)
+                          console.log("Selected tax rate:", selectedValue);
 
                           // Pass the value directly to the handler without modification
                           handleInputChange(
-                            'taxRate',
-                            selectedValue === 'None' ? '' : selectedValue
-                          )
+                            "taxRate",
+                            selectedValue === "None" ? "" : selectedValue
+                          );
                         }}
                       >
                         <SelectTrigger className="w-full">
@@ -798,7 +847,7 @@ const handleSave = async () => {
 
                           {/* Map the tax options, ensuring each has a unique value */}
                           {taxOptions
-                            .filter((tax) => tax.value !== 'None') // Filter out None which we already added
+                            .filter((tax) => tax.value !== "None") // Filter out None which we already added
                             .map((tax) => (
                               <SelectItem
                                 key={String(tax.value)}
@@ -828,16 +877,16 @@ const handleSave = async () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="primaryOpeningQty">
-                            Primary Opening Quantity{' '}
+                            Primary Opening Quantity{" "}
                             {primaryUnitId && `(${getUnitName(primaryUnitId)})`}
                           </Label>
                           <Input
                             id="primaryOpeningQty"
                             type="text"
-                            value={formData.primaryOpeningQuantity || ''}
+                            value={formData.primaryOpeningQuantity || ""}
                             onChange={(e) =>
                               handleInputChange(
-                                'primaryOpeningQuantity',
+                                "primaryOpeningQuantity",
                                 e.target.value
                               )
                             }
@@ -846,17 +895,17 @@ const handleSave = async () => {
                         </div>
                         <div>
                           <Label htmlFor="secondaryOpeningQty">
-                            Secondary Opening Quantity{' '}
+                            Secondary Opening Quantity{" "}
                             {secondaryUnitId &&
                               `(${getUnitName(secondaryUnitId)})`}
                           </Label>
                           <Input
                             id="secondaryOpeningQty"
                             type="text"
-                            value={formData.secondaryOpeningQuantity || ''}
+                            value={formData.secondaryOpeningQuantity || ""}
                             onChange={(e) =>
                               handleInputChange(
-                                'secondaryOpeningQuantity',
+                                "secondaryOpeningQuantity",
                                 e.target.value
                               )
                             }
@@ -865,15 +914,15 @@ const handleSave = async () => {
                         </div>
                         <div>
                           <Label htmlFor="pricepperunit">
-                            Price per Unit{' '}
+                            Price per Unit{" "}
                             {primaryUnitId && `(${getUnitName(primaryUnitId)})`}
                           </Label>
                           <Input
                             id="pricepperunit"
                             type="text"
-                            value={formData.pricePerUnit || ''}
+                            value={formData.pricePerUnit || ""}
                             onChange={(e) =>
-                              handleInputChange('pricePerUnit', e.target.value)
+                              handleInputChange("pricePerUnit", e.target.value)
                             }
                             className="mt-1"
                           />
@@ -888,13 +937,13 @@ const handleSave = async () => {
                                 (formData.openingStockDate instanceof Date
                                   ? formData.openingStockDate
                                       .toISOString()
-                                      .split('T')[0]
+                                      .split("T")[0]
                                   : formData.openingStockDate) ||
-                                new Date().toISOString().split('T')[0]
+                                new Date().toISOString().split("T")[0]
                               }
                               onChange={(e) =>
                                 handleInputChange(
-                                  'openingStockDate',
+                                  "openingStockDate",
                                   e.target.value
                                 )
                               }
@@ -916,20 +965,21 @@ const handleSave = async () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                           <Label htmlFor="minStock">
-                            Minimum Stock Level{' '}
+                            Minimum Stock Level{" "}
                             {primaryUnitId && `(${getUnitName(primaryUnitId)})`}
                           </Label>
                           <Input
                             id="minStock"
                             type="text"
-                            value={formData.minStockLevel || ''}
+                            value={formData.minStockLevel || ""}
                             onChange={(e) =>
-                              handleInputChange('minStockLevel', e.target.value)
+                              handleInputChange("minStockLevel", e.target.value)
                             }
                             className="mt-1"
                           />
                           <p className="text-xs text-muted-foreground mt-1">
-                            You&apos;ll be notified when stock falls below this level
+                            You&apos;ll be notified when stock falls below this
+                            level
                           </p>
                         </div>
                         <div>
@@ -937,9 +987,9 @@ const handleSave = async () => {
                           <Input
                             id="location"
                             type="text"
-                            value={formData.location || ''}
+                            value={formData.location || ""}
                             onChange={(e) =>
-                              handleInputChange('location', e.target.value)
+                              handleInputChange("location", e.target.value)
                             }
                             className="mt-1"
                           />
@@ -958,7 +1008,7 @@ const handleSave = async () => {
 
         {/* BOTTOM BUTTONS - STICKY */}
         <div className="sticky bottom-0 bg-white border-t p-4 flex justify-end gap-2">
-          {mode !== 'edit' && (
+          {mode !== "edit" && (
             <Button
               variant="outline"
               onClick={handleSaveAndNew}
@@ -1073,10 +1123,10 @@ const handleSave = async () => {
                   <Label className="text-sm font-medium">Conversion Rate</Label>
                   <div className="flex items-center gap-2 mt-2">
                     <span className="text-sm">
-                      1{' '}
+                      1{" "}
                       {units?.find((u) => u.id === primaryUnitId)?.fullname ||
-                        ''}{' '}
-                      ={' '}
+                        ""}{" "}
+                      ={" "}
                     </span>
                     <Input
                       type="number"
@@ -1088,7 +1138,7 @@ const handleSave = async () => {
                     />
                     <span className="text-sm">
                       {units?.find((u) => u.id === secondaryUnitId)?.fullname ||
-                        ''}
+                        ""}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
@@ -1116,7 +1166,7 @@ const handleSave = async () => {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>
-                Add New {isAddingPrimaryUnit ? 'Primary' : 'Secondary'} Unit
+                Add New {isAddingPrimaryUnit ? "Primary" : "Secondary"} Unit
               </DialogTitle>
               <DialogDescription>
                 Create a new unit for your inventory items.
@@ -1232,7 +1282,7 @@ const handleSave = async () => {
         </Dialog>
       )}
     </Dialog>
-  )
-}
+  );
+};
 
-export default AddItems
+export default AddItems;
