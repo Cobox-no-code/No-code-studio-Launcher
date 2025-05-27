@@ -66,6 +66,7 @@ import {
 import { useAppDispatch } from "@/redux/hooks";
 import { openCreateForm, openEditForm } from "@/redux/slices/itemsSlice";
 import toast from "react-hot-toast";
+import { useGetDocumentsQuery } from "@/redux/api/documentApi";
 
 // Helper to format currency
 const formatCurrency = (amount: string | number | bigint) => {
@@ -97,7 +98,7 @@ const Items = () => {
   const [filterProduct, setFilterProduct] = useState("");
   const [filterTransaction, setFilterTransaction] = useState("");
   const [currentTab, setCurrentTab] = useState("all");
-
+  const { data: documents } = useGetDocumentsQuery({});
   // Use RTK Query to fetch items, categories, and units
   const {
     data: items,
@@ -255,39 +256,69 @@ const Items = () => {
         "minStockLevel" in item &&
         item.primaryOpeningQuantity <= (item.minStockLevel || 0)
     ).length || 0;
+  const getTransactionHistory = () => {
+    if (!selectedItem) return [];
 
-  // Get transaction history data (mock data)
-  const transactionHistory = selectedItem
-    ? [
-        {
-          id: "1",
-          type: "Sale",
-          invoiceNo: "INV-001",
-          date: "2025-04-15",
-          quantity: 5,
-          pricePerUnit: selectedItem.salePrice,
-          direction: "out",
-        },
-        {
-          id: "2",
-          type: "Purchase",
-          invoiceNo: "PO-002",
-          date: "2025-04-10",
-          quantity: 10,
-          pricePerUnit:
-            "purchasePrice" in selectedItem ? selectedItem.purchasePrice : 0,
-          direction: "in",
-        },
-      ]
-    : [];
+    const transactions = [];
 
-  // Filter transactions
+    // Add documents (only sale and purchase bills) that contain this item
+    if (documents) {
+      const itemDocuments = documents.filter(
+        (document) =>
+          // Check if document contains this item in its items array
+          document.items &&
+          document.items.some((item) => item.itemId === selectedId) &&
+          (document.documentType.toLowerCase().includes("sale") ||
+            document.documentType.toLowerCase().includes("purchase"))
+      );
+
+      transactions.push(
+        ...itemDocuments.map((doc) => {
+          // Find the specific item in this document to get quantity and price
+          const itemInDoc = doc.items.find(
+            (item) => item.itemId === selectedId
+          );
+
+          return {
+            id: doc.id,
+            transactionType: doc.documentType,
+            documentNumber: doc.documentNumber,
+            documentDate: doc.documentDate,
+            total: doc.total,
+            balanceAmount: doc.balanceAmount || 0,
+            direction: doc.documentType.toLowerCase().includes("sale")
+              ? "out"
+              : "in", // Sale = stock out, Purchase = stock in
+            sourceType: "document",
+            // Additional item-specific information
+            quantity: itemInDoc ? itemInDoc.primaryQuantity : 0,
+            rate: itemInDoc ? itemInDoc.conversionRate : 0,
+            itemTotal: itemInDoc
+              ? itemInDoc.primaryQuantity * itemInDoc.conversionRate
+              : 0,
+            partyName: doc.partyName || "Unknown",
+          };
+        })
+      );
+    }
+
+    // Sort by date (newest first)
+    return transactions;
+  };
+
+  // Use this function to get complete transaction history
+  const transactionHistory = getTransactionHistory();
+
+  // Filter transactions (same as before)
   const filteredTransactions = transactionHistory.filter(
     (transaction) =>
-      transaction.type
+      transaction.transactionType
         .toLowerCase()
         .includes(filterTransaction.toLowerCase()) ||
-      transaction.invoiceNo
+      transaction.documentNumber
+        .toLowerCase()
+        .includes(filterTransaction.toLowerCase()) ||
+      transaction.partyName
         .toLowerCase()
         .includes(filterTransaction.toLowerCase())
   );
@@ -849,6 +880,138 @@ const Items = () => {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Transaction History */}
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <History className="h-4 w-4" /> Transaction History
+                </CardTitle>
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search transactions..."
+                    value={filterTransaction}
+                    onChange={(e) => setFilterTransaction(e.target.value)}
+                    className="pl-9 pr-9"
+                  />
+                  {filterTransaction && (
+                    <button
+                      onClick={() => setFilterTransaction("")}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                    >
+                      <X className="h-4 w-4 text-gray-400" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[60px]">Sl.No</TableHead>
+                      <TableHead className="w-[120px]">Type</TableHead>
+                      <TableHead className="w-[120px]">Invoice No.</TableHead>
+                      <TableHead className="w-[120px]">Party</TableHead>
+                      <TableHead className="w-[120px]">Date</TableHead>
+                      <TableHead className="w-[100px]">Quantity</TableHead>
+                      <TableHead className="w-[100px]">Rate</TableHead>
+                      <TableHead className="text-right">Item Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+
+                  <TableBody>
+                    {!selectedItem ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={8}
+                          className="text-center py-10 text-muted-foreground"
+                        >
+                          Select an item to view its transaction history
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredTransactions.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={8}
+                          className="text-center py-10 text-muted-foreground"
+                        >
+                          No transactions found for this item
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredTransactions.map((transaction, index) => (
+                        <TableRow
+                          key={`${transaction.sourceType}-${transaction.id}`}
+                        >
+                          <TableCell>{index + 1}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {transaction.direction === "in" ? (
+                                <ArrowDownRight className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <ArrowUpRight className="h-4 w-4 text-blue-500" />
+                              )}
+                              <span
+                                className={
+                                  transaction.direction === "in"
+                                    ? "text-green-600"
+                                    : "text-blue-600"
+                                }
+                              >
+                                {transaction.transactionType}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{transaction.documentNumber}</TableCell>
+                          <TableCell>{transaction.partyName}</TableCell>
+                          <TableCell>
+                            {formatDate(transaction.documentDate)}
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={
+                                transaction.direction === "in"
+                                  ? "text-green-600"
+                                  : "text-blue-600"
+                              }
+                            >
+                              {transaction.quantity}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={
+                                transaction.direction === "in"
+                                  ? "text-green-600"
+                                  : "text-blue-600"
+                              }
+                            >
+                              {formatCurrency(transaction.rate)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span
+                              className={
+                                transaction.direction === "in"
+                                  ? "text-green-600"
+                                  : "text-blue-600"
+                              }
+                            >
+                              {formatCurrency(transaction.itemTotal)}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </div>

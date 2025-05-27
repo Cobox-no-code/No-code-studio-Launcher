@@ -70,6 +70,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import toast from "react-hot-toast";
+import { useGetDocumentsQuery } from "@/redux/api/documentApi";
+import { useGetPaymentsQuery } from "@/redux/api/paymentApi";
+import { PaymentDirection } from "@/models/payment/payment.model";
 
 // Helper to format currency
 const formatCurrency = (amount: string | number | bigint) => {
@@ -103,6 +106,8 @@ const Parties = () => {
   const [currentTab, setCurrentTab] = useState("all");
   const [deleteParty, { isLoading: isDeleting, error: deleteError }] =
     useDeletePartyMutation();
+  const { data: documents } = useGetDocumentsQuery({});
+  const { data: payments } = useGetPaymentsQuery({});
   // Use RTK Query to fetch parties
   const {
     data: parties,
@@ -206,40 +211,76 @@ const Parties = () => {
     ).length || 0;
 
   // Get transaction history data (mock data)
-  const transactionHistory = selectedParty
-    ? [
-        {
-          id: "1",
-          type: "Sale",
-          invoiceNo: "INV-001",
-          date: "2025-04-15",
-          total: 12500,
-          balance: 0,
-          direction: "out",
-        },
-        {
-          id: "2",
-          type: "Purchase",
-          invoiceNo: "PO-002",
-          date: "2025-04-10",
-          total: 8750,
-          balance: 1250,
-          direction: "in",
-        },
-      ]
-    : [];
 
-  // Filter transactions
+  const getTransactionHistory = () => {
+    if (!selectedParty) return [];
+
+    const transactions = [];
+
+    // Add documents (only sale and purchase bills)
+    if (documents) {
+      const partyDocuments = documents.filter(
+        (document) =>
+          document.partyId === selectedId &&
+          (document.documentType.toLowerCase().includes("sale") ||
+            document.documentType.toLowerCase().includes("purchase"))
+      );
+
+      transactions.push(
+        ...partyDocuments.map((doc) => ({
+          id: doc.id,
+          transactionType: doc.documentType,
+          documentNumber: doc.documentNumber,
+          documentDate: doc.documentDate,
+          total: doc.total,
+          balanceAmount: doc.balanceAmount || 0,
+          direction: doc.documentType.toLowerCase().includes("sale")
+            ? "in"
+            : "out",
+          sourceType: "document",
+        }))
+      );
+    }
+
+    // Add payments
+    if (payments) {
+      const partyPayments = payments.filter(
+        (payment) => payment.partyId === selectedId
+      );
+
+      transactions.push(
+        ...partyPayments.map((payment) => ({
+          id: payment.id,
+          transactionType:
+            payment.direction === PaymentDirection.IN ? "Payment In" : "Payment Out",
+          documentNumber:
+            payment.receiptNumber || `PMT-${payment.id.substring(0, 8)}`,
+          documentDate: payment.paymentDate,
+          total: payment.amount,
+          balanceAmount: 0, // Payments don't have balance
+          direction: payment.direction.toLowerCase(),
+          sourceType: "payment",
+        }))
+      );
+    }
+
+    // Sort by date (newest first)
+    return transactions
+  };
+
+  // Use this function to get complete transaction history
+  const transactionHistory = getTransactionHistory();
+
+  // Filter transactions (same as before)
   const filteredTransactions = transactionHistory.filter(
     (transaction) =>
-      transaction.type
+      transaction.transactionType
         .toLowerCase()
         .includes(filterTransaction.toLowerCase()) ||
-      transaction.invoiceNo
+      transaction.documentNumber
         .toLowerCase()
         .includes(filterTransaction.toLowerCase())
   );
-
   return (
     <div className="p-4 space-y-4 bg-gray-50 min-h-screen">
       {/* Header with stats */}
@@ -775,7 +816,7 @@ const Parties = () => {
           </Card>
 
           {/* Transaction History */}
-          {/* <Card>
+          <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
@@ -791,7 +832,7 @@ const Parties = () => {
                   />
                   {filterTransaction && (
                     <button
-                      onClick={() => setFilterTransaction('')}
+                      onClick={() => setFilterTransaction("")}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2"
                     >
                       <X className="h-4 w-4 text-gray-400" />
@@ -839,49 +880,57 @@ const Parties = () => {
                       </TableRow>
                     ) : (
                       filteredTransactions.map((transaction, index) => (
-                        <TableRow key={transaction.id}>
+                        <TableRow
+                          key={`${transaction.sourceType}-${transaction.id}`}
+                        >
                           <TableCell>{index + 1}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              {transaction.direction === 'in' ? (
+                              {transaction.direction === "in" ? (
                                 <ArrowDownRight className="h-4 w-4 text-green-500" />
                               ) : (
                                 <ArrowUpRight className="h-4 w-4 text-blue-500" />
                               )}
                               <span
                                 className={
-                                  transaction.direction === 'in'
-                                    ? 'text-green-600'
-                                    : 'text-blue-600'
+                                  transaction.direction === "in"
+                                    ? "text-green-600"
+                                    : "text-blue-600"
                                 }
                               >
-                                {transaction.type}
+                                {transaction.transactionType}
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell>{transaction.invoiceNo}</TableCell>
-                          <TableCell>{formatDate(transaction.date)}</TableCell>
+                          <TableCell>{transaction.documentNumber}</TableCell>
+                          <TableCell>
+                            {formatDate(transaction.documentDate)}
+                          </TableCell>
                           <TableCell>
                             <span
                               className={
-                                transaction.direction === 'in'
-                                  ? 'text-green-600'
-                                  : 'text-blue-600'
+                                transaction.direction === "in"
+                                  ? "text-green-600"
+                                  : "text-blue-600"
                               }
                             >
                               {formatCurrency(transaction.total)}
                             </span>
                           </TableCell>
                           <TableCell className="text-right">
-                            <span
-                              className={
-                                transaction.balance > 0
-                                  ? 'text-red-600'
-                                  : 'text-green-600'
-                              }
-                            >
-                              {formatCurrency(transaction.balance)}
-                            </span>
+                            {transaction.sourceType === "payment" ? (
+                              <span className="text-gray-500">—</span>
+                            ) : (
+                              <span
+                                className={
+                                  transaction.balanceAmount > 0
+                                    ? "text-red-600"
+                                    : "text-green-600"
+                                }
+                              >
+                                {formatCurrency(transaction.balanceAmount)}
+                              </span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))
@@ -890,7 +939,7 @@ const Parties = () => {
                 </Table>
               </div>
             </CardContent>
-          </Card> */}
+          </Card>
         </div>
       </div>
     </div>
