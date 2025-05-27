@@ -112,6 +112,8 @@ export async function insertDocumentItems(
       primaryUnitId: item.primaryUnitId || "",
       primaryUnitName: item.primaryUnitName || "",
       pricePerUnit: item.pricePerUnit || 0,
+      wholesalePrice: item.wholesalePrice,
+      wholesaleQuantity: item.wholesaleQuantity,
       amount: item.amount || 0,
       createdAt: now,
       updatedAt: now,

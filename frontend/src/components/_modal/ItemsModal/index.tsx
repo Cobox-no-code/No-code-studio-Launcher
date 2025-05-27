@@ -755,6 +755,23 @@ const AddItems = () => {
                           className="mt-1"
                         />
                       </div>
+                      <div>
+                        <Label htmlFor="wholesaleQuantity">
+                          Wholesale Quantity
+                        </Label>
+                        <Input
+                          id="wholesaleQuantity"
+                          type="text"
+                          value={formData.wholesaleQuantity || ""}
+                          onChange={(e) =>
+                            handleInputChange(
+                              "wholesaleQuantity",
+                              e.target.value
+                            )
+                          }
+                          className="mt-1"
+                        />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

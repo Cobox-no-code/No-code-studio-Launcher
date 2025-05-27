@@ -14,9 +14,6 @@ try {
 } catch (e) {
   resolvedDbPath = path.join(process.cwd(), "vypaar.dev.db"); // fallback
 }
-
-console.log("💾 SQLite DB path:", resolvedDbPath);
-
 const sqlite = new sqlite3.Database(
   resolvedDbPath,
   sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE,
@@ -315,7 +312,7 @@ export async function initializeDatabase() {
         saleDiscount REAL,
         saleDiscountType TEXT CHECK (saleDiscountType IN ('percentage', 'amount')),
         wholesalePrice REAL,
-        
+        wholesaleQuantity REAL,
         purchasePrice REAL,
         purchasePriceTaxInclusive INTEGER DEFAULT 0 CHECK (purchasePriceTaxInclusive IN (0, 1)),
         
@@ -510,6 +507,8 @@ export async function initializeDatabase() {
     -- Pricing
     pricePerUnit REAL NOT NULL,
     amount REAL NOT NULL,
+    wholesalePrice REAL,
+    wholesaleQuantity REAL,
     
     -- Batch details
     mfgDate TEXT,

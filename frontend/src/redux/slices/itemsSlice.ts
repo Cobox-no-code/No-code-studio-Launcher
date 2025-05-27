@@ -175,6 +175,7 @@ const itemsFormSlice = createSlice({
         categoryId: item.categoryId,
         salePrice: item.salePrice,
         wholesalePrice: item.wholesalePrice,
+        wholesaleQuantity: item.wholesaleQuantity,
         taxRate: item.taxRate,
       };
 
@@ -215,6 +216,7 @@ export function transformFormToModel(
     categoryId: formData.categoryId,
     salePrice: formData.salePrice,
     wholesalePrice: formData.wholesalePrice,
+    wholesaleQuantity: formData.wholesaleQuantity,
     taxRate: formData.taxRate,
 
     purchasePriceTaxInclusive: formData.purchasePriceTaxInclusive,

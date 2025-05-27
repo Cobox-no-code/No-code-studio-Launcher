@@ -36,5 +36,54 @@ export const api = {
     return ipcRenderer.sendSync(channel, args);
   },
 };
+contextBridge.exposeInMainWorld("electronAPI", {
+  // Install update with admin privileges
+  installUpdate: (fileName: string) => {
+    return ipcRenderer.invoke("install-update", fileName);
+  },
+
+  // Install update silently
+  installUpdateSilent: (fileName: string) => {
+    return ipcRenderer.invoke("install-update-silent", fileName);
+  },
+
+  // Quit the application
+  quitApp: () => {
+    return ipcRenderer.invoke("quit-app");
+  },
+
+  // Restart the application
+  restartApp: () => {
+    return ipcRenderer.invoke("restart-app");
+  },
+
+  // Get app version
+  getAppVersion: () => {
+    return ipcRenderer.invoke("get-app-version");
+  },
+
+  // Check if downloaded file exists
+  checkFileExists: (fileName: string) => {
+    return ipcRenderer.invoke("check-file-exists", fileName);
+  },
+
+  // Listen for installation progress (if needed)
+  onInstallProgress: (callback: (progress: any) => void) => {
+    ipcRenderer.on("install-progress", (event, progress) => callback(progress));
+  },
+
+  // Remove installation progress listener
+  removeInstallProgressListener: () => {
+    ipcRenderer.removeAllListeners("install-progress");
+  },
+
+  // Platform info
+  platform: process.platform,
+
+  // Additional utility methods
+  openExternal: (url: string) => {
+    return ipcRenderer.invoke("open-external", url);
+  },
+});
 
 contextBridge.exposeInMainWorld("api", api);

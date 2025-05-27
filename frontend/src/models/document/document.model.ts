@@ -138,12 +138,12 @@ export enum DocumentType {
     documentId?: string;
     itemId?: string;
     itemName: string;
-  
+
     // Quantity with primary/secondary unit
     primaryQuantity: number;
     secondaryQuantity?: number;
-  purchasePriceTaxInclusive?:boolean
-  salePriceTaxInclusive?:boolean
+    purchasePriceTaxInclusive?: boolean;
+    salePriceTaxInclusive?: boolean;
     // Units
     primaryUnitId: string;
     primaryUnitName: string;
@@ -151,16 +151,19 @@ export enum DocumentType {
     secondaryUnitName?: string;
     unit_conversionId?: string;
     conversionRate?: number;
-    
+
     // Pricing
     pricePerUnit: number;
+    wholesaleQuantity: number;
+
+    wholesalePrice?: number;
     amount: number;
-  
+
     // Batch details
     mfgDate?: string;
     batchNo?: string;
     expDate?: string;
-  
+
     // Tax details
     taxType?: string;
     taxRateId?: string;
@@ -169,7 +172,7 @@ export enum DocumentType {
     // Category
     categoryId?: string;
     categoryName?: string;
-  
+
     // Additional details
     itemCode?: string;
     hsnCode?: string;

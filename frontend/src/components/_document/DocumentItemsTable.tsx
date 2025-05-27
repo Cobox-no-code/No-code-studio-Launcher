@@ -142,6 +142,8 @@ const DocumentItemsTable: React.FC = () => {
     secondaryUnitId: "",
     secondaryUnitName: "",
     pricePerUnit: 0,
+    wholesaleQuantity: 0,
+    wholesalePrice: 0,
     taxType: "",
     taxRate: 0,
     taxAmount: 0,
@@ -368,10 +370,32 @@ const DocumentItemsTable: React.FC = () => {
       const primaryQty = parseFloat(String(updatedItem.primaryQuantity)) || 0;
       const secondaryQty =
         parseFloat(String(updatedItem.secondaryQuantity)) || 0;
-      const price = parseFloat(String(updatedItem.pricePerUnit)) || 0;
+      let price = parseFloat(String(updatedItem.pricePerUnit)) || 0;
       const discountPercent =
         parseFloat(String(updatedItem.discountPercent)) || 0;
 
+      // ADD THIS WHOLESALE PRICING LOGIC
+      if (field === "primaryQuantity" && selectedItem) {
+        const wholesaleQty = updatedItem.wholesaleQuantity || 0;
+        const wholesalePrice = updatedItem.wholesalePrice || 0;
+        const retailPrice = selectedItem.pricePerUnit || 0;
+
+        // Check if quantity qualifies for wholesale pricing
+        if (
+          wholesaleQty > 0 &&
+          wholesalePrice > 0 &&
+          primaryQty >= wholesaleQty
+        ) {
+          updatedItem.pricePerUnit = wholesalePrice;
+          price = wholesalePrice;
+          toast.success(
+            `Wholesale price applied: ₹${wholesalePrice} (Min qty: ${wholesaleQty})`
+          );
+        } else {
+          updatedItem.pricePerUnit = retailPrice;
+          price = retailPrice;
+        }
+      }
       // Update unit name if changed
       if (field === "primaryUnitId" && typeof value === "string") {
         updatedItem.primaryUnitName = getUnitName(value);
@@ -581,6 +605,10 @@ const DocumentItemsTable: React.FC = () => {
       secondaryUnitName: secondaryUnitName || "",
       primaryQuantity: 1,
       secondaryQuantity: 0,
+      wholesalePrice: item.wholesalePrice || 0,
+      wholesaleQuantity: isProduct(item)
+        ? (item as Product).wholesaleQuantity || 0
+        : 0,
       pricePerUnit: item.salePrice,
       taxType: item.taxRate,
       taxRate: Number(item.taxRate),
@@ -1311,6 +1339,14 @@ const DocumentItemsTable: React.FC = () => {
                             )
                           }
                         />
+                        {row.wholesaleQuantity &&
+                          row.wholesalePrice &&
+                          Number(row.primaryQuantity) >=
+                            Number(row.wholesaleQuantity) && (
+                            <div className="text-xs text-yellow-600 text-center bg-yellow-50 px-1 py-0.5 rounded">
+                              Wholesale Applied
+                            </div>
+                          )}
                         {hasUnitConversion && row.primaryUnitName && (
                           <div className="text-xs text-gray-600 mt-1 text-right">
                             per {row.primaryUnitName}
@@ -1580,6 +1616,17 @@ const DocumentItemsTable: React.FC = () => {
                           </Badge>
                         </>
                       )}
+                      {isProduct(item) &&
+                        item.wholesalePrice &&
+                        item.wholesaleQuantity && (
+                          <Badge
+                            variant="outline"
+                            className="h-5 px-2 bg-yellow-50 text-yellow-700 border-yellow-200"
+                          >
+                            Wholesale: ₹{item.wholesalePrice} (Min:{" "}
+                            {(item as Product).wholesaleQuantity})
+                          </Badge>
+                        )}
                     </div>
                   </div>
 

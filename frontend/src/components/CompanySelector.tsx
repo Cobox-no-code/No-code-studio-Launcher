@@ -9,6 +9,9 @@ import {
   PlusCircle,
   LogOut,
   Share2,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { clearCurrentFirm } from "@/lib/firm-utils";
 import { Button } from "@/components/ui/button";
@@ -32,8 +35,14 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { Badge } from "@/components/ui/badge";
 import { setCurrentFirm, updateRole } from "@/redux/slices/firmSlice";
 import { setUserInfo } from "@/redux/slices/userinfoSlice";
-import { syncAllToCloud } from "@/lib/sync-cloud";
+import { syncAllToCloud, syncAllToLocal } from "@/lib/sync-cloud";
 import toast from "react-hot-toast";
+import {
+  useGetPurchaseInvoicesQuery,
+  useGetSaleInvoicesQuery,
+} from "@/redux/api/documentApi";
+import { useGetItemsQuery } from "@/redux/api/itemsApi";
+import { useGetBankAccountsQuery } from "@/redux/api/bankingApi";
 
 // Type definitions
 interface Company {
@@ -49,6 +58,13 @@ interface CompanySelectorProps {
   isBottom?: boolean;
 }
 
+interface SyncStep {
+  id: string;
+  label: string;
+  status: "pending" | "loading" | "completed" | "error";
+  description?: string;
+}
+
 const CompanySelector = ({
   isBottom = false,
 }: CompanySelectorProps): JSX.Element => {
@@ -58,7 +74,89 @@ const CompanySelector = ({
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
+  const [isFullPageLoading, setIsFullPageLoading] = useState<boolean>(false);
+  const [syncSteps, setSyncSteps] = useState<SyncStep[]>([]);
   const dispatch = useAppDispatch();
+
+  // Fetch data using RTK Query
+  const {
+    data: salesInvoices = [],
+    isLoading: isLoadingSales,
+    refetch: refetchSales,
+  } = useGetSaleInvoicesQuery({});
+
+  const {
+    data: purchaseInvoices = [],
+    isLoading: isLoadingPurchases,
+    refetch: refetchPurchase,
+  } = useGetPurchaseInvoicesQuery({});
+
+  const {
+    data: items = [],
+    isLoading: isLoadingItems,
+    refetch: refetchItems,
+  } = useGetItemsQuery({});
+
+  const {
+    data: bankAccounts = [],
+    isLoading: isLoadingBankAccounts,
+    refetch: refetchBank,
+  } = useGetBankAccountsQuery();
+
+  // Initialize sync steps
+  const initializeSyncSteps = (): SyncStep[] => [
+    {
+      id: "company-data",
+      label: "Fetching Company Data",
+      status: "pending",
+      description: "Loading company information and settings",
+    },
+    {
+      id: "items-data",
+      label: "Syncing Items",
+      status: "pending",
+      description: "Loading products and services",
+    },
+    {
+      id: "sales-data",
+      label: "Syncing Sales Data",
+      status: "pending",
+      description: "Loading sales invoices and transactions",
+    },
+    {
+      id: "purchase-data",
+      label: "Syncing Purchase Data",
+      status: "pending",
+      description: "Loading purchase invoices and bills",
+    },
+    {
+      id: "bank-data",
+      label: "Syncing Bank Accounts",
+      status: "pending",
+      description: "Loading bank accounts and transactions",
+    },
+    {
+      id: "finalize",
+      label: "Finalizing Setup",
+      status: "pending",
+      description: "Completing the sync process",
+    },
+  ];
+
+  const updateSyncStep = (
+    stepId: string,
+    status: SyncStep["status"],
+    description?: string
+  ) => {
+    setSyncSteps((prev) =>
+      prev.map((step) =>
+        step.id === stepId
+          ? { ...step, status, description: description || step.description }
+          : step
+      )
+    );
+  };
+
   useEffect(() => {
     // Get current company from localStorage
     const firmName = localStorage.getItem("firmName");
@@ -104,16 +202,115 @@ const CompanySelector = ({
     }
   };
 
-  const handleCompanyChange = async (company: any) => {
-    // Use the utility function to update firm data and trigger events
+  const performSteppedSync = async (company: any) => {
     const firmId = localStorage.getItem("firmId");
     const owner = user.phone;
-    dispatch(setCurrentFirm(company));
-    // Update selected company state
-    setSelectedCompany(company.name);
 
-    // Close the popover
+    try {
+      // Step 1: Company Data
+      updateSyncStep("company-data", "loading");
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate processing time
+      updateSyncStep(
+        "company-data",
+        "completed",
+        "Company data loaded successfully"
+      );
+
+      // Step 2: Items Data
+      updateSyncStep("items-data", "loading");
+      try {
+        await refetchItems();
+        updateSyncStep(
+          "items-data",
+          "completed",
+          `${items.length} items synced`
+        );
+      } catch (error) {
+        updateSyncStep("items-data", "error", "Failed to sync items");
+        throw error;
+      }
+
+      // Step 3: Sales Data
+      updateSyncStep("sales-data", "loading");
+      try {
+        await refetchSales();
+        updateSyncStep(
+          "sales-data",
+          "completed",
+          `${salesInvoices.length} sales records synced`
+        );
+      } catch (error) {
+        updateSyncStep("sales-data", "error", "Failed to sync sales data");
+        throw error;
+      }
+
+      // Step 4: Purchase Data
+      updateSyncStep("purchase-data", "loading");
+      try {
+        await refetchPurchase();
+        updateSyncStep(
+          "purchase-data",
+          "completed",
+          `${purchaseInvoices.length} purchase records synced`
+        );
+      } catch (error) {
+        updateSyncStep(
+          "purchase-data",
+          "error",
+          "Failed to sync purchase data"
+        );
+        throw error;
+      }
+
+      // Step 5: Bank Data
+      updateSyncStep("bank-data", "loading");
+      try {
+        await refetchBank();
+        updateSyncStep(
+          "bank-data",
+          "completed",
+          `${bankAccounts.length} bank accounts synced`
+        );
+      } catch (error) {
+        updateSyncStep("bank-data", "error", "Failed to sync bank data");
+        throw error;
+      }
+
+      // Step 6: Finalize
+      updateSyncStep("finalize", "loading");
+
+      // Perform cloud sync if needed
+      if (company.isShared && !user.sync_enabled) {
+        const result = await syncAllToLocal(backend_url, firmId, owner);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Finalization delay
+      updateSyncStep("finalize", "completed", "Sync completed successfully");
+
+      // Small delay before redirect
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      toast.success(`Successfully switched to ${company.name}`);
+      router.push("/");
+    } catch (error) {
+      console.error("Sync failed:", error);
+      toast.error("Failed to sync data. Please try again.");
+      setIsFullPageLoading(false);
+    }
+  };
+
+  const handleCompanyChange = async (company: any) => {
+    // Initialize full page loading
+    setIsFullPageLoading(true);
+    setSyncSteps(initializeSyncSteps());
+
+    const firmId = localStorage.getItem("firmId");
+    const owner = user.phone;
+
+    dispatch(setCurrentFirm(company));
+    setSelectedCompany(company.name);
     setOpen(false);
+
     if (company.isShared && !user.sync_enabled) {
       dispatch(updateRole(company.role));
       try {
@@ -129,32 +326,24 @@ const CompanySelector = ({
 
         if (response.data.status === "success") {
           dispatch(setUserInfo({ ...user, sync_enabled: !user.sync_enabled }));
-          const result = await syncAllToCloud(backend_url, firmId, owner);
-
-          toast.success(
-            `Sync ${!user.sync_enabled ? "enabled" : "disabled"} successfully`
-          );
-        } else {
-          toast.error(response.data.message || "Failed to toggle sync");
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error("Failed to toggle sync:", e);
+      }
     }
-    router.push("/");
+
+    // Perform stepped sync
+    await performSteppedSync(company);
   };
 
   const handleRemoveCompany = (): void => {
-    // Use the utility function to clear firm data and trigger events
     clearCurrentFirm();
     router.push("/firm");
-    // Reset selected company
     setSelectedCompany("");
-
-    // Close the popover
     setOpen(false);
   };
 
   const handleCreateNewCompany = (): void => {
-    // Clear current firm and redirect to creation page
     clearCurrentFirm();
     router.push("/firm");
   };
@@ -162,6 +351,86 @@ const CompanySelector = ({
   // Group companies by type (owned vs shared)
   const ownedCompanies = companies.filter((company) => !company.isShared);
   const sharedCompanies = companies.filter((company) => company.isShared);
+
+  // Full page loading overlay
+  if (isFullPageLoading) {
+    return (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full mx-4">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Building className="w-8 h-8 text-blue-600" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              Switching Company
+            </h2>
+            <p className="text-gray-600 text-sm">
+              Please wait while we sync your data...
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {syncSteps.map((step) => (
+              <div key={step.id} className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  {step.status === "pending" && (
+                    <div className="w-5 h-5 rounded-full border-2 border-gray-300" />
+                  )}
+                  {step.status === "loading" && (
+                    <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                  )}
+                  {step.status === "completed" && (
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  )}
+                  {step.status === "error" && (
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={cn(
+                        "text-sm font-medium",
+                        step.status === "completed" && "text-green-700",
+                        step.status === "loading" && "text-blue-700",
+                        step.status === "error" && "text-red-700",
+                        step.status === "pending" && "text-gray-500"
+                      )}
+                    >
+                      {step.label}
+                    </span>
+                    {step.status === "loading" && (
+                      <span className="text-xs text-blue-600 animate-pulse">
+                        Processing...
+                      </span>
+                    )}
+                  </div>
+                  <p
+                    className={cn(
+                      "text-xs mt-1",
+                      step.status === "completed" && "text-green-600",
+                      step.status === "loading" && "text-blue-600",
+                      step.status === "error" && "text-red-600",
+                      step.status === "pending" && "text-gray-400"
+                    )}
+                  >
+                    {step.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>This may take a few moments...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
