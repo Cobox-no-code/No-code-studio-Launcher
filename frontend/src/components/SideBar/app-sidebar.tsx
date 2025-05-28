@@ -89,7 +89,7 @@ const ROLE_SUB_ACCESS = {
     ],
     purchase: ["purchase-bill", "purchase-order", "purchase-return"],
     payment: ["payment-in", "payment-out"],
-    "cash-bank": ["bank-account"],
+    "cash-bank": ["bank-account", "cash-in-hand"],
     utilities: [
       "import-item",
       "import-parties",
@@ -107,7 +107,7 @@ const ROLE_SUB_ACCESS = {
     ],
     purchase: ["purchase-bill", "purchase-order", "purchase-return"],
     payment: ["payment-in", "payment-out"],
-    "cash-bank": ["bank-account"],
+    "cash-bank": ["bank-account", "cash-in-hand"],
     utilities: [
       "import-item",
       "import-parties",
@@ -132,7 +132,7 @@ const ROLE_SUB_ACCESS = {
   },
   ca_accountant: {},
   ca_account_edit: {
-    "cash-bank": ["bank-account"],
+    "cash-bank": ["bank-account", "cash-in-hand"],
   },
 };
 
@@ -206,6 +206,7 @@ const getSubItemKey = (title: string): string => {
     "Payment In": "payment-in",
     "Payment Out": "payment-out",
     "Bank Account": "bank-account",
+    "Cash Payments": "cash-in-hand",
     "Import Item": "import-item",
     "Import Parties": "import-parties",
     "Export Item": "export-item",
@@ -350,6 +351,10 @@ const data = {
         {
           title: "Bank Account",
           url: "/cash-&-bank/bank-account",
+        },
+        {
+          title: "Cash Payments",
+          url: "/cash-&-bank/cash-in-hand",
         },
       ],
     },

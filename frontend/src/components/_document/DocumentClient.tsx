@@ -10,6 +10,16 @@ import { toast } from "react-hot-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Document Context
 import { DocumentProvider, useDocument } from "./Context";
@@ -27,8 +37,18 @@ import {
   useUpdateDocumentMutation,
 } from "@/redux/api/documentApi";
 
+// Item API Hooks
+import {
+  useCreateItemMutation,
+  useUpdateItemMutation,
+  useGetItemsQuery,
+} from "@/redux/api/itemsApi";
+import { useGetCategoriesQuery } from "@/redux/api/categoriesApi";
+import { useGetUnitsQuery, useGetUnitConversionsQuery } from "@/redux/api";
+
 // Document Types & Models
 import { DocumentType } from "@/models/document/document.model";
+import { ItemType, Product } from "@/models/item/item.model";
 import { v4 as uuidv4 } from "uuid";
 import Link from "next/link";
 
@@ -150,6 +170,21 @@ const DocumentPageContent: React.FC<{
   const { state, dispatch, calculateTotals, validateAll } = useDocument();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [conversionTitle, setConversionTitle] = useState<string>("");
+  const [isCreatingItems, setIsCreatingItems] = useState(false);
+
+  // FIX 1: Add state for back warning modal
+  const [showBackWarning, setShowBackWarning] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Item creation mutations
+  const [createItem] = useCreateItemMutation();
+  const [updateItem] = useUpdateItemMutation();
+
+  // Data fetching hooks
+  const { data: existingItems } = useGetItemsQuery({});
+  const { data: categories } = useGetCategoriesQuery();
+  const { data: units } = useGetUnitsQuery();
+  const { data: unitConversions } = useGetUnitConversionsQuery();
 
   // RTK Query hooks
   const { data: existingDocument, isLoading: isLoadingDocument } =
@@ -160,6 +195,40 @@ const DocumentPageContent: React.FC<{
   const [updateDocument, { isLoading: isUpdating }] =
     useUpdateDocumentMutation();
   const [deleteDocument] = useDeleteDocumentMutation();
+
+  // FIX 2: Set default transaction type to credit and track changes
+  useEffect(() => {
+    // Set default transaction type to credit for new documents
+    if (mode === "create" && !id) {
+      dispatch({
+        type: "UPDATE_FIELD",
+        payload: {
+          field: "transactionType",
+          value: "credit", // Default to credit instead of cash
+        },
+      });
+    }
+  }, [mode, id, dispatch]);
+
+  // FIX 3: Track unsaved changes
+  useEffect(() => {
+    // Check if there are unsaved changes
+    const checkUnsavedChanges = () => {
+      // Check if document has content
+      const hasContent =
+        state.document.partyName ||
+        state.document.documentNumber ||
+        (state.document.items &&
+          state.document.items.length > 0 &&
+          state.document.items.some((item) => item.itemName)) ||
+        state.document.description;
+
+      setHasUnsavedChanges(!!hasContent);
+    };
+
+    checkUnsavedChanges();
+  }, [state.document]);
+
   // Initialize form with existing document if in edit or convert mode
   useEffect(() => {
     if (id && existingDocument) {
@@ -194,9 +263,97 @@ const DocumentPageContent: React.FC<{
     }
   }, [id, existingDocument, dispatch, mode, convertFrom, documentInfo.type]);
 
-  // Submit handler
+  // Function to create missing items before saving document
+  const createMissingItems = async () => {
+    if (!state.document.items || state.document.items.length === 0) {
+      return [];
+    }
+
+    setIsCreatingItems(true);
+    const createdItems = [];
+    let itemsCreatedCount = 0;
+
+    try {
+      for (const documentItem of state.document.items) {
+        // Skip if item already has an ID (already exists)
+        if (documentItem.itemId) {
+          continue;
+        }
+
+        // Skip if item name is empty
+        if (!documentItem.itemName || documentItem.itemName.trim() === "") {
+          continue;
+        }
+
+        // Check if item already exists by name
+        const existingItem = existingItems?.find(
+          (item) =>
+            item.name.toLowerCase() === documentItem.itemName.toLowerCase()
+        );
+
+        if (existingItem) {
+          // Item exists, update the document item with the existing item's ID
+          documentItem.itemId = existingItem.id;
+          continue;
+        }
+
+        // Create new item data
+        const newItemData: any = {
+          name: documentItem.itemName.trim(),
+          type: ItemType.PRODUCT,
+          hsnCode: documentItem.hsnCode || "",
+          description: `Auto-created from ${title}`,
+          unit_conversionId: documentItem.unit_conversionId,
+          salePrice: Number(documentItem.pricePerUnit) || 0,
+          salePriceTaxInclusive: documentItem.salePriceTaxInclusive,
+          purchasePrice: Number(documentItem.pricePerUnit) || 0,
+          purchasePriceTaxInclusive: documentItem.purchasePriceTaxInclusive,
+          primaryOpeningQuantity: 0,
+          secondaryOpeningQuantity: 0,
+          pricePerUnit: Number(documentItem.pricePerUnit) || 0,
+          wholesalePrice: Number(documentItem.wholesalePrice) || 0,
+          wholesaleQuantity: Number(documentItem.wholesaleQuantity) || 0,
+          currentQuantity: 0,
+          openingQuantity: 0,
+          minStockLevel: 0,
+          taxRate: documentItem.taxType || "0",
+        };
+
+        try {
+          // Create the item
+          const createdItem = await createItem(newItemData).unwrap();
+
+          // Update the document item with the new item's ID
+          documentItem.itemId = createdItem.id;
+
+          createdItems.push(createdItem);
+          itemsCreatedCount++;
+
+          // Show progress
+          toast.success(`Created item: ${createdItem.name}`);
+        } catch (error: any) {
+          console.error("Failed to create item:", documentItem.itemName, error);
+          toast.error(`Failed to create item: ${documentItem.itemName}`);
+        }
+      }
+
+      if (itemsCreatedCount > 0) {
+        toast.success(`Successfully created ${itemsCreatedCount} new items!`);
+      }
+
+      return createdItems;
+    } catch (error: any) {
+      console.error("Error creating missing items:", error);
+      toast.error("Failed to create some items");
+      return [];
+    } finally {
+      setIsCreatingItems(false);
+    }
+  };
+
+  // Submit handler with item creation
   const handleSubmit = async () => {
-    // Validate all fields
+    // Validate all fields first
     const errors = validateAll();
 
     if (Object.keys(errors).length > 0) {
@@ -212,7 +369,10 @@ const DocumentPageContent: React.FC<{
     dispatch({ type: "SET_SUBMITTING", payload: true });
 
     try {
-      // Update document with final totals
+      // Step 1: Create missing items before saving the document
+      await createMissingItems();
+
+      // Step 2: Update document with final totals
       const totals = calculateTotals();
       const documentToSubmit = {
         ...state.document,
@@ -264,6 +424,9 @@ const DocumentPageContent: React.FC<{
         }
       }
 
+      // Clear unsaved changes flag after successful save
+      setHasUnsavedChanges(false);
+
       // Navigate to the viewer page for the new/updated document
       router.push(`/viewer?Id=${result.id}`);
     } catch (error: any) {
@@ -276,6 +439,20 @@ const DocumentPageContent: React.FC<{
     } finally {
       dispatch({ type: "SET_SUBMITTING", payload: false });
     }
+  };
+
+  // FIX 4: Handle back button with warning
+  const handleBackClick = () => {
+    if (hasUnsavedChanges) {
+      setShowBackWarning(true);
+    } else {
+      router.push("/");
+    }
+  };
+
+  const handleConfirmBack = () => {
+    setShowBackWarning(false);
+    router.push("/");
   };
 
   // Print handler
@@ -313,8 +490,35 @@ const DocumentPageContent: React.FC<{
     pageTitle = `Convert to ${title}`;
   }
 
+  // Check if we're currently creating items
+  const isSubmittingWithItems = state.isSubmitting || isCreatingItems;
+
   return (
     <div className="flex flex-col h-full">
+      {/* FIX 5: Back Warning Modal */}
+      <AlertDialog open={showBackWarning} onOpenChange={setShowBackWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes that will be lost if you go back. Are you
+              sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowBackWarning(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmBack}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Yes, Go Back
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Header */}
       <div className="h-18 bg-white flex items-center justify-between px-6 border-b py-5 border-gray-200 shadow-sm">
         <h1 className="text-base font-semibold">
@@ -364,8 +568,19 @@ const DocumentPageContent: React.FC<{
         </Alert>
       )}
 
+      {/* Show item creation progress */}
+      {isCreatingItems && (
+        <Alert className="mx-6 mt-4">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <AlertTitle>Creating Items</AlertTitle>
+          <AlertDescription>
+            Creating missing items automatically before saving the document...
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex-grow overflow-auto bg-[#f3f3f3] p-6">
-        <div className="space-y-6  w-full px-10 mx-auto">
+        <div className="space-y-6 w-full px-10 mx-auto">
           {/* Header Input Fields */}
           <DocumentHeader />
 
@@ -379,21 +594,26 @@ const DocumentPageContent: React.FC<{
 
       {/* Bottom Buttons - Sticky */}
       <div className="sticky bottom-0 bg-white border-t p-4 px-6 flex justify-between gap-3 shadow-md">
-        <Link href={"/"}>
-          <Button className=" cursor-pointer">Back</Button>
-        </Link>
-        <div className=" flex gap-3 justify-end">
+        {/* FIX 6: Updated Back Button */}
+        <Button onClick={handleBackClick} className="cursor-pointer">
+          Back
+        </Button>
+        <div className="flex gap-3 justify-end">
           <Button
             onClick={handleSubmit}
-            disabled={state.isSubmitting}
+            disabled={isSubmittingWithItems}
             className="gap-2 px-4"
           >
-            {state.isSubmitting ? (
+            {isSubmittingWithItems ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Save className="h-4 w-4" />
             )}
-            {mode === "convert" ? "Convert Document" : `Save ${title}`}
+            {isCreatingItems
+              ? "Creating Items..."
+              : mode === "convert"
+              ? "Convert Document"
+              : `Save ${title}`}
           </Button>
         </div>
       </div>

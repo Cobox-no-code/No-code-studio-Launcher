@@ -9,10 +9,9 @@
   "author": {
     "name": "Paperbill",
     "email": "paperbillpvt@gmail.com"
-   
   },
   "scripts": {
-    "dev": "next dev frontend",
+    "dev": "npm run build:backend && electron . --dev",
     "prebuild": "rimraf out && rimraf dist && rimraf frontend/.next && rimraf frontend/out",
     "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "next build frontend && copyfiles -u 1 \"frontend/public/**/*\" frontend/out/",
@@ -58,6 +57,7 @@
     "knex": "^3.1.0",
     "lucide-react": "^0.485.0",
     "next": "15.2.4",
+    "node-machine-id": "^1.1.12",
     "papaparse": "^5.5.2",
     "react": "^19.0.0",
     "react-day-picker": "^8.10.1",

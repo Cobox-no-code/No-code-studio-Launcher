@@ -342,15 +342,17 @@ const PaymentInForm: React.FC = () => {
                                 {party.phone}
                               </div>
                             )}
-                            <div
-                              className={`text-xs ${
-                                party.currentBalanceType === "to_receive"
-                                  ? "text-green-500"
-                                  : "text-red-500"
-                              } `}
-                            >
-                              ₹{party.currentBalance}
-                            </div>
+                            {party.currentBalance && (
+                              <div
+                                className={`text-xs ${
+                                  party.currentBalanceType === "to_receive"
+                                    ? "text-green-500"
+                                    : "text-red-500"
+                                } `}
+                              >
+                                ₹{party.currentBalance}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

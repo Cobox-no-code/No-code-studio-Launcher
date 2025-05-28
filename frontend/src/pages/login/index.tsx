@@ -94,6 +94,10 @@ const LoginPage = () => {
   // Handle OTP verification
   const verifyOtp = async (e: FormEvent) => {
     e.preventDefault();
+    if (!window.electronAPI) {
+      return;
+    }
+    const deviceId = window.electronAPI.deviceAPI.getDeviceId();
 
     if (!otp || otp.length < 4) {
       setError("Please enter a valid OTP");
@@ -119,6 +123,7 @@ const LoginPage = () => {
           name: name,
           phone: phone,
           email: email,
+          login: res.data.force_logout,
         })
       );
       localStorage.setItem("customer_id", res.data.customer_id);

@@ -1,5 +1,9 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
+import { machineIdSync } from "node-machine-id";
 
+contextBridge.exposeInMainWorld("deviceAPI", {
+  getDeviceId: () => machineIdSync(),
+});
 export const api = {
   /**
    * Registers a callback function to be invoked when a message is received on the specified IPC channel.

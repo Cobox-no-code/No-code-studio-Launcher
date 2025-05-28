@@ -1,9 +1,9 @@
-'use client'
-import { backend_url } from '@/backend.config'
-import { useAppDispatch } from '@/redux/hooks';
-import { setUserInfo, updateIsExpired } from '@/redux/slices/userinfoSlice';
-import axios from 'axios'
-import React, { useEffect, useState } from 'react'
+"use client";
+import { backend_url } from "@/backend.config";
+import { useAppDispatch } from "@/redux/hooks";
+import { setUserInfo, updateIsExpired } from "@/redux/slices/userinfoSlice";
+import axios from "axios";
+import React, { useEffect, useState } from "react";
 
 export default function UserInfo() {
   const dispatch = useAppDispatch();
@@ -13,20 +13,20 @@ export default function UserInfo() {
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, []);
 
   // Check if subscription is expired
   const checkSubscriptionExpiration = (userData) => {
     if (!userData?.subscription?.end_date) return true;
-    
+
     const now = new Date();
     const endDate = new Date(userData.subscription.end_date);
     return endDate <= now;
@@ -35,28 +35,31 @@ export default function UserInfo() {
   // Cache user data for offline mode
   const cacheUserData = (userData) => {
     if (!userData) return;
-    
+
     try {
-      localStorage.setItem('cachedUserInfo', JSON.stringify(userData));
-      
+      localStorage.setItem("cachedUserInfo", JSON.stringify(userData));
+
       // Separately cache subscription for easier access
       if (userData.subscription) {
-        localStorage.setItem('cachedSubscription', JSON.stringify(userData.subscription));
+        localStorage.setItem(
+          "cachedSubscription",
+          JSON.stringify(userData.subscription)
+        );
       }
     } catch (error) {
-      console.error('Error caching user data:', error);
+      console.error("Error caching user data:", error);
     }
   };
 
   // Load cached user data
   const loadCachedUserData = () => {
     try {
-      const cachedData = localStorage.getItem('cachedUserInfo');
+      const cachedData = localStorage.getItem("cachedUserInfo");
       if (cachedData) {
         return JSON.parse(cachedData);
       }
     } catch (error) {
-      console.error('Error loading cached user data:', error);
+      console.error("Error loading cached user data:", error);
     }
     return null;
   };
@@ -71,56 +74,65 @@ export default function UserInfo() {
           if (cachedData) {
             // Check subscription expiration for cached data
             const isExpired = checkSubscriptionExpiration(cachedData);
-            dispatch(setUserInfo({
-              ...cachedData,
-              isExpired
-            }));
-            console.log('Using cached user info (offline)');
+            dispatch(
+              setUserInfo({
+                ...cachedData,
+                isExpired,
+              })
+            );
+            console.log("Using cached user info (offline)");
             return;
           }
-          console.warn('No cached user data available while offline');
+          console.warn("No cached user data available while offline");
           return;
         }
 
         // If online, proceed with API call
-        const phone = localStorage.getItem('phone');
+        const phone = localStorage.getItem("phone");
         if (!phone) {
-          console.warn('No phone number found in localStorage');
+          console.warn("No phone number found in localStorage");
           return;
         }
-        
+
         // Use await with axios to properly handle the promise
-        const response = await axios.get(`${backend_url}/user-info?phone=${phone}`);
-        
+        const response = await axios.get(
+          `${backend_url}/user-info?phone=${phone}`
+        );
+
         // Log the response data for debugging
-        console.log('User info response:', response.data);
-        
+        console.log("User info response:", response.data);
+
         // Make sure we have data before dispatching
         if (response.data) {
           // Check if subscription is expired
           const isExpired = checkSubscriptionExpiration(response.data);
-          
+
           // Dispatch user info with expiration flag
-          dispatch(setUserInfo({
-            ...response.data,
-            isExpired
-          }));
-          
+          dispatch(
+            setUserInfo({
+              ...response.data,
+              isExpired,
+              login: response.data.force_logout,
+            })
+          );
+
           // Cache the data for offline use
           cacheUserData(response.data);
         }
       } catch (error) {
-        console.error('Error fetching user info:', error);
-        
+        console.error("Error fetching user info:", error);
+
         // If error occurs, try to use cached data
         const cachedData = loadCachedUserData();
         if (cachedData) {
           const isExpired = checkSubscriptionExpiration(cachedData);
-          dispatch(setUserInfo({
-            ...cachedData,
-            isExpired
-          }));
-          console.log('Using cached user info (after API error)');
+          dispatch(
+            setUserInfo({
+              ...cachedData,
+              isExpired,
+            })
+          );
+          console.log("Using cached user info (after API error)");
         }
       }
     };
@@ -131,28 +143,35 @@ export default function UserInfo() {
   // Refetch on reconnection
   useEffect(() => {
     if (!isOffline) {
-      console.log('Device back online, refreshing user info');
+      console.log("Device back online, refreshing user info");
       const fetchUserInfo = async () => {
         try {
-          const phone = localStorage.getItem('phone');
+          const phone = localStorage.getItem("phone");
           if (!phone) return;
-          
-          const response = await axios.get(`${backend_url}/user-info?phone=${phone}`);
-          
+
+          const response = await axios.get(
+            `${backend_url}/user-info?phone=${phone}`
+          );
+
           if (response.data) {
             const isExpired = checkSubscriptionExpiration(response.data);
-            dispatch(setUserInfo({
-              ...response.data,
-              isExpired,
-              sync_enabled:response.data.sync_enabled
-            }));
+            dispatch(
+              setUserInfo({
+                ...response.data,
+                isExpired,
+                sync_enabled: response.data.sync_enabled,
+              })
+            );
             cacheUserData(response.data);
           }
         } catch (error) {
-          console.error('Error refreshing user info after reconnection:', error);
+          console.error(
+            "Error refreshing user info after reconnection:",
+            error
+          );
         }
       };
-      
+
       fetchUserInfo();
     }
   }, [isOffline, dispatch]);

@@ -67,7 +67,13 @@ import { useAppDispatch } from "@/redux/hooks";
 import { openCreateForm, openEditForm } from "@/redux/slices/itemsSlice";
 import toast from "react-hot-toast";
 import { useGetDocumentsQuery } from "@/redux/api/documentApi";
-
+import { useDeleteActions } from "@/hooks/useDeleteAction";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 // Helper to format currency
 const formatCurrency = (amount: string | number | bigint) => {
   const numericAmount =
@@ -92,7 +98,7 @@ const formatDate = (dateString: string) => {
 
 const Items = () => {
   const dispatch = useDispatch<AppDispatch>();
-
+  const { deleteItem } = useDeleteActions();
   // State management
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filterProduct, setFilterProduct] = useState("");
@@ -112,7 +118,7 @@ const Items = () => {
   const { data: units, isLoading: isLoadingUnits } = useGetUnitsQuery();
   const { data: unitConversions, isLoading: isLoadingConversions } =
     useGetUnitConversionsQuery();
-  const [deleteItem, { isLoading: isDeleting, error: deleteError }] =
+  const [deleteItemMutation, { isLoading: isDeleting, error: deleteError }] =
     useDeleteItemMutation();
   // Helper functions to get names from IDs
   const getCategoryName = (categoryId: string | undefined) => {
@@ -535,50 +541,36 @@ const Items = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-right w-10">
-                            <Popover>
-                              <PopoverTrigger>
-                                <EllipsisVertical className="h-4 w-4 text-gray-500" />
-                              </PopoverTrigger>
-                              <PopoverContent className="w-40">
-                                <div className="flex flex-col space-y-1">
-                                  <button
-                                    className="text-left px-2 py-1 hover:bg-gray-100 rounded-md text-sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openEditModal(item.id);
-                                    }}
-                                  >
-                                    Edit Item
-                                  </button>
-                                  <button
-                                    className="text-left px-2 py-1 hover:bg-gray-100 rounded-md text-sm"
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      try {
-                                        await deleteItem(item.id).unwrap();
-                                        toast.success(
-                                          "Item deleted successfully"
-                                        );
-                                      } catch (error) {
-                                        toast.error("Failed to delete Item");
-                                        console.error("Delete error:", error);
-                                      }
-                                    }}
-                                  >
-                                    Delete Item
-                                  </button>
-                                  <button
-                                    className="text-left px-2 py-1 hover:bg-gray-100 rounded-md text-sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      // Add your delete or other actions here
-                                    }}
-                                  >
-                                    View Details
-                                  </button>
-                                </div>
-                              </PopoverContent>
-                            </Popover>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="p-1 hover:bg-gray-100 rounded">
+                                  <EllipsisVertical className="h-4 w-4 text-gray-500" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-40">
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEditModal(item.id);
+                                  }}
+                                >
+                                  Edit Item
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteItem(
+                                      item.id,
+                                      item.name,
+                                      deleteItemMutation
+                                    );
+                                  }}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  Delete Item
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       );

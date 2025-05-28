@@ -43,7 +43,7 @@ export default function EditFirmPage(): JSX.Element {
   const userinfo = useAppSelector((state) => state.userinfo);
   const firmId =
     typeof window !== "undefined" ? localStorage.getItem("firmId") : null;
-  const [country, setCountry] = useState<string>("");
+
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -71,6 +71,7 @@ export default function EditFirmPage(): JSX.Element {
     { code: "RU", name: "Russia" },
     { code: "MX", name: "Mexico" },
   ]);
+  const [country, setCountry] = useState<string>("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -88,6 +89,7 @@ export default function EditFirmPage(): JSX.Element {
           if (res.data.businessLogo) {
             setLogoPreview(res.data.businessLogo);
           }
+          setCountry(res.data.country);
         })
         .catch(() => setError("Failed to load firm data"))
         .finally(() => setLoading(false));
@@ -290,16 +292,15 @@ export default function EditFirmPage(): JSX.Element {
           {activeTab === "general" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div className="space-y-2">
-                <Label htmlFor="businessName">Business Name</Label>
+                <Label htmlFor="name">Business Name</Label>
                 <Input
-                  id="businessName"
-                  name="businessName"
-                  value={formData.businessName}
+                  id="name"
+                  name="name"
+                  value={formData.name}
                   onChange={handleChange}
-                  placeholder="Enter your business name"
+                  placeholder="Enter firm name"
                 />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="ownerName">Owner Name</Label>
                 <Input
@@ -360,17 +361,6 @@ export default function EditFirmPage(): JSX.Element {
                   value={formData.gstNumber}
                   onChange={handleChange}
                   placeholder="Enter GST number (if applicable)"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="name">Firm Name (Internal)</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Enter firm name"
                 />
               </div>
             </div>

@@ -57,7 +57,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { PaymentType } from "@/models/document/document.model";
-
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 // Utility function to format currency
 const formatCurrency = (amount: number | null) => {
   if (amount === null) return "₹0.00";
@@ -92,7 +97,8 @@ const PaymentOutPage = () => {
     endDate: "",
   });
 
-  const [deletePayment] = useDeletePaymentMutation();
+  const { deletePayment } = useDeleteActions();
+  const [deletePaymentMutation] = useDeletePaymentMutation();
   // Fetch payments
   const {
     data: payments = [],
@@ -426,40 +432,36 @@ const PaymentOutPage = () => {
                           </div>
                         </TableCell>
                         <TableCell className="text-right w-10">
-                          <Popover>
-                            <PopoverTrigger
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <EllipsisVertical className="h-4 w-4 text-gray-500" />
-                            </PopoverTrigger>
-                            <PopoverContent className="w-40" align="end">
-                              <div className="flex flex-col space-y-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="justify-start"
-                                  onClick={(e) => {
-                                    dispatch(openEditForm(payment.id));
-                                  }}
-                                >
-                                  Edit Payment
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="justify-start"
-                                  onClick={(e) => {
-                                    deletePayment({
-                                      id: payment.id,
-                                      direction: PaymentDirection.IN,
-                                    });
-                                  }}
-                                >
-                                  Delete Payment
-                                </Button>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="p-1 hover:bg-gray-100 rounded">
+                                <EllipsisVertical className="h-4 w-4 text-gray-500" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEditForm(payment.id);
+                                }}
+                              >
+                                Edit Item
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deletePayment(
+                                    payment.id,
+                                    payment.direction,
+                                    deletePaymentMutation
+                                  );
+                                }}
+                                className="text-red-600 focus:text-red-600"
+                              >
+                                Delete Item
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))
@@ -477,6 +479,7 @@ const PaymentOutPage = () => {
 // Helper label component for the filters
 import { ReactNode } from "react";
 import { PaymentDirection } from "@/models/payment/payment.model";
+import { useDeleteActions } from "@/hooks/useDeleteAction";
 
 const Label = ({
   children,

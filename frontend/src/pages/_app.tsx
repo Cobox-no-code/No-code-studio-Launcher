@@ -20,6 +20,7 @@ import SubscriptionExpiredModal from "@/components/_modal/SubscriptionExpireModa
 import { useAppSelector } from "@/redux/hooks";
 import Sync from "@/components/Sync";
 import Updater from "@/components/Updater";
+import { DeleteConfirmationProvider } from "@/lib/context/DeleteConfirmationContext";
 // Subscription access control wrapper component
 const SubscriptionGuard = ({ children, router }) => {
   const userInfo = useAppSelector((state) => state.userinfo);
@@ -102,6 +103,7 @@ function MyApp({ Component, pageProps }: AppProps) {
   const storeRef = useRef<AppStore | null>(null);
   const [hasFirm, setHasFirm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const login = useAppSelector((state)=>state.userinfo.login)
   const router = useRouter();
 
   if (!storeRef.current) {
@@ -116,7 +118,7 @@ function MyApp({ Component, pageProps }: AppProps) {
     const userId = localStorage.getItem("customer_id");
     const onLoginPage = router.pathname === "/login";
 
-    if (!userId && !onLoginPage) {
+    if (!userId && !onLoginPage && !login) {
       router.push("/login");
     }
   }, [router.pathname]);
@@ -193,7 +195,9 @@ function MyApp({ Component, pageProps }: AppProps) {
       <Toaster />
       <ModalManager />
       <RazorpayScriptLoader />
-      <AppWrapper />
+      <DeleteConfirmationProvider>
+        <AppWrapper />
+      </DeleteConfirmationProvider>
     </Provider>
   );
 }

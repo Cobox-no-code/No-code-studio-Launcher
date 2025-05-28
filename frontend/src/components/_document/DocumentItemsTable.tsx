@@ -54,6 +54,7 @@ import {
   Product,
   UnitConversion,
 } from "@/models/item/item.model";
+import { AnyARecord } from "node:dns";
 
 interface TaxRate {
   value: string;
@@ -65,6 +66,7 @@ const DocumentItemsTable: React.FC = () => {
   const { state, dispatch, calculateTotals } = useDocument();
   const dispatchOther = useAppDispatch();
   const [createItem, { isLoading: isCreatingItem }] = useCreateItemMutation();
+
   // Local state
   const [dropdownPosition, setDropdownPosition] = useState<{
     top: number;
@@ -284,8 +286,7 @@ const DocumentItemsTable: React.FC = () => {
     return "";
   };
 
-  // Update item row with calculations
-  // 1. Calculate final amount based on pricing logic
+  // Calculate final amount based on pricing logic
   const calculateItemAmount = (
     primaryQty: number,
     secondaryQty: number,
@@ -315,11 +316,9 @@ const DocumentItemsTable: React.FC = () => {
     let netAmount: number;
 
     if (isTaxInclusive) {
-      // Simple calculation: Tax = Price × Tax Rate, Total stays same
-      taxAmount = (amountAfterDiscount * taxRate) / 100; // 100 × 5% = 5
-      netAmount = amountAfterDiscount; // Total amount stays the same (100)
+      taxAmount = (amountAfterDiscount * taxRate) / 100;
+      netAmount = amountAfterDiscount;
     } else {
-      // Tax is added on top of the price
       taxAmount = (amountAfterDiscount * taxRate) / 100;
       netAmount = amountAfterDiscount + taxAmount;
     }
@@ -335,7 +334,7 @@ const DocumentItemsTable: React.FC = () => {
     };
   };
 
-  // 2. Update item row with calculations
+  // Update item row with calculations
   const handleItemChange = (
     index: number,
     field: keyof DocumentItem,
@@ -351,6 +350,26 @@ const DocumentItemsTable: React.FC = () => {
       updatedItem[field] = value === "With Tax" || value === true;
     } else {
       (updatedItem as any)[field] = value;
+    }
+
+    // FIX 1: Clear wholesale data when item name is manually changed
+    if (field === "itemName" && typeof value === "string") {
+      // If manually typing (not selecting from dropdown), clear wholesale data
+      const matchingItem = items?.find(
+        (item) => item.itemName?.toLowerCase() === value.toLowerCase()
+      );
+
+      if (!matchingItem) {
+        // Clear wholesale data and other item-specific data
+        updatedItem.itemId = "";
+        updatedItem.wholesalePrice = 0;
+        updatedItem.wholesaleQuantity = 0;
+        updatedItem.hsnCode = "";
+        updatedItem.taxType = "";
+        updatedItem.taxRate = 0;
+        updatedItem.salePriceTaxInclusive = false;
+        // Don't clear unit conversion data if it was manually set
+      }
     }
 
     const selectedItem = items?.find((i) => i.id === updatedItem.itemId);
@@ -374,7 +393,7 @@ const DocumentItemsTable: React.FC = () => {
       const discountPercent =
         parseFloat(String(updatedItem.discountPercent)) || 0;
 
-      // ADD THIS WHOLESALE PRICING LOGIC
+      // Wholesale pricing logic
       if (field === "primaryQuantity" && selectedItem) {
         const wholesaleQty = updatedItem.wholesaleQuantity || 0;
         const wholesalePrice = updatedItem.wholesalePrice || 0;
@@ -396,6 +415,7 @@ const DocumentItemsTable: React.FC = () => {
           price = retailPrice;
         }
       }
+
       // Update unit name if changed
       if (field === "primaryUnitId" && typeof value === "string") {
         updatedItem.primaryUnitName = getUnitName(value);
@@ -404,28 +424,22 @@ const DocumentItemsTable: React.FC = () => {
       let conversionRate = 1;
       const totalAmount = parseFloat(String(updatedItem.amount)) || 0;
 
-      // First, check if the item has a unit conversion
-      let hasConversion = false;
+      // Handle amount field changes
       if (field === "amount" && primaryQty > 0) {
-        // Calculate price per unit from total amount
         const taxRate = getTaxRateFromType(updatedItem.taxType as string);
         const isTaxInclusive = updatedItem.salePriceTaxInclusive || false;
 
         let calculatedPricePerUnit: number;
 
         if (isTaxInclusive) {
-          // If tax inclusive, the amount already includes tax
           calculatedPricePerUnit = totalAmount / primaryQty;
         } else {
-          // If tax exclusive, need to remove tax to get base price per unit
           const amountWithoutTax = totalAmount / (1 + taxRate / 100);
           calculatedPricePerUnit = amountWithoutTax / primaryQty;
         }
 
-        // Update price per unit
         updatedItem.pricePerUnit = Number(calculatedPricePerUnit.toFixed(2));
 
-        // Recalculate tax amount based on new price per unit
         const newPrice = calculatedPricePerUnit;
         const grossAmount = primaryQty * newPrice;
         const discountAmount = (grossAmount * discountPercent) / 100;
@@ -444,14 +458,16 @@ const DocumentItemsTable: React.FC = () => {
         );
         updatedItem.taxAmount = Number(taxAmount.toFixed(2));
 
-        // Skip the normal calculation flow and dispatch directly
         dispatch({
           type: "UPDATE_ITEM",
           payload: { index, item: updatedItem },
         });
         calculateTotals();
-        return; // Exit early to avoid double calculation
+        return;
       }
+
+      // Check for unit conversion
+      let hasConversion = false;
       if (selectedItem && isProduct(selectedItem)) {
         const conversion = getUnitConversion(selectedItem.id);
         if (conversion) {
@@ -482,7 +498,6 @@ const DocumentItemsTable: React.FC = () => {
       const isTaxInclusive = updatedItem.salePriceTaxInclusive || false;
 
       if (hasConversion) {
-        // Calculate based on base units with conversion
         const result = calculateItemAmount(
           primaryQty,
           secondaryQty,
@@ -497,7 +512,6 @@ const DocumentItemsTable: React.FC = () => {
         updatedItem.taxAmount = Number(result.taxAmount.toFixed(2));
         updatedItem.amount = Number(result.netAmount.toFixed(2));
       } else {
-        // Simple calculation without conversion
         let grossAmount = primaryQty * price;
         let discountAmount = (grossAmount * discountPercent) / 100;
         let amountAfterDiscount = grossAmount - discountAmount;
@@ -505,11 +519,9 @@ const DocumentItemsTable: React.FC = () => {
         let netAmount: number;
 
         if (isTaxInclusive) {
-          // Simple: Tax = Amount × Tax%, Total stays same
-          taxAmount = (amountAfterDiscount * taxRate) / 100; // 100 × 5% = 5
-          netAmount = amountAfterDiscount; // Amount stays the same (100)
+          taxAmount = (amountAfterDiscount * taxRate) / 100;
+          netAmount = amountAfterDiscount;
         } else {
-          // Add tax on top
           taxAmount = (amountAfterDiscount * taxRate) / 100;
           netAmount = amountAfterDiscount + taxAmount;
         }
@@ -527,51 +539,11 @@ const DocumentItemsTable: React.FC = () => {
 
     calculateTotals();
   };
-  // Add this new function
-  const handleItemInputKeyDown = (
-    index: number,
-    e: React.KeyboardEvent<HTMLInputElement>
-  ): void => {
-    if (e.key === "Enter") {
-      e.preventDefault();
 
-      const searchTerm = itemSearchTerm.trim();
-      if (searchTerm && filteredItems.length === 0) {
-        // Create new item with the search term
-        const newItemData: any = {
-          name: searchTerm,
-          itemCode: "",
-          salePrice: 0,
-          taxRate: "",
-          hsnCode: "",
-          description: "",
-          type: ItemType.PRODUCT,
-          // Add other required fields based on your item model
-        };
-
-        // Call your create item mutation
-        createItem(newItemData)
-          .unwrap()
-          .then((newItem) => {
-            // Select the newly created item
-            handleItemSelection(index, newItem);
-            toast.success(`Item "${searchTerm}" created and selected`);
-            // Refetch items to update the list
-            refetchItems();
-          })
-          .catch((error) => {
-            toast.error("Failed to create item");
-            console.error("Error creating item:", error);
-          });
-      } else if (filteredItems.length > 0) {
-        // Select the first filtered item
-        handleItemSelection(index, filteredItems[0]);
-      }
-    }
-  };
   // Handle item selection from dropdown
   const handleItemSelection = (index: number, item: Item): void => {
-    if (items && index >= items?.length) return;
+    const currentItems = getItems();
+    if (index >= currentItems.length) return;
 
     let primaryUnitId = "";
     let primaryUnitName = "";
@@ -596,7 +568,7 @@ const DocumentItemsTable: React.FC = () => {
     }
 
     const updatedItem: any = {
-      ...(items?.[index] ?? {}),
+      ...(currentItems[index] ?? {}),
       itemId: item.id,
       itemName: item.name || "",
       primaryUnitId: primaryUnitId || "",
@@ -609,9 +581,9 @@ const DocumentItemsTable: React.FC = () => {
       wholesaleQuantity: isProduct(item)
         ? (item as Product).wholesaleQuantity || 0
         : 0,
-      pricePerUnit: item.salePrice,
-      taxType: item.taxRate,
-      taxRate: Number(item.taxRate),
+      pricePerUnit: item.salePrice || 0,
+      taxType: item.taxRate || "",
+      taxRate: Number(item.taxRate || 0),
       hsnCode: item.hsnCode || "",
       salePriceTaxInclusive: isProduct(item)
         ? (item as Product).salePriceTaxInclusive || false
@@ -641,18 +613,15 @@ const DocumentItemsTable: React.FC = () => {
       updatedItem.taxAmount = Number(result.taxAmount.toFixed(2));
       updatedItem.amount = Number(result.netAmount.toFixed(2));
     } else {
-      // Simple calculation
       let grossAmount = primaryQty * price;
       let discountAmount = 0;
       let taxAmount: number;
       let netAmount: number;
 
       if (isTaxInclusive) {
-        // Simple: Tax = Amount × Tax%, Total stays same
-        taxAmount = (grossAmount * taxRate) / 100; // 100 × 5% = 5
-        netAmount = grossAmount; // Amount stays the same (100)
+        taxAmount = (grossAmount * taxRate) / 100;
+        netAmount = grossAmount;
       } else {
-        // Add tax on top
         taxAmount = (grossAmount * taxRate) / 100;
         netAmount = grossAmount + taxAmount;
       }
@@ -872,8 +841,9 @@ const DocumentItemsTable: React.FC = () => {
           </Alert>
         )}
 
+        {/* FIX 3: Improved table structure with proper column widths */}
         <div className="overflow-x-auto rounded-md border border-gray-200">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed min-w-[1400px]">
             <thead className="bg-primary/5 text-gray-700">
               <tr>
                 <th
@@ -882,20 +852,26 @@ const DocumentItemsTable: React.FC = () => {
                   }`}
                   onClick={() => setShowRowNumbers(!showRowNumbers)}
                   title="Click to toggle row numbers"
-                  style={{ width: "40px" }}
+                  style={{ width: "50px" }}
                 >
                   #
                 </th>
                 <th
                   className="p-2 text-left font-medium border-b border-r border-gray-200"
-                  style={{ width: "25%" }}
+                  style={{ width: "200px" }}
                 >
                   ITEM
                 </th>
-                <th className="p-2 text-left font-medium border-b border-r border-gray-200">
+                <th
+                  className="p-2 text-left font-medium border-b border-r border-gray-200"
+                  style={{ width: "80px" }}
+                >
                   HSN
                 </th>
-                <th className="p-2 text-left font-medium border-b border-r border-gray-200">
+                <th
+                  className="p-2 text-left font-medium border-b border-r border-gray-200"
+                  style={{ width: "100px" }}
+                >
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -910,10 +886,16 @@ const DocumentItemsTable: React.FC = () => {
                     </Tooltip>
                   </TooltipProvider>
                 </th>
-                <th className="p-2 text-left font-medium border-b border-r border-gray-200">
+                <th
+                  className="p-2 text-left font-medium border-b border-r border-gray-200"
+                  style={{ width: "120px" }}
+                >
                   UNIT
                 </th>
-                <th className="p-2 text-left font-medium border-b border-r border-gray-200">
+                <th
+                  className="p-2 text-left font-medium border-b border-r border-gray-200"
+                  style={{ width: "90px" }}
+                >
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -928,27 +910,45 @@ const DocumentItemsTable: React.FC = () => {
                     </Tooltip>
                   </TooltipProvider>
                 </th>
-                <th className="p-2 text-left font-medium border-b border-r border-gray-200">
+                <th
+                  className="p-2 text-left font-medium border-b border-r border-gray-200"
+                  style={{ width: "100px" }}
+                >
                   PRICE/UNIT
                 </th>
-                <th className="p-2 text-left font-medium border-b border-r border-gray-200">
+                <th
+                  className="p-2 text-left font-medium border-b border-r border-gray-200"
+                  style={{ width: "80px" }}
+                >
                   DISC %
                 </th>
-                <th className="p-2 text-left font-medium border-b border-r border-gray-200">
+                <th
+                  className="p-2 text-left font-medium border-b border-r border-gray-200"
+                  style={{ width: "90px" }}
+                >
                   DISC AMT
                 </th>
-                <th className="p-2 text-left font-medium border-b border-r border-gray-200">
+                <th
+                  className="p-2 text-left font-medium border-b border-r border-gray-200"
+                  style={{ width: "100px" }}
+                >
                   TAX
                 </th>
-                <th className="p-2 text-left font-medium border-b border-r border-gray-200">
+                <th
+                  className="p-2 text-left font-medium border-b border-r border-gray-200"
+                  style={{ width: "90px" }}
+                >
                   TAX AMT
                 </th>
-                <th className="p-2 text-left font-medium border-b border-r border-gray-200">
+                <th
+                  className="p-2 text-left font-medium border-b border-r border-gray-200"
+                  style={{ width: "100px" }}
+                >
                   TAX TYPE
                 </th>
                 <th
                   className="p-2 text-left font-medium border-b border-gray-200"
-                  style={{ width: "10%" }}
+                  style={{ width: "110px" }}
                 >
                   AMOUNT
                 </th>
@@ -968,10 +968,14 @@ const DocumentItemsTable: React.FC = () => {
                     (item) => item.id === row.itemId
                   );
                   const hasUnitConversion =
-                    selectedItem &&
-                    isProduct(selectedItem) &&
-                    row.secondaryUnitId &&
-                    row.secondaryUnitName;
+                    (row.secondaryUnitId &&
+                      row.secondaryUnitName &&
+                      row.primaryUnitId &&
+                      row.primaryUnitName) ||
+                    (selectedItem &&
+                      isProduct(selectedItem) &&
+                      row.secondaryUnitId &&
+                      row.secondaryUnitName);
 
                   return (
                     <tr
@@ -981,7 +985,10 @@ const DocumentItemsTable: React.FC = () => {
                       }`}
                     >
                       {/* Row Number */}
-                      <td className="p-2 text-center border-r border-gray-200 relative">
+                      <td
+                        className="p-2 text-center border-r border-gray-200 relative"
+                        style={{ width: "50px" }}
+                      >
                         {showRowNumbers && (
                           <span className="text-gray-500">{index + 1}</span>
                         )}
@@ -1028,7 +1035,10 @@ const DocumentItemsTable: React.FC = () => {
                       </td>
 
                       {/* Item */}
-                      <td className="p-2 border-r border-gray-200 relative">
+                      <td
+                        className="p-2 border-r border-gray-200 relative"
+                        style={{ width: "200px" }}
+                      >
                         <div className="relative">
                           <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
                           <input
@@ -1036,7 +1046,7 @@ const DocumentItemsTable: React.FC = () => {
                               index === showItemDropdown ? itemInputRef : null
                             }
                             type="text"
-                            className={`w-full pl-7 pr-2 py-1 text-sm rounded-md ${
+                            className={`w-full pl-7 pr-2 py-1 text-sm rounded-md border ${
                               focusedRow === index
                                 ? "border-primary ring-1 ring-primary/30"
                                 : "border-gray-200"
@@ -1047,18 +1057,20 @@ const DocumentItemsTable: React.FC = () => {
                             onChange={(e) =>
                               handleItemInputChange(index, e.target.value)
                             }
-                            onKeyDown={(e) => handleItemInputKeyDown(index, e)}
                           />
                         </div>
                       </td>
 
                       {/* HSN Code */}
-                      <td className="p-2 border-r border-gray-200">
+                      <td
+                        className="p-2 border-r border-gray-200"
+                        style={{ width: "80px" }}
+                      >
                         <div className="flex items-center">
-                          <Hash className="h-3 w-3 text-gray-400 mr-1" />
+                          <Hash className="h-3 w-3 text-gray-400 mr-1 flex-shrink-0" />
                           <input
                             type="text"
-                            className={`w-full px-2 py-1 text-sm rounded-md ${
+                            className={`w-full px-1 py-1 text-sm rounded-md border ${
                               focusedRow === index
                                 ? "border-primary ring-1 ring-primary/30"
                                 : "border-gray-200"
@@ -1075,15 +1087,18 @@ const DocumentItemsTable: React.FC = () => {
                       </td>
 
                       {/* Primary Quantity */}
-                      <td className="p-2 border-r border-gray-200">
+                      <td
+                        className="p-2 border-r border-gray-200"
+                        style={{ width: "100px" }}
+                      >
                         <div className="relative">
                           <input
                             type="number"
-                            className={`w-full px-2 py-1 rounded-md text-right text-sm ${
+                            className={`w-full px-2 py-1 rounded-md text-right text-sm border ${
                               focusedRow === index
                                 ? "border-primary ring-1 ring-primary/30"
                                 : "border-gray-200"
-                            } ${hasUnitConversion ? "pr-9" : ""}`}
+                            } ${hasUnitConversion ? "pr-8" : ""}`}
                             value={row.primaryQuantity || ""}
                             placeholder="1"
                             onFocus={() => setFocusedRow(index)}
@@ -1099,7 +1114,7 @@ const DocumentItemsTable: React.FC = () => {
 
                           {/* Display unit with quantity */}
                           {row.primaryUnitName && (
-                            <div className="text-xs text-gray-600 mt-1 text-right">
+                            <div className="text-xs text-gray-600 mt-1 text-right truncate">
                               {row.primaryUnitName}
                             </div>
                           )}
@@ -1112,14 +1127,16 @@ const DocumentItemsTable: React.FC = () => {
                               className="absolute right-1 top-1/2 -translate-y-1/2 text-primary hover:text-primary/80 transition-colors"
                               title="Switch primary and secondary units"
                             >
-                              <ArrowDownUp size={16} />
+                              <ArrowDownUp size={14} />
                             </button>
                           )}
                         </div>
                       </td>
 
-                      {/* Unit Column with Conversion Display */}
-                      <td className="p-2 border-r border-gray-200">
+                      <td
+                        className="p-2 border-r border-gray-200"
+                        style={{ width: "120px" }}
+                      >
                         {!hasUnitConversion ? (
                           <div className="space-y-1">
                             <Select
@@ -1128,6 +1145,7 @@ const DocumentItemsTable: React.FC = () => {
                                 if (conversionId === "new") {
                                   dispatchOther(openCreateForm());
                                 } else {
+                                  // FIX: Apply conversion even for non-existing items
                                   const conversion = unitConversions?.find(
                                     (c) => c.id === conversionId
                                   );
@@ -1140,25 +1158,31 @@ const DocumentItemsTable: React.FC = () => {
                                     );
 
                                     if (primaryUnit && secondaryUnit) {
+                                      const currentItem = getItems()[index];
                                       const updatedItem = {
-                                        ...getItems()[index],
+                                        ...currentItem,
                                         primaryUnitId: conversion.primaryUnitId,
                                         primaryUnitName: primaryUnit.shortname,
                                         secondaryUnitId:
                                           conversion.secondaryUnitId,
                                         secondaryUnitName:
                                           secondaryUnit.shortname,
-                                        primaryQuantity: "1",
-                                        secondaryQuantity: "0",
+                                        primaryQuantity:
+                                          currentItem.primaryQuantity || 1,
+                                        secondaryQuantity:
+                                          currentItem.secondaryQuantity || 0,
+                                        conversionRate:
+                                          conversion.conversionRate, // Add this line
                                       };
 
+                                      // Recalculate amounts with the conversion
                                       const primaryQty =
                                         parseFloat(
-                                          updatedItem.primaryQuantity
+                                          String(updatedItem.primaryQuantity)
                                         ) || 0;
                                       const secondaryQty =
                                         parseFloat(
-                                          updatedItem.secondaryQuantity
+                                          String(updatedItem.secondaryQuantity)
                                         ) || 0;
                                       const price =
                                         parseFloat(
@@ -1175,25 +1199,28 @@ const DocumentItemsTable: React.FC = () => {
                                         updatedItem.salePriceTaxInclusive ||
                                         false;
 
-                                      const result = calculateItemAmount(
-                                        primaryQty,
-                                        secondaryQty,
-                                        price,
-                                        conversion.conversionRate,
-                                        discountPercent,
-                                        taxRate,
-                                        isTaxInclusive
-                                      );
+                                      if (price > 0) {
+                                        // Only calculate if there's a price
+                                        const result = calculateItemAmount(
+                                          primaryQty,
+                                          secondaryQty,
+                                          price,
+                                          conversion.conversionRate,
+                                          discountPercent,
+                                          taxRate,
+                                          isTaxInclusive
+                                        );
 
-                                      updatedItem.discountAmount = Number(
-                                        result.discountAmount.toFixed(2)
-                                      );
-                                      updatedItem.taxAmount = Number(
-                                        result.taxAmount.toFixed(2)
-                                      );
-                                      updatedItem.amount = Number(
-                                        result.netAmount.toFixed(2)
-                                      );
+                                        updatedItem.discountAmount = Number(
+                                          result.discountAmount.toFixed(2)
+                                        );
+                                        updatedItem.taxAmount = Number(
+                                          result.taxAmount.toFixed(2)
+                                        );
+                                        updatedItem.amount = Number(
+                                          result.netAmount.toFixed(2)
+                                        );
+                                      }
 
                                       dispatch({
                                         type: "UPDATE_ITEM",
@@ -1259,11 +1286,15 @@ const DocumentItemsTable: React.FC = () => {
                         ) : (
                           <div className="space-y-1">
                             <div className="text-center text-xs bg-blue-50 text-blue-500 py-1 px-2 rounded flex items-center justify-center">
-                              <span>{row.primaryUnitName}</span>
-                              <ArrowDownUp className="h-3 w-3 mx-1" />
-                              <span>{row.secondaryUnitName}</span>
+                              <span className="truncate">
+                                {row.primaryUnitName}
+                              </span>
+                              <ArrowDownUp className="h-3 w-3 mx-1 flex-shrink-0" />
+                              <span className="truncate">
+                                {row.secondaryUnitName}
+                              </span>
                             </div>
-                            <div className="text-xs text-gray-500 text-center">
+                            <div className="text-xs text-gray-500 text-center truncate">
                               {getConversionRateText(row, selectedItem)}
                             </div>
                             <Button
@@ -1275,6 +1306,7 @@ const DocumentItemsTable: React.FC = () => {
                                 updatedItem.secondaryUnitId = "";
                                 updatedItem.secondaryUnitName = "";
                                 updatedItem.secondaryQuantity = 0;
+                                updatedItem.conversionRate = 1; // Reset conversion rate
                                 dispatch({
                                   type: "UPDATE_ITEM",
                                   payload: { index, item: updatedItem },
@@ -1288,10 +1320,13 @@ const DocumentItemsTable: React.FC = () => {
                       </td>
 
                       {/* Secondary Quantity */}
-                      <td className="p-2 border-r border-gray-200">
+                      <td
+                        className="p-2 border-r border-gray-200"
+                        style={{ width: "90px" }}
+                      >
                         <input
                           type="number"
-                          className={`w-full px-2 py-1 rounded-md text-right text-sm ${
+                          className={`w-full px-2 py-1 rounded-md text-right text-sm border ${
                             focusedRow === index
                               ? "border-primary ring-1 ring-primary/30"
                               : "border-gray-200"
@@ -1310,17 +1345,20 @@ const DocumentItemsTable: React.FC = () => {
                           }
                         />
                         {hasUnitConversion && row.secondaryUnitName && (
-                          <div className="text-xs text-gray-600 mt-1 text-right">
+                          <div className="text-xs text-gray-600 mt-1 text-right truncate">
                             {row.secondaryUnitName}
                           </div>
                         )}
                       </td>
 
                       {/* Price/Unit */}
-                      <td className="p-2 border-r border-gray-200">
+                      <td
+                        className="p-2 border-r border-gray-200"
+                        style={{ width: "100px" }}
+                      >
                         <input
                           type="number"
-                          className={`w-full px-2 py-1 rounded-md text-right text-sm ${
+                          className={`w-full px-2 py-1 rounded-md text-right text-sm border ${
                             focusedRow === index
                               ? "border-primary ring-1 ring-primary/30"
                               : "border-gray-200"
@@ -1328,7 +1366,6 @@ const DocumentItemsTable: React.FC = () => {
                           value={row.pricePerUnit || ""}
                           placeholder="0.00"
                           min="0"
-                          step="0.01"
                           onFocus={() => setFocusedRow(index)}
                           onBlur={() => setFocusedRow(null)}
                           onChange={(e) =>
@@ -1339,26 +1376,31 @@ const DocumentItemsTable: React.FC = () => {
                             )
                           }
                         />
-                        {row.wholesaleQuantity &&
-                          row.wholesalePrice &&
-                          Number(row.primaryQuantity) >=
-                            Number(row.wholesaleQuantity) && (
-                            <div className="text-xs text-yellow-600 text-center bg-yellow-50 px-1 py-0.5 rounded">
-                              Wholesale Applied
-                            </div>
-                          )}
                         {hasUnitConversion && row.primaryUnitName && (
-                          <div className="text-xs text-gray-600 mt-1 text-right">
+                          <div className="text-xs text-gray-600 mt-1 text-right truncate">
                             per {row.primaryUnitName}
                           </div>
                         )}
+                        {/* Check that wholesale values are actually set and valid */}
+                        {row?.wholesalePrice &&
+                        row?.wholesaleQuantity &&
+                        parseFloat(String(row.wholesaleQuantity)) > 0 &&
+                        parseFloat(String(row.primaryQuantity)) >=
+                          parseFloat(String(row.wholesaleQuantity)) ? (
+                          <div className="text-xs text-yellow-600 text-center bg-yellow-50 px-1 py-0.5 rounded truncate">
+                            Wholesale Applied
+                          </div>
+                        ) : null}
                       </td>
 
                       {/* Discount % */}
-                      <td className="p-2 border-r border-gray-200">
+                      <td
+                        className="p-2 border-r border-gray-200"
+                        style={{ width: "80px" }}
+                      >
                         <input
                           type="number"
-                          className={`w-full px-2 py-1 rounded-md text-right text-sm ${
+                          className={`w-full px-2 py-1 rounded-md text-right text-sm border ${
                             focusedRow === index
                               ? "border-primary ring-1 ring-primary/30"
                               : "border-gray-200"
@@ -1381,10 +1423,13 @@ const DocumentItemsTable: React.FC = () => {
                       </td>
 
                       {/* Discount Amount */}
-                      <td className="p-2 border-r border-gray-200">
+                      <td
+                        className="p-2 border-r border-gray-200"
+                        style={{ width: "90px" }}
+                      >
                         <input
                           type="number"
-                          className="w-full px-2 py-1 rounded-md text-right bg-gray-50 text-sm border-gray-200"
+                          className="w-full px-2 py-1 rounded-md text-right bg-gray-50 text-sm border border-gray-200"
                           value={row.discountAmount || ""}
                           placeholder="0.00"
                           readOnly
@@ -1392,15 +1437,18 @@ const DocumentItemsTable: React.FC = () => {
                       </td>
 
                       {/* Tax Type */}
-                      <td className="p-2 border-r border-gray-200">
+                      <td
+                        className="p-2 border-r border-gray-200"
+                        style={{ width: "100px" }}
+                      >
                         <Select
-                          value={row.taxType}
+                          value={row.taxType || "None"}
                           onValueChange={(value) =>
                             handleItemChange(index, "taxType", value)
                           }
                         >
                           <SelectTrigger
-                            className={`h-8 w-full text-sm ${
+                            className={`h-8 w-full text-sm border ${
                               focusedRow === index
                                 ? "border-primary ring-1 ring-primary/30"
                                 : "border-gray-200"
@@ -1421,10 +1469,13 @@ const DocumentItemsTable: React.FC = () => {
                       </td>
 
                       {/* Tax Amount */}
-                      <td className="p-2 border-r border-gray-200">
+                      <td
+                        className="p-2 border-r border-gray-200"
+                        style={{ width: "90px" }}
+                      >
                         <input
                           type="number"
-                          className="w-full px-2 py-1 rounded-md text-right bg-gray-50 text-sm border-gray-200"
+                          className="w-full px-2 py-1 rounded-md text-right bg-gray-50 text-sm border border-gray-200"
                           value={row.taxAmount || ""}
                           placeholder="0.00"
                           readOnly
@@ -1432,7 +1483,10 @@ const DocumentItemsTable: React.FC = () => {
                       </td>
 
                       {/* Tax Type (Inclusive/Exclusive) */}
-                      <td className="p-2 border-r border-gray-200">
+                      <td
+                        className="p-2 border-r border-gray-200"
+                        style={{ width: "100px" }}
+                      >
                         <Select
                           value={
                             row?.salePriceTaxInclusive
@@ -1447,7 +1501,7 @@ const DocumentItemsTable: React.FC = () => {
                             )
                           }
                         >
-                          <SelectTrigger className="h-8 w-full text-xs">
+                          <SelectTrigger className="h-8 w-full text-xs border border-gray-200">
                             <SelectValue placeholder="Select" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1460,19 +1514,16 @@ const DocumentItemsTable: React.FC = () => {
                       </td>
 
                       {/* Amount */}
-                      {/* Amount */}
-                      <td className="p-2">
+                      <td className="p-2" style={{ width: "110px" }}>
                         <input
                           type="number"
-                          className="w-full px-2 py-1 rounded-md text-right font-medium bg-primary/5 text-sm border-primary/20"
+                          className="w-full px-2 py-1 rounded-md text-right font-medium bg-primary/5 text-sm border border-primary/20"
                           value={row.amount || ""}
                           placeholder="0.00"
-                          // Remove readOnly to make it editable
                           onFocus={() => setFocusedRow(index)}
                           onBlur={() => setFocusedRow(null)}
-                          onChange={
-                            (e) =>
-                              handleItemChange(index, "amount", e.target.value) // Add this onChange handler
+                          onChange={(e) =>
+                            handleItemChange(index, "amount", e.target.value)
                           }
                         />
                       </td>
@@ -1535,119 +1586,129 @@ const DocumentItemsTable: React.FC = () => {
           </div>
         </div>
 
-        {/* Enhanced Item Dropdown */}
+        {/* Enhanced Item Dropdown - FIX 4: Improved dropdown positioning and styling */}
         {showItemDropdown !== null && dropdownPosition && (
           <div
             ref={dropdownRef}
-            className="absolute z-[10000] bg-white shadow-lg w-[400px] max-h-64 rounded-md py-1 text-sm ring-1 ring-gray-200 overflow-auto"
+            className="absolute z-[60] bg-white shadow-xl border border-gray-200 w-[450px] max-h-80 rounded-lg py-2 text-sm overflow-hidden"
             style={{
-              position: "absolute",
               top: dropdownPosition.top,
               left: dropdownPosition.left,
+              maxWidth: "calc(100vw - 40px)", // Prevent overflow on small screens
             }}
           >
             {isLoadingItems ? (
-              <div className="px-4 py-2 text-gray-500 flex items-center">
+              <div className="px-4 py-3 text-gray-500 flex items-center justify-center">
                 <Loader2 className="h-4 w-4 mr-2 animate-spin text-primary" />
-                Loading items...
+                <span>Loading items...</span>
               </div>
             ) : filteredItems.length > 0 ? (
-              filteredItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="cursor-pointer hover:bg-gray-100 px-4 py-3 border-b border-gray-100"
-                  onClick={() => handleItemSelection(showItemDropdown, item)}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="font-medium text-gray-900">{item.name}</div>
-                    <div className="flex items-center gap-2">
-                      {isProduct(item) ? (
-                        <Badge
-                          variant="outline"
-                          className="h-5 px-2 bg-blue-50 text-blue-600 border-blue-200"
-                        >
-                          <Package className="h-3 w-3 mr-1" />
-                          Product
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="h-5 px-2 bg-purple-50 text-purple-600 border-purple-200"
-                        >
-                          Service
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-xs text-gray-600">
-                      {item.itemCode && (
-                        <span className="flex items-center">
-                          <Hash className="h-3 w-3 mr-1" />
-                          {item.itemCode}
-                        </span>
-                      )}
-                      {item.hsnCode && <span>HSN: {item.hsnCode}</span>}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Badge className="h-6 px-2 bg-green-50 text-green-700 border-green-200">
-                        <DollarSign className="h-3 w-3 mr-1" />
-                        Sale: ₹{item.salePrice}
-                      </Badge>
-
-                      {isProduct(item) && (
-                        <>
+              <div className="max-h-72 overflow-y-auto">
+                {filteredItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="cursor-pointer hover:bg-gray-50 px-4 py-3 border-b border-gray-50 last:border-b-0 transition-colors"
+                    onClick={() => handleItemSelection(showItemDropdown, item)}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-medium text-gray-900 truncate flex-1 mr-2">
+                        {item.name}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {isProduct(item) ? (
                           <Badge
                             variant="outline"
-                            className="h-6 px-2 bg-orange-50 text-orange-700 border-orange-200"
-                          >
-                            <DollarSign className="h-3 w-3 mr-1" />
-                            Cost: ₹{(item as Product).purchasePrice || 0}
-                          </Badge>
-
-                          <Badge
-                            variant="outline"
-                            className="h-6 px-2 bg-gray-50 text-gray-700"
+                            className="h-5 px-2 bg-blue-50 text-blue-600 border-blue-200 text-xs"
                           >
                             <Package className="h-3 w-3 mr-1" />
-                            Stock: {(item as Product).primaryQuantity || 0}
+                            Product
                           </Badge>
-                        </>
-                      )}
-                      {isProduct(item) &&
-                        item.wholesalePrice &&
-                        item.wholesaleQuantity && (
+                        ) : (
                           <Badge
                             variant="outline"
-                            className="h-5 px-2 bg-yellow-50 text-yellow-700 border-yellow-200"
+                            className="h-5 px-2 bg-purple-50 text-purple-600 border-purple-200 text-xs"
                           >
-                            Wholesale: ₹{item.wholesalePrice} (Min:{" "}
-                            {(item as Product).wholesaleQuantity})
+                            Service
                           </Badge>
                         )}
+                      </div>
                     </div>
-                  </div>
 
-                  {item.description && (
-                    <div className="text-xs text-gray-500 mt-1 truncate">
-                      {item.description}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 text-xs text-gray-600">
+                        {item.itemCode && (
+                          <span className="flex items-center">
+                            <Hash className="h-3 w-3 mr-1" />
+                            {item.itemCode}
+                          </span>
+                        )}
+                        {item.hsnCode && (
+                          <span className="truncate">HSN: {item.hsnCode}</span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                        <Badge className="h-5 px-2 bg-green-50 text-green-700 border-green-200 text-xs">
+                          ₹{item.salePrice}
+                        </Badge>
+
+                        {isProduct(item) && (
+                          <>
+                            <Badge
+                              variant="outline"
+                              className="h-5 px-2 bg-orange-50 text-orange-700 border-orange-200 text-xs"
+                            >
+                              Cost: ₹{(item as Product).purchasePrice || 0}
+                            </Badge>
+
+                            <Badge
+                              variant="outline"
+                              className="h-5 px-2 bg-gray-50 text-gray-700 text-xs"
+                            >
+                              Stock: {(item as Product).primaryQuantity || 0}
+                            </Badge>
+                          </>
+                        )}
+
+                        {isProduct(item) &&
+                          (item as Product).wholesalePrice &&
+                          (item as Product).wholesaleQuantity && (
+                            <Badge
+                              variant="outline"
+                              className="h-5 px-2 bg-yellow-50 text-yellow-700 border-yellow-200 text-xs"
+                            >
+                              Wholesale: ₹{(item as Product).wholesalePrice}{" "}
+                              (Min: {(item as Product).wholesaleQuantity})
+                            </Badge>
+                          )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              ))
+
+                    {item.description && (
+                      <div className="text-xs text-gray-500 mt-2 truncate">
+                        {item.description}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             ) : (
-              <div className="px-4 py-2 text-gray-500 text-center">
-                No items found
-                <div className="border-t border-gray-100 mt-1 pt-1">
+              <div className="px-4 py-3 text-gray-500 text-center">
+                <div className="mb-2">
+                  No items found matching &quot;{itemSearchTerm}&quot;
+                </div>
+                <div className="border-t border-gray-100 pt-2">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full text-primary text-xs flex items-center justify-center"
-                    onClick={() => dispatchOther(openCreateItem())}
+                    className="w-full text-primary text-xs flex items-center justify-center hover:bg-primary/5"
+                    onClick={() => {
+                      setShowItemDropdown(null);
+                      dispatchOther(openCreateItem());
+                    }}
                   >
-                    <Plus className="h-3 w-3 mr-1" /> Add New Item
+                    <Plus className="h-3 w-3 mr-1" /> Create New Item &ldquo;
+                    {itemSearchTerm}&ldquo;
                   </Button>
                 </div>
               </div>

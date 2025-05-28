@@ -65,14 +65,16 @@ import {
 } from "lucide-react";
 import { openCreateForm, openEditForm } from "@/redux/slices/partySlice";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import toast from "react-hot-toast";
 import { useGetDocumentsQuery } from "@/redux/api/documentApi";
 import { useGetPaymentsQuery } from "@/redux/api/paymentApi";
 import { PaymentDirection } from "@/models/payment/payment.model";
+import { useDeleteActions } from "@/hooks/useDeleteAction";
 
 // Helper to format currency
 const formatCurrency = (amount: string | number | bigint) => {
@@ -104,7 +106,8 @@ const Parties = () => {
   const [filterParty, setFilterParty] = useState("");
   const [filterTransaction, setFilterTransaction] = useState("");
   const [currentTab, setCurrentTab] = useState("all");
-  const [deleteParty, { isLoading: isDeleting, error: deleteError }] =
+  const { deleteParty } = useDeleteActions();
+  const [deletePartyMutation, { isLoading: isDeleting, error: deleteError }] =
     useDeletePartyMutation();
   const { data: documents } = useGetDocumentsQuery({});
   const { data: payments } = useGetPaymentsQuery({});
@@ -252,7 +255,9 @@ const Parties = () => {
         ...partyPayments.map((payment) => ({
           id: payment.id,
           transactionType:
-            payment.direction === PaymentDirection.IN ? "Payment In" : "Payment Out",
+            payment.direction === PaymentDirection.IN
+              ? "Payment In"
+              : "Payment Out",
           documentNumber:
             payment.receiptNumber || `PMT-${payment.id.substring(0, 8)}`,
           documentDate: payment.paymentDate,
@@ -265,7 +270,7 @@ const Parties = () => {
     }
 
     // Sort by date (newest first)
-    return transactions
+    return transactions;
   };
 
   // Use this function to get complete transaction history
@@ -468,56 +473,36 @@ const Parties = () => {
                           )}
                         </TableCell>
                         <TableCell className="text-right w-10">
-                          <Popover>
-                            <PopoverTrigger
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <EllipsisVertical className="h-4 w-4 text-gray-500" />
-                            </PopoverTrigger>
-                            <PopoverContent className="w-40" align="end">
-                              <div className="flex flex-col space-y-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="justify-start"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openEditModal(party.id);
-                                  }}
-                                >
-                                  <Pencil className="h-4 w-4 mr-2" />
-                                  Edit Party
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="justify-start"
-                                  disabled={isDeleting}
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    try {
-                                      await deleteParty(party.id).unwrap();
-                                      toast.success(
-                                        "Party deleted successfully"
-                                      );
-                                    } catch (error) {
-                                      toast.error("Failed to delete party");
-                                      console.error("Delete error:", error);
-                                    }
-                                  }}
-                                >
-                                  {isDeleting ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                      Deleting...
-                                    </>
-                                  ) : (
-                                    "Delete Party"
-                                  )}
-                                </Button>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="p-1 hover:bg-gray-100 rounded">
+                                <EllipsisVertical className="h-4 w-4 text-gray-500" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEditModal(party.id);
+                                }}
+                              >
+                                Edit Item
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteParty(
+                                    party.id,
+                                    party.name,
+                                    deletePartyMutation
+                                  );
+                                }}
+                                className="text-red-600 focus:text-red-600"
+                              >
+                                Delete Item
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))

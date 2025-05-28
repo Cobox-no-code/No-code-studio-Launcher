@@ -44,6 +44,7 @@ declare global {
       quitApp: () => Promise<void>;
       restartApp: () => Promise<void>;
       getAppVersion: () => Promise<string>;
+      deviceAPI: any;
       checkFileExists: (
         fileName: string
       ) => Promise<{ exists: boolean; path: string | null }>;
