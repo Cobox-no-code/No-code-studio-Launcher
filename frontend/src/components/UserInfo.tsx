@@ -89,6 +89,8 @@ export default function UserInfo() {
 
         // If online, proceed with API call
         const phone = localStorage.getItem("phone");
+        const machine_id = localStorage.getItem("machine_id");
+        console.log(machine_id);
         if (!phone) {
           console.warn("No phone number found in localStorage");
           return;
@@ -96,7 +98,7 @@ export default function UserInfo() {
 
         // Use await with axios to properly handle the promise
         const response = await axios.get(
-          `${backend_url}/user-info?phone=${phone}`
+          `${backend_url}/user-info?phone=${phone}&machine_id=${machine_id}`
         );
 
         // Log the response data for debugging
@@ -147,10 +149,11 @@ export default function UserInfo() {
       const fetchUserInfo = async () => {
         try {
           const phone = localStorage.getItem("phone");
+          const machine_id = localStorage.getItem("machine_id");
           if (!phone) return;
 
           const response = await axios.get(
-            `${backend_url}/user-info?phone=${phone}`
+            `${backend_url}/user-info?phone=${phone}&machine_id=${machine_id}`
           );
 
           if (response.data) {

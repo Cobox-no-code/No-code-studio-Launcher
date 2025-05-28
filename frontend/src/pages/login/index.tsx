@@ -30,7 +30,7 @@ import { backend_url } from "@/backend.config";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { setUserInfo } from "@/redux/slices/userinfoSlice";
 import { userInfo } from "node:os";
-
+import { v4 as uuidv4 } from "uuid";
 const LoginPage = () => {
   const router = useRouter();
   const [step, setStep] = useState<"phone" | "otp">("phone");
@@ -93,11 +93,17 @@ const LoginPage = () => {
 
   // Handle OTP verification
   const verifyOtp = async (e: FormEvent) => {
+    let deviceId: string | null = null;
     e.preventDefault();
-    if (!window.electronAPI) {
+    if (!window) {
       return;
     }
-    const deviceId = window.electronAPI.deviceAPI.getDeviceId();
+
+    deviceId = localStorage.getItem("machine_id");
+    if (!deviceId) {
+      deviceId = uuidv4();
+      localStorage.setItem("machine_id", deviceId);
+    }
 
     if (!otp || otp.length < 4) {
       setError("Please enter a valid OTP");
@@ -114,6 +120,7 @@ const LoginPage = () => {
         phone,
         name,
         email,
+        machine_id: deviceId,
       });
 
       // Save user info in localStorage
