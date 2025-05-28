@@ -103,7 +103,7 @@ function MyApp({ Component, pageProps }: AppProps) {
   const storeRef = useRef<AppStore | null>(null);
   const [hasFirm, setHasFirm] = useState(false);
   const [loading, setLoading] = useState(true);
-  const login = useAppSelector((state)=>state.userinfo.login)
+
   const router = useRouter();
 
   if (!storeRef.current) {
@@ -114,14 +114,6 @@ function MyApp({ Component, pageProps }: AppProps) {
     console.log("Update completed successfully");
     router.push("/");
   };
-  useEffect(() => {
-    const userId = localStorage.getItem("customer_id");
-    const onLoginPage = router.pathname === "/login";
-
-    if (!userId && !onLoginPage && !login) {
-      router.push("/login");
-    }
-  }, [router.pathname]);
 
   useEffect(() => {
     axios
@@ -167,6 +159,15 @@ function MyApp({ Component, pageProps }: AppProps) {
 
   // Wrapper with store to use Redux hooks
   const AppWrapper = () => {
+    const login = useAppSelector((state) => state.userinfo.login);
+    useEffect(() => {
+      const userId = localStorage.getItem("customer_id");
+      const onLoginPage = router.pathname === "/login";
+
+      if (!userId && !onLoginPage && !login) {
+        router.push("/login");
+      }
+    }, [router.pathname]);
     return (
       <>
         <Updater onUpdateComplete={handleUpdateComplete} />

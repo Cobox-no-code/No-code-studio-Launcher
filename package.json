@@ -11,7 +11,7 @@
     "email": "paperbillpvt@gmail.com"
   },
   "scripts": {
-    "dev": "npm run build:backend && electron . --dev",
+    "dev": "next dev frontend",
     "prebuild": "rimraf out && rimraf dist && rimraf frontend/.next && rimraf frontend/out",
     "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "next build frontend && copyfiles -u 1 \"frontend/public/**/*\" frontend/out/",
