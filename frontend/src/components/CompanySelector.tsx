@@ -173,7 +173,9 @@ const CompanySelector = ({
   const fetchCompanies = async (): Promise<void> => {
     try {
       setLoading(true);
-      const response = await axios.get<Company[]>(API_BASE_URL + "/firms");
+      const response = await axios.get<Company[]>(
+        `${API_BASE_URL}/firms?phone=${user.phone}`
+      );
       const ownedCompanies = response.data || [];
       try {
         // Fetch shared firms
@@ -312,6 +314,7 @@ const CompanySelector = ({
     setOpen(false);
 
     if (company.isShared && !user.sync_enabled) {
+      console.log(company.role);
       dispatch(updateRole(company.role));
       try {
         const payload = {

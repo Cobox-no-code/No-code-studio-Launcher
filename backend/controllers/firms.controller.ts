@@ -5,9 +5,10 @@ import { FirmDTO } from "../models/firm/firm.mode.";
 import axios from "axios";
 
 // GET /firms - List all firms
-export const getAllFirms = async (_req: Request, res: Response) => {
+export const getAllFirms = async (req: Request, res: Response) => {
   try {
-    const firms = await db("firms").select();
+    const { phone } = req.params;
+    const firms = await db("firms").where("owner", phone).select();
     res.json(firms);
   } catch (error: any) {
     console.error("Error fetching firms:", error);
