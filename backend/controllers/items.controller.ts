@@ -7,14 +7,21 @@ export const createItem = async (req: Request, res: Response): Promise<any> => {
   try {
     const firmId = (req.headers["x-firm-id"] as string) || "";
     const body = req.body;
-    const existingItem = await db("items", firmId)
-      .where("name", body.name)
-      .first();
-    if (existingItem) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Item name must be unique" });
+
+    const existingItems = await db("items", firmId).select(); // fetch all fields
+
+    // Then extract names in JS
+    const exists = existingItems.some(
+      (item) => item.name?.toLowerCase() === body.name?.toLowerCase()
+    );
+
+    if (exists) {
+      return res.status(400).json({
+        success: false,
+        error: "Item name must be unique (case-insensitive)",
+      });
     }
+
     if (body.customFields && typeof body.customFields === "object") {
       body.customFields = JSON.stringify(body.customFields);
     }
@@ -104,15 +111,22 @@ export const updateItem = async (req: Request, res: Response): Promise<any> => {
     const { id } = req.params;
     const body = req.body;
     if (body.name) {
-      const existingItem = await db("items", firmId)
-        .where("name", body.name)
-        .andWhereNot("id", id)
-        .first();
+      const existingItem = await db("items", firmId).where("id", id).first();
+      if (body.name && body.name !== existingItem.name) {
+        const possibleDuplicates = await db("items", firmId)
+          .andWhereNot("id", id)
+          .select();
 
-      if (existingItem) {
-        return res
-          .status(400)
-          .json({ success: false, error: "Item name must be unique" });
+        const duplicate = possibleDuplicates.some(
+          (item) => item.name.toLowerCase() === body.name.toLowerCase()
+        );
+
+        if (duplicate) {
+          return res.status(400).json({
+            success: false,
+            error: "Item name must be unique (case-insensitive)",
+          });
+        }
       }
     }
     if (body.customFields && typeof body.customFields === "object") {

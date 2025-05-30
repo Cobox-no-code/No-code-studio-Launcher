@@ -230,7 +230,27 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
       hasValue(bankDetails.swiftCode) ||
       hasValue(bankDetails.upiId) ||
       hasValue(bankDetails.iban));
-
+  const getCountryName = (countryCode) => {
+    const countries = {
+      US: "United States",
+      GB: "United Kingdom",
+      CA: "Canada",
+      AU: "Australia",
+      IN: "India",
+      DE: "Germany",
+      FR: "France",
+      JP: "Japan",
+      CN: "China",
+      BR: "Brazil",
+      ZA: "South Africa",
+      SG: "Singapore",
+      AE: "United Arab Emirates",
+      NZ: "New Zealand",
+      RU: "Russia",
+      MX: "Mexico",
+    };
+    return countries[countryCode] || countryCode;
+  };
   // Render the print button
   return (
     <>
@@ -241,22 +261,76 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
             {getDocumentTitle(document.documentType)}
           </div>
 
-          {/* Document Header */}
-          <div className="border border-gray-300 p-2 mb-4 flex justify-between">
-            <div className="flex gap-3">
-              {hasValue(firmData?.businessLogo) && (
+          <div className="border border-gray-300 p-2 mb-4 flex gap-3">
+            <div className="flex-shrink-0">
+              {hasValue(firmData?.businessLogo) ? (
                 <img
                   src={firmData.businessLogo}
-                  alt=""
-                  className="h-full w-32"
+                  alt="Business Logo"
+                  className="h-20 w-20 object-contain"
                 />
+              ) : (
+                <div className="h-20 w-20 bg-gray-100 border border-gray-300 flex items-center justify-center text-sm text-gray-400"></div>
               )}
-              <div>
-                <div className="text-lg font-bold">{businessName}</div>
-                {hasValue(firmData?.address) && (
-                  <div className="text-sm">Address: {firmData.address}</div>
+            </div>
+
+            <div className="grid grid-cols-3  w-full">
+              {hasValue(businessName) && (
+                <div className="text-xl font-bold text-gray-900">
+                  {businessName}
+                </div>
+              )}
+
+              {hasValue(firmData?.name) && firmData.name !== businessName && (
+                <div className="text-lg font-semibold text-gray-800">
+                  {firmData.name}
+                </div>
+              )}
+
+              {hasValue(firmData?.ownerName) && (
+                <div className="text-sm text-gray-700">
+                  <span className="font-medium">Owner:</span>{" "}
+                  {firmData.ownerName}
+                </div>
+              )}
+
+              {hasValue(firmData?.address) && (
+                <div className="text-sm text-gray-700">
+                  <span className="font-medium">Address:</span>{" "}
+                  {firmData.address}
+                </div>
+              )}
+
+              {hasValue(firmData?.phone) && (
+                <div className="text-sm text-gray-700">
+                  <span className="font-medium">Phone:</span> {firmData.phone}
+                </div>
+              )}
+
+              {hasValue(firmData?.gstNumber) && (
+                <div className="text-sm text-gray-700">
+                  <span className="font-medium">GST No:</span>{" "}
+                  {firmData.gstNumber}
+                </div>
+              )}
+
+              {hasValue(firmData?.country) && (
+                <div className="text-sm text-gray-700">
+                  <span className="font-medium">Country:</span>{" "}
+                  {getCountryName(firmData.country)}
+                </div>
+              )}
+
+              {firmData?.customFields &&
+                Object.keys(firmData.customFields).length > 0 &&
+                Object.entries(firmData.customFields).map(([key, value]) =>
+                  hasValue(value) ? (
+                    <div key={key} className="text-sm text-gray-700">
+                      <span className="font-medium capitalize">{key}:</span>{" "}
+                      {String(value)}
+                    </div>
+                  ) : null
                 )}
-              </div>
             </div>
           </div>
 

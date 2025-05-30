@@ -274,7 +274,7 @@ const SyncShare = () => {
   };
 
   return (
-    <div>
+    <div className="bg-slate-50 h-full">
       <div className="flex items-center justify-between py-4 border-b bg-white px-4">
         <div className="flex items-center gap-4">
           <p className="font-semibold text-xl">Sync & Share</p>
@@ -297,7 +297,7 @@ const SyncShare = () => {
           )}
         </div>
       </div>
-      <section className="flex flex-col gap-1 p-1">
+      <section className="flex flex-col gap-1 p-1 h-full">
         <div className="flex items-center justify-between py-4 border-b bg-white px-4 rounded-xl">
           <div>
             <p className="font-normal text-sm text-gray-400">

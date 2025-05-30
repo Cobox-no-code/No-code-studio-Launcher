@@ -214,13 +214,6 @@ const AddItems = () => {
   const handleSave = async () => {
     // Get fresh form data to avoid stale closure issues
     const currentFormData = getCurrentFormData();
-    console.log("=== FORM SUBMISSION DEBUG ===");
-    console.log("Fresh formData from Redux:", currentFormData);
-    console.log("Selected unit conversion ID:", selectedUnitConversionId);
-    console.log(
-      "Unit conversion ID from form:",
-      currentFormData.unit_conversionId
-    );
 
     // Use the fresh form data for validation and submission
     const errors = validateFormData(currentFormData);
@@ -263,8 +256,10 @@ const AddItems = () => {
       dispatch(closeForm());
     } catch (error: any) {
       console.error("Submission error:", error);
-      dispatch(setSubmitError(error.message || "Failed to save item"));
-      toast.error(`Failed to save item: ${error.message || "Unknown error"}`);
+      dispatch(setSubmitError(error.data.error || "Failed to save item"));
+      toast.error(
+        `Failed to save item: ${error.data.error || "Unknown error"}`
+      );
     } finally {
       dispatch(setSubmitting(false));
     }

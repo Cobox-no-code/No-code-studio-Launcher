@@ -140,9 +140,9 @@ const LoginPage = () => {
 
       toast.success("Login successful!");
       router.push("/firm");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error verifying OTP:", err);
-      setError("Invalid OTP. Please try again.");
+      setError(err.response.data.detail);
     } finally {
       setLoading(false);
     }

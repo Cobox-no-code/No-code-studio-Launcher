@@ -316,7 +316,8 @@ const DocumentItemsTable: React.FC = () => {
     let netAmount: number;
 
     if (isTaxInclusive) {
-      taxAmount = (amountAfterDiscount * taxRate) / 100;
+      const baseAmount = amountAfterDiscount / (1 + taxRate / 100);
+      taxAmount = amountAfterDiscount - baseAmount;
       netAmount = amountAfterDiscount;
     } else {
       taxAmount = (amountAfterDiscount * taxRate) / 100;
@@ -448,7 +449,8 @@ const DocumentItemsTable: React.FC = () => {
         let taxAmount: number;
 
         if (isTaxInclusive) {
-          taxAmount = (amountAfterDiscount * taxRate) / 100;
+          const baseAmount = amountAfterDiscount / (1 + taxRate / 100);
+          taxAmount = amountAfterDiscount - baseAmount;
         } else {
           taxAmount = (amountAfterDiscount * taxRate) / 100;
         }
@@ -519,7 +521,8 @@ const DocumentItemsTable: React.FC = () => {
         let netAmount: number;
 
         if (isTaxInclusive) {
-          taxAmount = (amountAfterDiscount * taxRate) / 100;
+          const baseAmount = grossAmount / (1 + taxRate / 100);
+          taxAmount = amountAfterDiscount - baseAmount;
           netAmount = amountAfterDiscount;
         } else {
           taxAmount = (amountAfterDiscount * taxRate) / 100;
@@ -619,8 +622,11 @@ const DocumentItemsTable: React.FC = () => {
       let netAmount: number;
 
       if (isTaxInclusive) {
-        taxAmount = (grossAmount * taxRate) / 100;
+        const baseAmount = grossAmount / (1 + taxRate / 100);
+        taxAmount = grossAmount - baseAmount;
+
         netAmount = grossAmount;
+        console.log(taxAmount, baseAmount);
       } else {
         taxAmount = (grossAmount * taxRate) / 100;
         netAmount = grossAmount + taxAmount;

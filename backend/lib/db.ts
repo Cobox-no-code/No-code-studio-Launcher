@@ -229,20 +229,22 @@ export const db = Object.assign(queryBuilder, {
 export async function initializFirm() {
   try {
     await db.exec(`
-      CREATE TABLE IF NOT EXISTS firms (
-        id TEXT PRIMARY KEY,
-        country TEXT NOT NULL,
-        name TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        owner TEXT NOT NULL,
-        gstNumber TEXT,
-        ownerName TEXT,
-        businessName TEXT,
-        businessLogo TEXT,
-        address TEXT,
-        createdAt TEXT NOT NULL,
-        updatedAt TEXT NOT NULL
-      )
+CREATE TABLE IF NOT EXISTS firms (
+  id TEXT PRIMARY KEY,
+  country TEXT NOT NULL,
+  name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  owner TEXT NOT NULL,
+  gstNumber TEXT,
+  ownerName TEXT,
+  businessName TEXT,
+  businessLogo TEXT,
+  address TEXT,
+  customFields TEXT,           
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+
     `);
   } catch (error) {
     console.error("Error initializing firm:", error);

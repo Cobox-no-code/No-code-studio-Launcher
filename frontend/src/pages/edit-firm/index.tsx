@@ -27,11 +27,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-import { Camera, Upload, X, Building2, FileText } from "lucide-react";
+import { Camera, Upload, X, Building2, FileText, Trash2 } from "lucide-react";
 import { API_BASE_URL } from "@/redux/api/api.config";
 import { syncAllToCloud, syncAllToLocal } from "@/lib/sync-cloud";
 import { backend_url } from "@/backend.config";
 import { useAppSelector } from "@/redux/hooks";
+
 // Type definitions
 interface Country {
   code: string;
@@ -52,6 +53,7 @@ export default function EditFirmPage(): JSX.Element {
     businessName: "",
     businessLogo: "",
     address: "",
+    customFields: [] as { key: string; value: string }[],
   });
   const [countries, setCountries] = useState<Country[]>([
     { code: "US", name: "United States" },
@@ -85,11 +87,26 @@ export default function EditFirmPage(): JSX.Element {
       axios
         .get(`${API_BASE_URL}/firms/${firmId}`)
         .then((res) => {
-          setFormData(res.data);
-          if (res.data.businessLogo) {
-            setLogoPreview(res.data.businessLogo);
+          const data = res.data;
+          // Convert customFields from object to array format
+          const customFieldsArray = Array.isArray(data.customFields)
+            ? data.customFields
+            : data.customFields && typeof data.customFields === "object"
+            ? Object.entries(data.customFields).map(([key, value]) => ({
+                key,
+                value: String(value),
+              }))
+            : [];
+
+          setFormData({
+            ...data,
+            customFields: customFieldsArray,
+          });
+
+          if (data.businessLogo) {
+            setLogoPreview(data.businessLogo);
           }
-          setCountry(res.data.country);
+          setCountry(data.country);
         })
         .catch(() => setError("Failed to load firm data"))
         .finally(() => setLoading(false));
@@ -199,6 +216,30 @@ export default function EditFirmPage(): JSX.Element {
     setFormData((prev) => ({ ...prev, businessLogo: "" }));
   };
 
+  const addCustomField = () => {
+    setFormData((prev) => ({
+      ...prev,
+      customFields: [...prev.customFields, { key: "", value: "" }],
+    }));
+  };
+
+  const removeCustomField = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      customFields: prev.customFields.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleCustomFieldChange = (
+    index: number,
+    field: "key" | "value",
+    value: string
+  ) => {
+    const updatedFields = [...formData.customFields];
+    updatedFields[index][field] = value;
+    setFormData((prev) => ({ ...prev, customFields: updatedFields }));
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!firmId) return;
@@ -207,7 +248,24 @@ export default function EditFirmPage(): JSX.Element {
     setError("");
 
     try {
-      await axios.put(`${API_BASE_URL}/firms/${firmId}`, formData);
+      // Filter out empty custom fields before submitting
+      const filteredCustomFields = formData.customFields.filter(
+        (field) => field.key.trim() !== "" && field.value.trim() !== ""
+      );
+
+      // Convert custom fields back to object format for API
+      const customFieldsObject = filteredCustomFields.reduce((acc, field) => {
+        acc[field.key] = field.value;
+        return acc;
+      }, {} as Record<string, string>);
+
+      const submitData = {
+        ...formData,
+        country,
+        customFields: customFieldsObject,
+      };
+
+      await axios.put(`${API_BASE_URL}/firms/${firmId}`, submitData);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
@@ -244,7 +302,7 @@ export default function EditFirmPage(): JSX.Element {
 
   // Using form element to wrap everything for better semantics
   return (
-    <div className="container mx-auto p-4 bg-white flex-grow flex flex-col h-full">
+    <div className="w-full p-8 bg-white flex-grow flex flex-col h-full">
       <div>
         <h1 className="text-2xl font-semibold mb-1">Edit Firm Profile</h1>
         <p className="text-gray-500 mb-4">
@@ -362,6 +420,52 @@ export default function EditFirmPage(): JSX.Element {
                   onChange={handleChange}
                   placeholder="Enter GST number (if applicable)"
                 />
+              </div>
+
+              <div className="col-span-2">
+                <Label className="block mb-2">Additional Fields</Label>
+
+                {formData?.customFields?.length > 0 &&
+                  formData.customFields.map((field, index) => (
+                    <div key={index} className="flex items-center gap-2 mb-2">
+                      <Input
+                        placeholder="Key"
+                        value={field.key}
+                        onChange={(e) =>
+                          handleCustomFieldChange(index, "key", e.target.value)
+                        }
+                      />
+                      <Input
+                        placeholder="Value"
+                        value={field.value}
+                        onChange={(e) =>
+                          handleCustomFieldChange(
+                            index,
+                            "value",
+                            e.target.value
+                          )
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeCustomField(index)}
+                        className="px-2 py-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2"
+                  onClick={addCustomField}
+                >
+                  + Add Field
+                </Button>
               </div>
             </div>
           )}

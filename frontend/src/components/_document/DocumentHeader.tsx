@@ -18,7 +18,13 @@ import {
 import React, { useEffect, useState } from "react";
 import { useDocument } from "./Context";
 import { toast } from "react-hot-toast";
-
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 // UI Components
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -270,7 +276,45 @@ const DocumentHeader: React.FC = () => {
         return "DOC";
     }
   };
-
+  // Get states for dropdown
+  const indianStates = [
+    "Andhra Pradesh",
+    "Arunachal Pradesh",
+    "Assam",
+    "Bihar",
+    "Chhattisgarh",
+    "Goa",
+    "Gujarat",
+    "Haryana",
+    "Himachal Pradesh",
+    "Jharkhand",
+    "Karnataka",
+    "Kerala",
+    "Madhya Pradesh",
+    "Maharashtra",
+    "Manipur",
+    "Meghalaya",
+    "Mizoram",
+    "Nagaland",
+    "Odisha",
+    "Punjab",
+    "Rajasthan",
+    "Sikkim",
+    "Tamil Nadu",
+    "Telangana",
+    "Tripura",
+    "Uttar Pradesh",
+    "Uttarakhand",
+    "West Bengal",
+    "Andaman and Nicobar Islands",
+    "Chandigarh",
+    "Dadra and Nagar Haveli and Daman and Diu",
+    "Delhi",
+    "Jammu and Kashmir",
+    "Ladakh",
+    "Lakshadweep",
+    "Puducherry",
+  ];
   return (
     <Card className="border shadow-sm mb-4">
       <CardHeader className="pb-2 border-b">
@@ -521,26 +565,34 @@ const DocumentHeader: React.FC = () => {
                 />
               </div>
 
-              {/* State of Supply Field */}
               <div>
-                <Label className="text-xs font-medium mb-1 block">
+                <Label htmlFor="state" className="text-sm font-medium">
                   State of Supply
                 </Label>
-                <Input
+                <Select
                   value={document.stateOfSupply || ""}
-                  onChange={(e) =>
+                  onValueChange={(value) =>
                     docDispatch({
                       type: "UPDATE_FIELD",
                       payload: {
                         field: "stateOfSupply",
-                        value: e.target.value,
+                        value: value,
                       },
                     })
                   }
-                  placeholder="Enter state"
-                />
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {indianStates.map((state) => (
+                      <SelectItem key={state} value={state}>
+                        {state}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-
               {/* PO Number Field */}
               <div>
                 <Label className="text-xs font-medium mb-1 block">

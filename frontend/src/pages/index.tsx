@@ -297,7 +297,7 @@ const HomePage = () => {
     return () => clearInterval(intervalId);
   }, [refetchPurchase, refetchBank, refetchItems, refetchSales]);
   return (
-    <main className="flex flex-col md:flex-row gap-4 p-4 pt-3 w-full bg-slate-50">
+    <main className="flex flex-col md:flex-row gap-4 p-4 pt-3 w-full h-full bg-slate-50">
       <section className="gap-2 w-full md:w-3/4 flex flex-col">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Sales Card */}

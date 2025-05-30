@@ -72,12 +72,18 @@ export const createParty = async (
     const partyId = uuidv4();
 
     // Check if a party with the same name already exists
-    const existing = await db("parties", firmId).where("name", name).first();
-    if (existing) {
-      console.log(existing);
-      return res
-        .status(400)
-        .json({ success: false, error: "Party name must be unique" });
+    const existingParties = await db("parties", firmId).select(); // fetch all fields
+
+    // Then extract names in JS
+    const exists = existingParties.some(
+      (party) => party.name?.toLowerCase() === name?.toLowerCase()
+    );
+
+    if (exists) {
+      return res.status(400).json({
+        success: false,
+        error: "Party name must be unique (case-insensitive)",
+      });
     }
 
     const newParty = {
@@ -177,17 +183,20 @@ export const updateParty = async (
     if (!existingParty) {
       return res.status(404).json({ success: false, error: "Party not found" });
     }
-
     if (name && name !== existingParty.name) {
-      const duplicate = await db("parties", firmId)
-        .where("name", name) // Use the name from destructured variable
-        .andWhereNot("id", id) // Exclude current party from duplicate check
-        .first();
+      const possibleDuplicates = await db("parties", firmId)
+        .andWhereNot("id", id)
+        .select();
+
+      const duplicate = possibleDuplicates.some(
+        (party) => party.name.toLowerCase() === name.toLowerCase()
+      );
 
       if (duplicate) {
-        return res
-          .status(400)
-          .json({ success: false, error: "Party name must be unique" });
+        return res.status(400).json({
+          success: false,
+          error: "Party name must be unique (case-insensitive)",
+        });
       }
     }
 

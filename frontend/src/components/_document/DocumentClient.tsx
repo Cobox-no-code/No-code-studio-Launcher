@@ -313,9 +313,6 @@ const DocumentPageContent: React.FC<{
           pricePerUnit: Number(documentItem.pricePerUnit) || 0,
           wholesalePrice: Number(documentItem.wholesalePrice) || 0,
           wholesaleQuantity: Number(documentItem.wholesaleQuantity) || 0,
-          currentQuantity: 0,
-          openingQuantity: 0,
-          minStockLevel: 0,
           taxRate: documentItem.taxType || "0",
         };
 

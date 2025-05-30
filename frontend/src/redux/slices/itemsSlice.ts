@@ -191,6 +191,10 @@ const itemsFormSlice = createSlice({
         state.formData.pricePerUnit = productItem.pricePerUnit;
         state.formData.minStockLevel = productItem.minStockLevel;
         state.formData.location = productItem.location;
+        state.formData.salePriceTaxInclusive =
+          productItem.salePriceTaxInclusive;
+        state.formData.purchasePriceTaxInclusive =
+          productItem.purchasePriceTaxInclusive;
       } else if (item.type === ItemType.SERVICE) {
         const serviceItem = item as Service;
         state.formData.unit_conversionId = serviceItem.unit_conversionId;

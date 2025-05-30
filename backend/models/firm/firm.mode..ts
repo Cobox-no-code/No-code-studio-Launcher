@@ -12,4 +12,5 @@ export interface FirmDTO {
   updatedAt?: string;
   address?: string;
   cloudurl?: string;
+  customFields?: Record<string, any>; // 👈 New field
 }

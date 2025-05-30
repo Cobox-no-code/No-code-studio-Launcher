@@ -39,6 +39,7 @@ export const createFirm = async (req: Request, res: Response): Promise<any> => {
       createdAt: now,
       updatedAt: now,
       address: body.address,
+      customFields: JSON.stringify(body.customFields || {}), // 👈 Convert to string
     };
 
     await db("firms").insert(newFirm);
@@ -63,11 +64,13 @@ export const getFirmById = async (
 ): Promise<any> => {
   try {
     const { id } = req.params;
-    const firm = await db("firms").where("id", id).first();
+    let firm = await db("firms").where("id", id).first();
 
     if (!firm) {
       return res.status(404).json({ success: false, error: "Firm not found" });
     }
+
+    firm.customFields = firm.customFields ? JSON.parse(firm.customFields) : {};
 
     res.json(firm);
   } catch (error: any) {
@@ -98,6 +101,7 @@ export const updateFirm = async (req: Request, res: Response): Promise<any> => {
       .where("id", id)
       .update({
         ...body,
+        customFields: JSON.stringify(body.customFields || {}),
         updatedAt: now,
       });
 
