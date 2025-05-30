@@ -5,10 +5,21 @@ import { FirmDTO } from "../models/firm/firm.mode.";
 import axios from "axios";
 
 // GET /firms - List all firms
-export const getAllFirms = async (req: Request, res: Response) => {
+export const getAllFirms = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
   try {
-    const { phone } = req.params;
-    const firms = await db("firms").where("owner", phone).select();
+    const { phone } = req.query;
+
+    if (!phone) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Missing 'phone' query parameter." });
+    }
+
+    const firms = await db("firms").where("owner", String(phone)).select(); // ensure it's a string
+
     res.json(firms);
   } catch (error: any) {
     console.error("Error fetching firms:", error);
