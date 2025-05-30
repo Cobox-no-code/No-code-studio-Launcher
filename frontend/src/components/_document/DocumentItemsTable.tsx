@@ -1179,6 +1179,7 @@ const DocumentItemsTable: React.FC = () => {
                                           currentItem.secondaryQuantity || 0,
                                         conversionRate:
                                           conversion.conversionRate, // Add this line
+                                        unit_conversionId: conversion.id,
                                       };
 
                                       // Recalculate amounts with the conversion
