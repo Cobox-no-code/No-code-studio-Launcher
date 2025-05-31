@@ -118,8 +118,10 @@ const SyncShare = () => {
   const [isRemoving, setIsRemoving] = useState(false);
 
   useEffect(() => {
-    fetchSyncedUsers();
-  }, []);
+    if (sync_enabled) {
+      fetchSyncedUsers();
+    }
+  }, [sync_enabled]);
 
   const fetchSyncedUsers = async () => {
     const firm_id = localStorage.getItem("firmId");
@@ -143,13 +145,18 @@ const SyncShare = () => {
     try {
       setIsLoading(true);
       const payload = {
-        phone: userInfo.phone,
-        sync_enabled: !sync_enabled,
+        owner: userInfo.phone,
+        firmId: firmId,
       };
 
       const response = await axios.post(`${backend_url}/toggle-sync/`, payload);
 
       if (response.data.status === "success") {
+        const submitData = {
+          sync_enabled: !sync_enabled,
+        };
+
+        await axios.put(`${API_BASE_URL}/firms/${firmId}`, submitData);
         dispatch(setUserInfo({ ...userInfo, sync_enabled: !sync_enabled }));
         const result = await syncAllToCloud(backend_url, firmId, owner);
 

@@ -81,9 +81,6 @@ const FirmCreationScreen = (): JSX.Element => {
   const [phone, setPhone] = useState<string>(userinfo.phone);
   const [address, setAddress] = useState<string>("");
 
-  const [openFirmDropdown, setOpenFirmDropdown] = useState<boolean>(false);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-
   const [countries, setCountries] = useState<Country[]>([
     { code: "US", name: "United States" },
     { code: "GB", name: "United Kingdom" },
@@ -102,11 +99,6 @@ const FirmCreationScreen = (): JSX.Element => {
     { code: "RU", name: "Russia" },
     { code: "MX", name: "Mexico" },
   ]);
-
-  // Check if user already has a firm selected
-  useEffect(() => {
-    dispatch(fetchFirms());
-  }, [dispatch]);
 
   const handleCreateFirm = async (
     e: FormEvent<HTMLFormElement>
@@ -128,30 +120,6 @@ const FirmCreationScreen = (): JSX.Element => {
     dispatch(setCurrentFirm({ id: res.id, name: firmName, country, phone }));
     router.push("/");
   };
-
-  const selectFirm = (selectedFirm: any): void => {
-    // Use utility function to set firm data and trigger events
-    dispatch(setCurrentFirm(selectedFirm));
-
-    router.push("/");
-  };
-
-  const getCountryName = (code: string | null | undefined): string => {
-    if (!code) return "";
-    const country = countries.find((c) => c.code === code);
-    return country ? country.name : code;
-  };
-
-  const filteredFirms = searchTerm
-    ? firms.filter(
-        (firm) =>
-          firm.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (firm.country &&
-            getCountryName(firm.country)
-              .toLowerCase()
-              .includes(searchTerm.toLowerCase()))
-      )
-    : firms;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black">
@@ -246,88 +214,7 @@ const FirmCreationScreen = (): JSX.Element => {
                 </CardContent>
               )}
 
-              {/* Existing Firms Dropdown */}
-              {firms.length > 0 && (
-                <CardContent className="border-b pb-6">
-                  <Label className="block mb-2 text-sm font-medium">
-                    Select Existing Firm
-                  </Label>
-                  <Popover
-                    open={openFirmDropdown}
-                    onOpenChange={setOpenFirmDropdown}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={openFirmDropdown}
-                        className="w-full justify-between"
-                      >
-                        {currentFirm ? currentFirm.name : "Select a firm..."}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-full p-0">
-                      <Command>
-                        <CommandInput
-                          placeholder="Search firms..."
-                          value={searchTerm}
-                          onValueChange={setSearchTerm}
-                        />
-                        <CommandList>
-                          <CommandEmpty>No firms found.</CommandEmpty>
-                          <CommandGroup>
-                            {loading ? (
-                              <div className="p-2 space-y-2">
-                                <Skeleton className="h-8 w-full" />
-                                <Skeleton className="h-8 w-full" />
-                                <Skeleton className="h-8 w-full" />
-                              </div>
-                            ) : (
-                              filteredFirms.map((firm) => (
-                                <CommandItem
-                                  key={firm.id}
-                                  value={firm.id}
-                                  onSelect={() => {
-                                    setOpenFirmDropdown(false);
-                                    selectFirm(firm);
-                                  }}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      currentFirm?.id === firm.id
-                                        ? "opacity-100"
-                                        : "opacity-0"
-                                    )}
-                                  />
-                                  <div className="flex flex-col">
-                                    <span>{firm.name}</span>
-                                    {firm.country && (
-                                      <span className="text-xs text-gray-500">
-                                        {getCountryName(firm.country)}
-                                      </span>
-                                    )}
-                                  </div>
-                                </CommandItem>
-                              ))
-                            )}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </CardContent>
-              )}
-
               <CardContent>
-                <div className="relative flex items-center justify-center mb-4">
-                  <div className="absolute border-t border-gray-200 w-full"></div>
-                  <span className="relative px-4 bg-white text-sm text-gray-500">
-                    Or create a new firm
-                  </span>
-                </div>
-
                 <form onSubmit={handleCreateFirm}>
                   <div className="grid gap-4">
                     <div className="space-y-2">

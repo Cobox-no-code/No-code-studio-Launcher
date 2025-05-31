@@ -240,7 +240,8 @@ CREATE TABLE IF NOT EXISTS firms (
   businessName TEXT,
   businessLogo TEXT,
   address TEXT,
-  customFields TEXT,           
+  customFields TEXT,
+  sync_enabled INTEGER DEFAULT 0,          
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL
 );

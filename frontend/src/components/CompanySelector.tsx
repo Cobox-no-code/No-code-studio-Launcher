@@ -205,86 +205,83 @@ const CompanySelector = ({
   };
 
   const performSteppedSync = async (company: any) => {
-    const firmId = localStorage.getItem("firmId");
     const owner = user.phone;
 
     try {
-      // Step 1: Company Data
-      updateSyncStep("company-data", "loading");
-      await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate processing time
-      updateSyncStep(
-        "company-data",
-        "completed",
-        "Company data loaded successfully"
-      );
+      const result = await syncAllToLocal(backend_url, company.id, owner);
 
-      // Step 2: Items Data
-      updateSyncStep("items-data", "loading");
-      try {
-        await refetchItems();
+      if (result.status === "completed") {
+        // Step 1: Company Data
+        updateSyncStep("company-data", "loading");
+        await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate processing time
         updateSyncStep(
-          "items-data",
+          "company-data",
           "completed",
-          `${items.length} items synced`
+          "Company data loaded successfully"
         );
-      } catch (error) {
-        updateSyncStep("items-data", "error", "Failed to sync items");
-        throw error;
-      }
 
-      // Step 3: Sales Data
-      updateSyncStep("sales-data", "loading");
-      try {
-        await refetchSales();
-        updateSyncStep(
-          "sales-data",
-          "completed",
-          `${salesInvoices.length} sales records synced`
-        );
-      } catch (error) {
-        updateSyncStep("sales-data", "error", "Failed to sync sales data");
-        throw error;
-      }
+        // Step 2: Items Data
+        updateSyncStep("items-data", "loading");
+        try {
+          await refetchItems();
+          updateSyncStep(
+            "items-data",
+            "completed",
+            `${items.length} items synced`
+          );
+        } catch (error) {
+          updateSyncStep("items-data", "error", "Failed to sync items");
+          throw error;
+        }
 
-      // Step 4: Purchase Data
-      updateSyncStep("purchase-data", "loading");
-      try {
-        await refetchPurchase();
-        updateSyncStep(
-          "purchase-data",
-          "completed",
-          `${purchaseInvoices.length} purchase records synced`
-        );
-      } catch (error) {
-        updateSyncStep(
-          "purchase-data",
-          "error",
-          "Failed to sync purchase data"
-        );
-        throw error;
-      }
+        // Step 3: Sales Data
+        updateSyncStep("sales-data", "loading");
+        try {
+          await refetchSales();
+          updateSyncStep(
+            "sales-data",
+            "completed",
+            `${salesInvoices.length} sales records synced`
+          );
+        } catch (error) {
+          updateSyncStep("sales-data", "error", "Failed to sync sales data");
+          throw error;
+        }
 
-      // Step 5: Bank Data
-      updateSyncStep("bank-data", "loading");
-      try {
-        await refetchBank();
-        updateSyncStep(
-          "bank-data",
-          "completed",
-          `${bankAccounts.length} bank accounts synced`
-        );
-      } catch (error) {
-        updateSyncStep("bank-data", "error", "Failed to sync bank data");
-        throw error;
-      }
+        // Step 4: Purchase Data
+        updateSyncStep("purchase-data", "loading");
+        try {
+          await refetchPurchase();
+          updateSyncStep(
+            "purchase-data",
+            "completed",
+            `${purchaseInvoices.length} purchase records synced`
+          );
+        } catch (error) {
+          updateSyncStep(
+            "purchase-data",
+            "error",
+            "Failed to sync purchase data"
+          );
+          throw error;
+        }
 
+        // Step 5: Bank Data
+        updateSyncStep("bank-data", "loading");
+        try {
+          await refetchBank();
+          updateSyncStep(
+            "bank-data",
+            "completed",
+            `${bankAccounts.length} bank accounts synced`
+          );
+        } catch (error) {
+          updateSyncStep("bank-data", "error", "Failed to sync bank data");
+          throw error;
+        }
+      }
       // Step 6: Finalize
       updateSyncStep("finalize", "loading");
-
-      // Perform cloud sync if needed
-      if (company.isShared && !user.sync_enabled) {
-        const result = await syncAllToLocal(backend_url, firmId, owner);
-      }
 
       await new Promise((resolve) => setTimeout(resolve, 1000)); // Finalization delay
       updateSyncStep("finalize", "completed", "Sync completed successfully");
@@ -306,37 +303,19 @@ const CompanySelector = ({
     setIsFullPageLoading(true);
     setSyncSteps(initializeSyncSteps());
 
-    const firmId = localStorage.getItem("firmId");
-    const owner = user.phone;
-
     dispatch(setCurrentFirm(company));
     setSelectedCompany(company.name);
     setOpen(false);
 
-    if (company.isShared && !user.sync_enabled) {
-      console.log(company.role);
+    if (company.isShared) {
       dispatch(updateRole(company.role));
       try {
-        const payload = {
-          phone: user.phone,
-          sync_enabled: !user.sync_enabled,
-        };
-
-        const response = await axios.post(
-          `${backend_url}/toggle-sync/`,
-          payload
-        );
-
-        if (response.data.status === "success") {
-          dispatch(setUserInfo({ ...user, sync_enabled: !user.sync_enabled }));
-        }
+        // Perform stepped sync
+        await performSteppedSync(company);
       } catch (e) {
         console.error("Failed to toggle sync:", e);
       }
     }
-
-    // Perform stepped sync
-    await performSteppedSync(company);
   };
 
   const handleRemoveCompany = (): void => {

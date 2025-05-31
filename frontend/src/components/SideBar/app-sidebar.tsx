@@ -67,7 +67,6 @@ const ROLE_ACCESS = {
     "report",
     "cash-bank",
     "utilities",
-    "sync-share",
   ],
   biller: ["home", "parties", "sales", "payment", "report"],
   biller_salesman: ["home", "items", "parties", "sales", "payment", "report"],

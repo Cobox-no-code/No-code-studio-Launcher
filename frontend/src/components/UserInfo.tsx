@@ -1,5 +1,6 @@
 "use client";
 import { backend_url } from "@/backend.config";
+import { API_BASE_URL } from "@/redux/api/api.config";
 import { useAppDispatch } from "@/redux/hooks";
 import { setUserInfo, updateIsExpired } from "@/redux/slices/userinfoSlice";
 import axios from "axios";
@@ -69,6 +70,8 @@ export default function UserInfo() {
       try {
         // Check if we're offline
         if (isOffline) {
+          const firmId = localStorage.getItem("firmId");
+          const firm = await axios.get(`${API_BASE_URL}/firms/${firmId}`);
           // If offline, try to load from cache
           const cachedData = loadCachedUserData();
           if (cachedData) {
@@ -78,6 +81,7 @@ export default function UserInfo() {
               setUserInfo({
                 ...cachedData,
                 isExpired,
+                sync_enabled: firm.data.sync_enabled,
               })
             );
             console.log("Using cached user info (offline)");
@@ -149,20 +153,21 @@ export default function UserInfo() {
       const fetchUserInfo = async () => {
         try {
           const phone = localStorage.getItem("phone");
+          const firmId = localStorage.getItem("firmId");
           const machine_id = localStorage.getItem("machine_id");
           if (!phone) return;
 
           const response = await axios.get(
             `${backend_url}/user-info?phone=${phone}&machine_id=${machine_id}`
           );
-
-          if (response.data) {
+          const firm = await axios.get(`${API_BASE_URL}/firms/${firmId}`);
+          if (response.data || firm.data) {
             const isExpired = checkSubscriptionExpiration(response.data);
             dispatch(
               setUserInfo({
                 ...response.data,
                 isExpired,
-                sync_enabled: response.data.sync_enabled,
+                sync_enabled: firm.data.sync_enabled,
               })
             );
             cacheUserData(response.data);
