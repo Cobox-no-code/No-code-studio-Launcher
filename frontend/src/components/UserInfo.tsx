@@ -71,7 +71,11 @@ export default function UserInfo() {
         // Check if we're offline
         if (isOffline) {
           const firmId = localStorage.getItem("firmId");
-          const firm = await axios.get(`${API_BASE_URL}/firms/${firmId}`);
+          let firm;
+          if (firmId) {
+            firm = await axios.get(`${API_BASE_URL}/firms/${firmId}`);
+          }
+
           // If offline, try to load from cache
           const cachedData = loadCachedUserData();
           if (cachedData) {
@@ -154,13 +158,17 @@ export default function UserInfo() {
         try {
           const phone = localStorage.getItem("phone");
           const firmId = localStorage.getItem("firmId");
+          let firm;
           const machine_id = localStorage.getItem("machine_id");
           if (!phone) return;
 
           const response = await axios.get(
             `${backend_url}/user-info?phone=${phone}&machine_id=${machine_id}`
           );
-          const firm = await axios.get(`${API_BASE_URL}/firms/${firmId}`);
+          if (firmId) {
+            firm = await axios.get(`${API_BASE_URL}/firms/${firmId}`);
+          }
+
           if (response.data || firm.data) {
             const isExpired = checkSubscriptionExpiration(response.data);
             dispatch(
