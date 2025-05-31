@@ -1,7 +1,7 @@
 "use client";
 
 import { backend_url } from "@/backend.config";
-import { syncAllToCloud, syncAllToLocal } from "@/lib/sync-cloud";
+import { syncAllToLocal } from "@/lib/sync-cloud";
 import { useAppSelector } from "@/redux/hooks";
 import {
   Dialog,
@@ -44,10 +44,10 @@ export default function Sync() {
         console.error("Sync to local failed", e);
       }
     };
+    let interval;
     if (sync_enabled && isOnline) {
-      syncToLocal();
+      interval = setInterval(syncToLocal, 8000);
     }
-    const interval = setInterval(syncToLocal, 8000);
 
     return () => clearInterval(interval);
   }, [sync_enabled, isOnline, phone]);

@@ -29,7 +29,7 @@ import {
 
 import { Camera, Upload, X, Building2, FileText, Trash2 } from "lucide-react";
 import { API_BASE_URL } from "@/redux/api/api.config";
-import { syncAllToCloud, syncAllToLocal } from "@/lib/sync-cloud";
+i;
 import { backend_url } from "@/backend.config";
 import { useAppSelector } from "@/redux/hooks";
 

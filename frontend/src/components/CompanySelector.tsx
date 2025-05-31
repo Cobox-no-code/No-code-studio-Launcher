@@ -299,22 +299,16 @@ const CompanySelector = ({
   };
 
   const handleCompanyChange = async (company: any) => {
-    // Initialize full page loading
-    setIsFullPageLoading(true);
-    setSyncSteps(initializeSyncSteps());
-
     dispatch(setCurrentFirm(company));
     setSelectedCompany(company.name);
     setOpen(false);
-
-    if (company.isShared) {
+    console.log(company.isShared);
+    if (company.isShared != undefined) {
+      // Initialize full page loading
+      setIsFullPageLoading(true);
+      setSyncSteps(initializeSyncSteps());
       dispatch(updateRole(company.role));
-      try {
-        // Perform stepped sync
-        await performSteppedSync(company);
-      } catch (e) {
-        console.error("Failed to toggle sync:", e);
-      }
+      await performSteppedSync(company);
     }
   };
 

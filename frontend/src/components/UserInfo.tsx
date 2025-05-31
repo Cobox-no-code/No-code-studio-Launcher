@@ -86,9 +86,9 @@ export default function UserInfo() {
                 ...cachedData,
                 isExpired,
                 sync_enabled:
-                  firm && firm.data.sync_enabled === 0
+                  firm && firm?.data?.sync_enabled == 0
                     ? false
-                    : firm.data.sync_enabled,
+                    : firm?.data?.sync_enabled,
               })
             );
             console.log("Using cached user info (offline)");
@@ -179,9 +179,9 @@ export default function UserInfo() {
                 ...response.data,
                 isExpired,
                 sync_enabled:
-                  firm && firm.data.sync_enabled === 0
+                  firm && firm?.data?.sync_enabled === 0
                     ? false
-                    : firm.data.sync_enabled,
+                    : firm?.data?.sync_enabled,
               })
             );
             cacheUserData(response.data);
