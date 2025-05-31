@@ -85,7 +85,10 @@ export default function UserInfo() {
               setUserInfo({
                 ...cachedData,
                 isExpired,
-                sync_enabled: firm.data.sync_enabled,
+                sync_enabled:
+                  firm && firm.data.sync_enabled === 0
+                    ? false
+                    : firm.data.sync_enabled,
               })
             );
             console.log("Using cached user info (offline)");
@@ -175,7 +178,10 @@ export default function UserInfo() {
               setUserInfo({
                 ...response.data,
                 isExpired,
-                sync_enabled: firm.data.sync_enabled,
+                sync_enabled:
+                  firm && firm.data.sync_enabled === 0
+                    ? false
+                    : firm.data.sync_enabled,
               })
             );
             cacheUserData(response.data);
