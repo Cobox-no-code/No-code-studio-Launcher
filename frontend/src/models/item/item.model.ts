@@ -46,8 +46,9 @@ export interface BaseItem {
   description?: string;
   imageUrl?: string;
   categoryId: string; // Reference to Category
-
+  pricePerUnit: number;
   // Pricing fields
+  purchasePrice: number;
   salePrice: number;
   wholesalePrice?: number;
   wholesaleQuantity?: number;

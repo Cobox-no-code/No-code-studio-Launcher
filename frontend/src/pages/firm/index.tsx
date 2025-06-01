@@ -49,6 +49,7 @@ import {
   fetchFirms,
   setCurrentFirm,
 } from "@/redux/slices/firmSlice";
+import { Textarea } from "@/components/ui/textarea";
 // Type definitions
 interface Country {
   code: string;
@@ -113,6 +114,7 @@ const FirmCreationScreen = (): JSX.Element => {
         cloudurl: backend_url,
         address,
         owner,
+        ownerName: userinfo.name,
       })
     ).unwrap();
 
@@ -265,13 +267,11 @@ const FirmCreationScreen = (): JSX.Element => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="phone">Address (Optional)</Label>
-                      <Input
+                      <Textarea
                         id="address"
                         placeholder="Enter Address "
                         value={address}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                          setAddress(e.target.value)
-                        }
+                        onChange={(e) => setAddress(e.target.value)}
                         className="border-gray-300 focus:border-gray-500 focus:ring-gray-500"
                       />
                     </div>

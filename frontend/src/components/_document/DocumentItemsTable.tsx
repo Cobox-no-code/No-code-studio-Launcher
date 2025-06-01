@@ -373,7 +373,7 @@ const DocumentItemsTable: React.FC = () => {
       }
     }
 
-    const selectedItem = items?.find((i) => i.id === updatedItem.itemId);
+    // const selectedItem = items?.find((i) => i.id === updatedItem.itemId);
 
     if (
       [
@@ -393,13 +393,18 @@ const DocumentItemsTable: React.FC = () => {
       let price = parseFloat(String(updatedItem.pricePerUnit)) || 0;
       const discountPercent =
         parseFloat(String(updatedItem.discountPercent)) || 0;
-
+      console.log(
+        "primaryQuantity",
+        updatedItem.wholesalePrice,
+        updatedItem.wholesaleQuantity,
+        primaryQty
+      );
       // Wholesale pricing logic
-      if (field === "primaryQuantity" && selectedItem) {
+      if (field === "primaryQuantity") {
         const wholesaleQty = updatedItem.wholesaleQuantity || 0;
         const wholesalePrice = updatedItem.wholesalePrice || 0;
-        const retailPrice = selectedItem.pricePerUnit || 0;
-
+        const retailPrice = updatedItem.pricePerUnit || 0;
+        console.log("Applied");
         // Check if quantity qualifies for wholesale pricing
         if (
           wholesaleQty > 0 &&
@@ -467,11 +472,14 @@ const DocumentItemsTable: React.FC = () => {
         calculateTotals();
         return;
       }
-
+      if (field === "discountPercent" && updatedItem.discountPercent > 100) {
+        toast.error("Discount should be less than 100%");
+        return;
+      }
       // Check for unit conversion
       let hasConversion = false;
-      if (selectedItem && isProduct(selectedItem)) {
-        const conversion = getUnitConversion(selectedItem.id);
+      if (updatedItem && isProduct(updatedItem)) {
+        const conversion = getUnitConversion(updatedItem.id);
         if (conversion) {
           conversionRate = conversion.conversionRate;
           hasConversion = true;
@@ -584,7 +592,9 @@ const DocumentItemsTable: React.FC = () => {
       wholesaleQuantity: isProduct(item)
         ? (item as Product).wholesaleQuantity || 0
         : 0,
-      pricePerUnit: item.salePrice || 0,
+      pricePerUnit: state.document.documentType.includes("sale")
+        ? item.salePrice || item.pricePerUnit
+        : item.purchasePrice || item.pricePerUnit,
       taxType: item.taxRate || "",
       taxRate: Number(item.taxRate || 0),
       hsnCode: item.hsnCode || "",

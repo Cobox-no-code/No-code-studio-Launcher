@@ -223,13 +223,15 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
   const shouldShowBankDetails =
     (document.bankId || document.bankAccountId || bankDetails) &&
     bankDetails &&
-    (hasValue(bankDetails.bankName) ||
+    (hasValue(bankDetails.displayName) ||
+      hasValue(bankDetails.bankName) ||
       hasValue(bankDetails.accountNumber) ||
       hasValue(bankDetails.accountHolderName) ||
       hasValue(bankDetails.ifscCode) ||
       hasValue(bankDetails.swiftCode) ||
       hasValue(bankDetails.upiId) ||
       hasValue(bankDetails.iban));
+
   const getCountryName = (countryCode) => {
     const countries = {
       US: "United States",
@@ -275,12 +277,6 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
             </div>
 
             <div className="grid grid-cols-3  w-full">
-              {hasValue(businessName) && (
-                <div className="text-xl font-bold text-gray-900">
-                  {businessName}
-                </div>
-              )}
-
               {hasValue(firmData?.name) && firmData.name !== businessName && (
                 <div className="text-lg font-semibold text-gray-800">
                   {firmData.name}
@@ -902,12 +898,13 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
                 Bank Account Details:
               </div>
               <div className="text-xs grid grid-cols-1 gap-2">
-                {hasValue(bankDetails?.bankName) && (
-                  <div>
-                    <span className="font-medium">Bank Name:</span>{" "}
-                    {bankDetails.bankName}
-                  </div>
-                )}
+                {hasValue(bankDetails?.bankName) ||
+                  (hasValue(bankDetails?.displayName) && (
+                    <div>
+                      <span className="font-medium">Bank Name:</span>{" "}
+                      {bankDetails.bankName || bankDetails?.displayName}
+                    </div>
+                  ))}
                 {hasValue(bankDetails?.accountNumber) && (
                   <div>
                     <span className="font-medium">Account Number:</span>{" "}

@@ -339,7 +339,6 @@ const DocumentListView: React.FC<DocumentListProps> = ({
       const documentTypeFinal =
         convertDocumentTypeToApiParam(documentType) || "sale_invoice";
 
-
       deleteDocument(id, documentTypeFinal, deleteDocumentMutation);
       // If the deleted document was selected, clear selection
       if (id === selectedDocumentId) {
@@ -453,7 +452,8 @@ const DocumentListView: React.FC<DocumentListProps> = ({
                         <ArrowUpDown className="ml-1 h-3 w-3" />
                       </div>
                     </TableHead>
-                    <TableHead>Transaction</TableHead>
+                    <TableHead>Transaction</TableHead>{" "}
+                    <TableHead className="text-right">Balance Due</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead className="text-right">Status</TableHead>
                     <TableHead className="w-10"></TableHead>
@@ -550,35 +550,21 @@ const DocumentListView: React.FC<DocumentListProps> = ({
                           </TableCell>
                           <TableCell>
                             <Badge
-                              variant={
-                                document.transactionType === "cash"
-                                  ? "outline"
-                                  : "secondary"
-                              }
+                              variant={"outline"}
                               className={
-                                document.transactionType === "cash"
-                                  ? "bg-green-50 text-green-700 border-green-200"
-                                  : ""
+                                "bg-green-50 text-green-700 border-green-200"
                               }
                             >
-                              {document.transactionType === "cash"
-                                ? "Cash"
-                                : "Credit"}
+                              {document.paymentType}
                             </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(document.balanceAmount)}
                           </TableCell>
                           <TableCell className="text-right font-medium">
                             {formatCurrency(document.total)}
                           </TableCell>
                           <TableCell className="text-right">
-                            {/* {document.balanceAmount > 0 ? (
-                              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-                                Due: {formatCurrency(document.balanceAmount)}
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                Paid
-                              </Badge>
-                            )} */}
                             <Badge
                               variant="outline"
                               className="bg-green-50 text-green-700 border-green-200"

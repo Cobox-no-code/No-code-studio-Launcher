@@ -62,6 +62,9 @@ import {
   Pencil,
   Tag,
   Delete,
+  Edit,
+  ArrowRightLeft,
+  Printer,
 } from "lucide-react";
 import { openCreateForm, openEditForm } from "@/redux/slices/partySlice";
 import {
@@ -71,10 +74,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import toast from "react-hot-toast";
-import { useGetDocumentsQuery } from "@/redux/api/documentApi";
+import {
+  useDeleteDocumentMutation,
+  useGetDocumentsQuery,
+} from "@/redux/api/documentApi";
 import { useGetPaymentsQuery } from "@/redux/api/paymentApi";
 import { PaymentDirection } from "@/models/payment/payment.model";
 import { useDeleteActions } from "@/hooks/useDeleteAction";
+import { useRouter } from "next/navigation";
+import { DocumentType } from "@/models/document/document.model";
 
 // Helper to format currency
 const formatCurrency = (amount: string | number | bigint) => {
@@ -111,6 +119,7 @@ const Parties = () => {
     useDeletePartyMutation();
   const { data: documents } = useGetDocumentsQuery({});
   const { data: payments } = useGetPaymentsQuery({});
+  const router = useRouter();
   // Use RTK Query to fetch parties
   const {
     data: parties,
@@ -128,6 +137,12 @@ const Parties = () => {
       refetchOnReconnect: true,
     }
   );
+  const { deleteDocument } = useDeleteActions();
+
+  // Delete document mutation
+  const [deleteDocumentMutation, { isLoading: isDeletingDoc }] =
+    useDeleteDocumentMutation();
+
   useEffect(() => {
     // Immediately refetch data when component mounts
     refetch();
@@ -286,6 +301,46 @@ const Parties = () => {
         .toLowerCase()
         .includes(filterTransaction.toLowerCase())
   );
+  function convertDocumentTypeToApiParam(type: DocumentType): string {
+    switch (type) {
+      case DocumentType.SALE_INVOICE:
+        return "sale_invoice";
+      case DocumentType.SALE_ORDER:
+        return "sale_order";
+      case DocumentType.SALE_RETURN:
+        return "sale_return";
+      case DocumentType.SALE_QUOTATION:
+        return "sale_quotation";
+      case DocumentType.DELIVERY_CHALLAN:
+        return "delivery_challan";
+      case DocumentType.PURCHASE_INVOICE:
+        return "purchase_invoice";
+      case DocumentType.PURCHASE_ORDER:
+        return "purchase_order";
+      case DocumentType.PURCHASE_RETURN:
+        return "purchase_return";
+      default:
+        return "sale_invoice";
+    }
+  }
+  // Open edit form
+  const handleEditDocument = (id: string, documentType: DocumentType) => {
+    router.push(`/document/${documentType}?id=${id}`);
+  };
+  const handleDeleteDocument = async (
+    id: string,
+    documentType: DocumentType
+  ) => {
+    try {
+      const documentTypeFinal =
+        convertDocumentTypeToApiParam(documentType) || "sale_invoice";
+
+      deleteDocument(id, documentTypeFinal, deleteDocumentMutation);
+      // If the deleted document was selected, clear selection
+    } catch (error) {
+      console.error("Failed to delete document:", error);
+    }
+  };
   return (
     <div className="p-4 space-y-4 bg-gray-50 min-h-screen">
       {/* Header with stats */}
@@ -916,6 +971,55 @@ const Parties = () => {
                                 {formatCurrency(transaction.balanceAmount)}
                               </span>
                             )}
+                          </TableCell>
+                          <TableCell className="text-right w-10">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="p-1 hover:bg-gray-100 rounded">
+                                  <EllipsisVertical className="h-4 w-4 text-gray-500" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-40">
+                                <DropdownMenuItem
+                                  className="justify-start"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditDocument(
+                                      transaction.id,
+                                      transaction.transactionType
+                                    );
+                                  }}
+                                >
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+
+                                <DropdownMenuItem
+                                  className="justify-start"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    router.push(`/viewer?Id=${transaction.id}`);
+                                  }}
+                                >
+                                  <Printer className="mr-2 h-4 w-4" />
+                                  Print
+                                </DropdownMenuItem>
+
+                                <DropdownMenuItem
+                                  className="justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteDocument(
+                                      transaction.id,
+                                      transaction.transactionType
+                                    );
+                                  }}
+                                >
+                                  <X className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       ))

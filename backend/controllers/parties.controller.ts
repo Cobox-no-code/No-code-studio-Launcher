@@ -184,6 +184,17 @@ export const updateParty = async (
       return res.status(404).json({ success: false, error: "Party not found" });
     }
     if (name && name !== existingParty.name) {
+      const usedInDocuments = await db("document_items", firmId)
+        .where("itemId", id)
+        .first();
+
+      if (usedInDocuments) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "Cannot update Party name. The Party is used in one or more documents.",
+        });
+      }
       const possibleDuplicates = await db("parties", firmId)
         .andWhereNot("id", id)
         .select();

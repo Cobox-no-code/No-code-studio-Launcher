@@ -32,6 +32,7 @@ import { API_BASE_URL } from "@/redux/api/api.config";
 
 import { backend_url } from "@/backend.config";
 import { useAppSelector } from "@/redux/hooks";
+import { Textarea } from "@/components/ui/textarea";
 
 // Type definitions
 interface Country {
@@ -267,7 +268,7 @@ export default function EditFirmPage(): JSX.Element {
 
       await axios.put(`${API_BASE_URL}/firms/${firmId}`, submitData);
       setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+      router.push("/");
     } catch (err: any) {
       setError(err.response?.data?.error || "Update failed");
     } finally {
@@ -402,11 +403,11 @@ export default function EditFirmPage(): JSX.Element {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="address">Address</Label>
-                <Input
+                <Textarea
                   id="address"
                   name="address"
                   value={formData.address}
-                  onChange={handleChange}
+                  onChange={() => handleChange}
                   placeholder="Enter Address"
                 />
               </div>

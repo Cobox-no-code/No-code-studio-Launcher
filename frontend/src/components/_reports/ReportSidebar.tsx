@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -13,6 +13,8 @@ import {
   DollarSign,
 } from "lucide-react";
 import { useAppSelector } from "@/redux/hooks";
+import { API_BASE_URL } from "@/redux/api/api.config";
+import axios from "axios";
 
 interface ReportCategoryProps {
   title: string;
@@ -65,10 +67,20 @@ const ReportCategory: React.FC<ReportCategoryProps> = ({
 };
 
 const ReportSidebar = () => {
-  const firmCountry = useAppSelector(
-    (state) => state.firm?.currentFirm?.country
-  );
-
+  const [firmCountry, setFirmCountry] = useState("");
+  const firmId =
+    typeof window !== "undefined" ? localStorage.getItem("firmId") : null;
+  useEffect(() => {
+    const fetch = async () => {
+      const res = await axios.get(`${API_BASE_URL}/firms/${firmId}`);
+      if (res.data) {
+        setFirmCountry(res.data.country);
+      }
+    };
+    if (firmId) {
+      fetch();
+    }
+  }, [firmId]);
   // Determine if firm is in India
   const isIndianFirm = firmCountry === "IN";
 

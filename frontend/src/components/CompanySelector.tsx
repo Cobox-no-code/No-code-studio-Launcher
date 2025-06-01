@@ -102,7 +102,19 @@ const CompanySelector = ({
     isLoading: isLoadingBankAccounts,
     refetch: refetchBank,
   } = useGetBankAccountsQuery();
-
+  const firmId =
+    typeof window !== "undefined" ? localStorage.getItem("firmId") : null;
+  useEffect(() => {
+    const fetch = async () => {
+      const res = await axios.get(`${API_BASE_URL}/firms/${firmId}`);
+      if (res.data) {
+        setSelectedCompany(res.data.name);
+      }
+    };
+    if (firmId) {
+      fetch();
+    }
+  }, [firmId]);
   // Initialize sync steps
   const initializeSyncSteps = (): SyncStep[] => [
     {
@@ -158,12 +170,6 @@ const CompanySelector = ({
   };
 
   useEffect(() => {
-    // Get current company from localStorage
-    const firmName = localStorage.getItem("firmName");
-    if (firmName) {
-      setSelectedCompany(firmName);
-    }
-
     // Fetch all companies
     if (user.phone) {
       fetchCompanies();
@@ -173,32 +179,31 @@ const CompanySelector = ({
   const fetchCompanies = async (): Promise<void> => {
     try {
       setLoading(true);
-      const response = await axios.get<Company[]>(
-        `${API_BASE_URL}/firms?phone=${user.phone}`
-      );
-      const ownedCompanies = response.data || [];
-      try {
-        // Fetch shared firms
-        const responseSharedFirm = await axios.get(
-          `${backend_url}/get-shared-firms?phone=${user.phone}`
-        );
-        const sharedFirms = responseSharedFirm.data.shared_firms || [];
 
-        // Add isShared flag to shared firms
-        const formattedSharedFirms = sharedFirms.map((firm: any) => ({
-          id: firm.firm_id,
-          name: firm.firm_name,
-          isShared: true,
-          role: firm.role,
-        }));
+      const [ownedResult, sharedResult] = await Promise.allSettled([
+        axios.get<Company[]>(`${API_BASE_URL}/firms?phone=${user.phone}`),
+        axios.get(`${backend_url}/get-shared-firms?phone=${user.phone}`),
+      ]);
 
-        // Combine owned and shared companies
-        const allCompanies = [...ownedCompanies, ...formattedSharedFirms];
+      const ownedCompanies =
+        ownedResult.status === "fulfilled" ? ownedResult.value.data : [];
 
-        setCompanies(allCompanies);
-      } catch (e) {}
+      const sharedFirmsRaw =
+        sharedResult.status === "fulfilled"
+          ? sharedResult.value.data?.shared_firms || []
+          : [];
+
+      const formattedSharedFirms = sharedFirmsRaw.map((firm: any) => ({
+        id: firm.firm_id,
+        name: firm.firm_name,
+        isShared: true,
+        role: firm.role,
+      }));
+
+      const allCompanies = [...ownedCompanies, ...formattedSharedFirms];
+      setCompanies(allCompanies);
     } catch (err) {
-      console.error("Error fetching companies:", err);
+      console.error("Unexpected error in fetchCompanies:", err);
     } finally {
       setLoading(false);
     }
@@ -318,6 +323,17 @@ const CompanySelector = ({
     clearCurrentFirm();
     router.push("/firm");
     setSelectedCompany("");
+    setOpen(false);
+  };
+  const handleLogout = (): void => {
+    localStorage.removeItem("name");
+    localStorage.removeItem("phone");
+    localStorage.removeItem("email");
+    localStorage.removeItem("cachedUserInfo");
+    localStorage.removeItem("cachedSubscription");
+    localStorage.removeItem("customer_id");
+    router.push("/login");
+
     setOpen(false);
   };
 
@@ -509,7 +525,10 @@ const CompanySelector = ({
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Create new company
               </CommandItem>
-
+              <CommandItem onSelect={handleLogout} className="text-destructive">
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout from {user.name}
+              </CommandItem>
               {selectedCompany && (
                 <>
                   <CommandItem

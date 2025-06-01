@@ -114,6 +114,11 @@ const LoginPage = () => {
       setLoading(true);
       setError("");
 
+      const delay = (ms: number) =>
+        new Promise((resolve) => setTimeout(resolve, ms));
+
+      await delay(3000); // wait 3 seconds
+
       const res = await axios.post(`${backend_url}/verify-otp/`, {
         session_id: sessionId,
         otp,

@@ -113,6 +113,17 @@ export const updateItem = async (req: Request, res: Response): Promise<any> => {
     if (body.name) {
       const existingItem = await db("items", firmId).where("id", id).first();
       if (body.name && body.name !== existingItem.name) {
+        const usedInDocuments = await db("document_items", firmId)
+          .where("itemId", id)
+          .first();
+
+        if (usedInDocuments) {
+          return res.status(400).json({
+            success: false,
+            error:
+              "Cannot update item name. The item is used in one or more documents.",
+          });
+        }
         const possibleDuplicates = await db("items", firmId)
           .andWhereNot("id", id)
           .select();

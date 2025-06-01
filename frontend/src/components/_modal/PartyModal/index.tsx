@@ -650,6 +650,7 @@ const AddParty = () => {
                           parseFloat(e.target.value) || 0
                         )
                       }
+                      disabled={mode === "edit"}
                       className="mt-1"
                       placeholder="0.00"
                     />
