@@ -145,7 +145,7 @@ export const syncToLocal = async (
       results.push({
         table,
         status: "failed",
-        error: error?.message || "Unknown error",
+        error: error || "Unknown error",
       });
     }
   }

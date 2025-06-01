@@ -206,7 +206,7 @@ const CompanySelector = ({
 
   const performSteppedSync = async (company: any) => {
     const owner = user.phone;
-
+    console.log(company.id);
     try {
       const result = await syncAllToLocal(backend_url, company.id, owner);
 
@@ -309,6 +309,8 @@ const CompanySelector = ({
       setSyncSteps(initializeSyncSteps());
       dispatch(updateRole(company.role));
       await performSteppedSync(company);
+    } else {
+      dispatch(updateRole("admin"));
     }
   };
 

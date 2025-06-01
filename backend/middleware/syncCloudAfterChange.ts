@@ -29,6 +29,7 @@ export const syncCloudAfterChange = (tableName: string) => {
 
       console.log(`[${tableName}] Sync success for firm ${firmId}`);
     } catch (err: any) {
+      console.log(err);
       console.error(`[${tableName}] Sync failed: ${err.message}`);
     }
 
