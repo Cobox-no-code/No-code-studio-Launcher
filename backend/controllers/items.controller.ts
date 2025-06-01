@@ -7,7 +7,6 @@ export const createItem = async (req: Request, res: Response): Promise<any> => {
   try {
     const firmId = (req.headers["x-firm-id"] as string) || "";
     const body = req.body;
-
     const existingItems = await db("items", firmId).select(); // fetch all fields
 
     // Then extract names in JS
@@ -108,6 +107,7 @@ export const getItemById = async (
 export const updateItem = async (req: Request, res: Response): Promise<any> => {
   try {
     const firmId = (req.headers["x-firm-id"] as string) || "";
+    console.log(req.headers);
     const { id } = req.params;
     const body = req.body;
     if (body.name) {

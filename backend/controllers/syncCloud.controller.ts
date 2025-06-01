@@ -56,11 +56,6 @@ export const syncToCloud = async (
           ? await db(table).select()
           : await db(table, firmId).select();
 
-      // Remove frontend-only fields that cloud doesn't accept
-      if (table === "parties") {
-        records = records.map(({ additionalFields, ...rest }) => rest);
-      }
-
       if (records.length === 0) {
         results.push({
           table,
@@ -117,6 +112,10 @@ export const syncToLocal = async (
       }`;
       const response = await axios.get(url);
       const records = response.data.records;
+      if (table === "parties") {
+        console.log(records);
+        console.log(response);
+      }
 
       if (!records || records.length === 0) {
         results.push({
