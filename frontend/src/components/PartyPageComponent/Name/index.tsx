@@ -490,7 +490,9 @@ const Parties = () => {
                       >
                         <TableCell>
                           <div className="flex flex-col">
-                            <span className="font-medium">{party.name}</span>
+                            {party.name.length > 30
+                              ? party.name.slice(0, 30) + "..."
+                              : party.name}
                             <div className="flex items-center gap-2 mt-1">
                               <Badge
                                 variant={

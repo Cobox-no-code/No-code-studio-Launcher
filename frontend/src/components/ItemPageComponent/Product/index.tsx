@@ -535,7 +535,11 @@ const Items = () => {
                         >
                           <TableCell>
                             <div className="flex flex-col">
-                              <span className="font-medium">{item.name}</span>
+                              <span className="font-medium truncate">
+                                {item.name.length > 30
+                                  ? item.name.slice(0, 30) + "..."
+                                  : item.name}
+                              </span>
                               <div className="flex items-center gap-2 mt-1">
                                 <Badge
                                   variant={

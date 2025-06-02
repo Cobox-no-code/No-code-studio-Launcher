@@ -106,6 +106,8 @@ const getDocumentTitle = (documentType: string) => {
       return "Purchase Invoice";
     case "purchase_order":
       return "Purchase Order";
+    case "purchase_return":
+      return "Debit Note";
     case "delivery_challan":
       return "Delivery Challan";
     default:

@@ -4,6 +4,7 @@ import {
   Calendar,
   CalendarDays,
   Clock,
+  CurrencyIcon,
   FileText,
   Hash,
   LoaderCircle,
@@ -80,12 +81,7 @@ const DocumentHeader: React.FC = () => {
         party.name.toLowerCase().includes(partySearchTerm.toLowerCase()) ||
         (party.phone && party.phone.includes(partySearchTerm));
 
-      // Filter by group type (customers for sales, suppliers for purchases)
-      const isCorrectType = isSalesDocument
-        ? party.groupId?.includes("customer") || !party.groupId // Include if no group
-        : party.groupId?.includes("supplier") || !party.groupId; // Include if no group
-
-      return matchesSearch && isCorrectType;
+      return matchesSearch;
     }) || [];
 
   // Function to handle creating and selecting a new party
@@ -101,8 +97,6 @@ const DocumentHeader: React.FC = () => {
         const newPartyData = {
           name: partySearchTerm.trim(),
           gstType: "Unregistered",
-          // Set groupId based on document type (customer or supplier)
-          groupId: isSalesDocument ? "customer" : "supplier",
         };
 
         // Create party using mutation
@@ -315,6 +309,15 @@ const DocumentHeader: React.FC = () => {
     "Lakshadweep",
     "Puducherry",
   ];
+  const formatCurrency = (amount: string | number | bigint) => {
+    const numericAmount =
+      typeof amount === "string" ? parseFloat(amount) : amount;
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 2,
+    }).format(numericAmount);
+  };
   return (
     <Card className="border shadow-sm mb-4">
       <CardHeader className="pb-2 border-b">
@@ -415,6 +418,19 @@ const DocumentHeader: React.FC = () => {
                                   <Phone className="h-3 w-3 mr-1" />
                                   {party.phone}
                                 </span>
+                              )}
+                              {party.currentBalance ? (
+                                <span
+                                  className={
+                                    party.currentBalanceType === "to_pay"
+                                      ? "text-red-600 flex items-center mr-2"
+                                      : "text-green-600 flex items-center mr-2"
+                                  }
+                                >
+                                  {formatCurrency(party.currentBalance)}
+                                </span>
+                              ) : (
+                                "₹0.00"
                               )}
                               {party.gstNumber && (
                                 <span className="flex items-center">

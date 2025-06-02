@@ -41,6 +41,7 @@ import { toast } from "react-hot-toast";
 // Import from our new slices
 import {
   closeForm,
+  openCreateForm,
   populateFromItem,
   resetForm,
   setFormData,
@@ -127,6 +128,7 @@ const AddItems = () => {
         isActive: true,
         name: "",
         categoryId: "",
+        pricePerUnit: 0,
       })
     );
     return () => {
@@ -354,26 +356,7 @@ const AddItems = () => {
     // Reset the form but keep some settings
     dispatch(resetForm());
 
-    // Get current form data for preserving settings
-    const currentFormData = getCurrentFormData();
-
-    // Re-initialize with defaults
-    dispatch(
-      setFormData({
-        type: currentFormData.type,
-        salePriceTaxInclusive: currentFormData.salePriceTaxInclusive,
-        salePrice: 0,
-        isActive: true,
-        name: "",
-        categoryId: "",
-      })
-    );
-
-    // Reset unit selection
-    setPrimaryUnitId("");
-    setSecondaryUnitId("");
-    setConversionRate("1");
-    setSelectedUnitConversionId("");
+    dispatch(openCreateForm());
   };
 
   // Product/Service toggle

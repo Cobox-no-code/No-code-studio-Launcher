@@ -48,8 +48,8 @@ export interface BaseItem {
   categoryId: string; // Reference to Category
   pricePerUnit: number;
   // Pricing fields
-  purchasePrice: number;
-  salePrice: number;
+  purchasePrice?: number;
+  salePrice?: number;
   wholesalePrice?: number;
   wholesaleQuantity?: number;
   taxRate?: string; // Reference to TaxRate

@@ -1,23 +1,23 @@
-'use client'
+"use client";
 
-import React, { useState, useRef } from 'react'
-import { useReactToPrint } from 'react-to-print'
-import { useGetPartiesQuery, useGetGroupsQuery } from '@/redux/api/partiesApi'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table"
+import React, { useState, useRef } from "react";
+import { useReactToPrint } from "react-to-print";
+import { useGetPartiesQuery, useGetGroupsQuery } from "@/redux/api/partiesApi";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Download as DownloadIcon,
   Users as UsersIcon,
@@ -28,106 +28,113 @@ import {
   SlidersHorizontal as SlidersHorizontalIcon,
   Phone as PhoneIcon,
   Mail as MailIcon,
-  MapPin as MapPinIcon
-} from 'lucide-react'
+  MapPin as MapPinIcon,
+} from "lucide-react";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 
 const AllPartiesReport = () => {
   // Filter states
-  const [searchTerm, setSearchTerm] = useState<string>("")
-  const [gstType, setGstType] = useState<string>("")
-  const [groupId, setGroupId] = useState<string>("")
-  const printRef = useRef<HTMLDivElement>(null)
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [gstType, setGstType] = useState<string>("");
+  const [groupId, setGroupId] = useState<string>("");
+  const printRef = useRef<HTMLDivElement>(null);
 
   // Fetch parties and groups
-  const { 
-    data: parties, 
-    isLoading: isLoadingParties, 
+  const {
+    data: parties,
+    isLoading: isLoadingParties,
     isError: isPartiesError,
-    refetch: refetchParties
-  } = useGetPartiesQuery({ 
+    refetch: refetchParties,
+  } = useGetPartiesQuery({
     search: searchTerm || undefined,
     gstType: gstType || undefined,
-    groupId: groupId || undefined
-  })
+    groupId: groupId || undefined,
+  });
 
-  const { 
-    data: groups, 
-    isLoading: isLoadingGroups 
-  } = useGetGroupsQuery()
+  const { data: groups, isLoading: isLoadingGroups } = useGetGroupsQuery();
 
   // Group map for lookup
-  const groupMap = groups?.reduce((acc, group) => {
-    acc[group.id] = group.groupName
-    return acc
-  }, {} as Record<string, string>) || {}
+  const groupMap =
+    groups?.reduce((acc, group) => {
+      acc[group.id] = group.groupName;
+      return acc;
+    }, {} as Record<string, string>) || {};
 
   // Handle printing
   const handlePrint = useReactToPrint({
-    contentRef:printRef,
-    documentTitle: 'All Parties',
+    contentRef: printRef,
+    documentTitle: "All Parties",
     pageStyle: `
       @page {
         size: A4 landscape;
         margin: 15mm 10mm;
       }
     `,
-   
-    onAfterPrint: () => console.log('Print completed')
-  })
+
+    onAfterPrint: () => console.log("Print completed"),
+  });
 
   // Calculate stats
   const calculateStats = () => {
-    if (!parties) return { total: 0, customers: 0, suppliers: 0, both: 0 }
-    
-    const stats = parties.reduce((acc, party) => {
-      // Calculate if party is a customer, supplier, or both based on opening balance type
-      if (party.openingBalanceType === 'to_receive') {
-        acc.customers++
-      } else if (party.openingBalanceType === 'to_pay') {
-        acc.suppliers++
-      } else {
-        // If no opening balance set, consider as both
-        acc.both++
-      }
-      
-      return acc
-    }, { total: parties.length, customers: 0, suppliers: 0, both: 0 })
-    
-    return stats
-  }
+    if (!parties) return { total: 0, customers: 0, suppliers: 0, both: 0 };
 
-  const stats = calculateStats()
+    const stats = parties.reduce(
+      (acc, party) => {
+        // Calculate if party is a customer, supplier, or both based on opening balance type
+        if (party.openingBalanceType === "to_receive") {
+          acc.customers++;
+        } else if (party.openingBalanceType === "to_pay") {
+          acc.suppliers++;
+        } else {
+          // If no opening balance set, consider as both
+          acc.both++;
+        }
+
+        return acc;
+      },
+      { total: parties.length, customers: 0, suppliers: 0, both: 0 }
+    );
+
+    return stats;
+  };
+
+  const stats = calculateStats();
 
   // Get the company name and phone from localStorage if available
-  const companyName = typeof window !== 'undefined' ? localStorage.getItem('firmName') || 'My Company' : 'My Company'
-  const companyPhone = typeof window !== 'undefined' ? localStorage.getItem('firmPhone') || '9752133459' : '9752133459'
+  const companyName =
+    typeof window !== "undefined"
+      ? localStorage.getItem("firmName") || "My Company"
+      : "My Company";
+  const companyPhone =
+    typeof window !== "undefined"
+      ? localStorage.getItem("firmPhone") || "9752133459"
+      : "9752133459";
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold">All Parties</h1>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={()=>handlePrint()}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePrint()}
             className="flex items-center gap-1"
           >
             <PrinterIcon className="h-4 w-4" />
             Print
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             className="flex items-center gap-1"
-            onClick={()=>handlePrint()}
+            onClick={() => handlePrint()}
           >
             <DownloadIcon className="h-4 w-4" />
             Export PDF
@@ -158,13 +165,10 @@ const AllPartiesReport = () => {
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="gstType">GST Type</Label>
-              <Select 
-                value={gstType} 
-                onValueChange={setGstType}
-              >
+              <Select value={gstType} onValueChange={setGstType}>
                 <SelectTrigger id="gstType">
                   <SelectValue placeholder="All GST Types" />
                 </SelectTrigger>
@@ -177,33 +181,28 @@ const AllPartiesReport = () => {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="groupId">Group</Label>
-              <Select 
-                value={groupId} 
-                onValueChange={setGroupId}
-              >
+              <Select value={groupId} onValueChange={setGroupId}>
                 <SelectTrigger id="groupId">
                   <SelectValue placeholder="All Groups" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="None">All Groups</SelectItem>
-                  {!isLoadingGroups && groups?.map((group) => (
-                    <SelectItem key={group.id} value={group.id}>
-                      {group.groupName}
-                    </SelectItem>
-                  ))}
+                  {!isLoadingGroups &&
+                    groups?.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.groupName}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
-          
+
           <div className="flex justify-end mt-4">
-            <Button 
-              onClick={() => refetchParties()} 
-              className="gap-1"
-            >
+            <Button onClick={() => refetchParties()} className="gap-1">
               <RefreshCwIcon className="h-4 w-4" />
               Apply Filters
             </Button>
@@ -223,21 +222,27 @@ const AllPartiesReport = () => {
         <Card className="bg-green-50 border-green-200">
           <CardContent className="p-4">
             <p className="text-sm text-gray-500">Customers</p>
-            <h3 className="text-2xl font-bold mt-1 text-green-600">{stats.customers}</h3>
+            <h3 className="text-2xl font-bold mt-1 text-green-600">
+              {stats.customers}
+            </h3>
           </CardContent>
         </Card>
 
         <Card className="bg-blue-50 border-blue-200">
           <CardContent className="p-4">
             <p className="text-sm text-gray-500">Suppliers</p>
-            <h3 className="text-2xl font-bold mt-1 text-blue-600">{stats.suppliers}</h3>
+            <h3 className="text-2xl font-bold mt-1 text-blue-600">
+              {stats.suppliers}
+            </h3>
           </CardContent>
         </Card>
 
         <Card className="bg-amber-50 border-amber-200">
           <CardContent className="p-4">
             <p className="text-sm text-gray-500">Both/Others</p>
-            <h3 className="text-2xl font-bold mt-1 text-amber-600">{stats.both}</h3>
+            <h3 className="text-2xl font-bold mt-1 text-amber-600">
+              {stats.both}
+            </h3>
           </CardContent>
         </Card>
       </div>
@@ -250,7 +255,7 @@ const AllPartiesReport = () => {
             Party List
           </CardTitle>
         </CardHeader>
-        
+
         <CardContent>
           {isLoadingParties ? (
             <div className="space-y-3 print:hidden">
@@ -281,14 +286,16 @@ const AllPartiesReport = () => {
                     <TableHead>GST Type</TableHead>
                     <TableHead>Group</TableHead>
                     <TableHead>Address</TableHead>
-                    <TableHead>Balance Type</TableHead>
+
                     <TableHead className="text-right">Balance Amount</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {parties?.map((party) => (
                     <TableRow key={party.id}>
-                      <TableCell className="font-medium">{party.name}</TableCell>
+                      <TableCell className="font-medium">
+                        {party.name}
+                      </TableCell>
                       <TableCell>
                         <div className="space-y-1">
                           {party.phone && (
@@ -306,7 +313,10 @@ const AllPartiesReport = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="border-primary/20 bg-primary/5">
+                        <Badge
+                          variant="outline"
+                          className="border-primary/20 bg-primary/5"
+                        >
                           {party.gstType}
                         </Badge>
                         {party.gstNumber && (
@@ -316,37 +326,27 @@ const AllPartiesReport = () => {
                         )}
                       </TableCell>
                       <TableCell>
-                        {party.groupId ? groupMap[party.groupId] || '-' : '-'}
+                        {party.groupId ? groupMap[party.groupId] || "-" : "-"}
                       </TableCell>
                       <TableCell>
                         <div className="max-w-xs truncate">
                           {party.billingAddress ? (
                             <div className="flex items-start">
                               <MapPinIcon className="h-3 w-3 mr-1 text-gray-400 mt-0.5" />
-                              <span className="text-xs">{party.billingAddress.split('\n')[0]}</span>
+                              <span className="text-xs">
+                                {party.billingAddress.split("\n")[0]}
+                              </span>
                             </div>
                           ) : (
-                            '-'
+                            "-"
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        {party.openingBalanceType === 'to_receive' ? (
-                          <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
-                            Customer
-                          </Badge>
-                        ) : party.openingBalanceType === 'to_pay' ? (
-                          <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
-                            Supplier
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="border-gray-200 bg-gray-50 text-gray-700">
-                            No Balance
-                          </Badge>
-                        )}
-                      </TableCell>
+
                       <TableCell className="text-right">
-                        {party.openingBalance ? `₹${party.openingBalance.toFixed(2)}` : '-'}
+                        {party.openingBalance
+                          ? `₹${party.openingBalance.toFixed(2)}`
+                          : "-"}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -354,81 +354,130 @@ const AllPartiesReport = () => {
               </Table>
             </div>
           )}
-          
+
           {/* Printable content */}
           <div ref={printRef} className="hidden print:block">
             {/* Header */}
             <div className="text-center mb-4">
               <h2 className="text-xl font-bold">{companyName}</h2>
               <p className="text-sm">Phone no.: {companyPhone}</p>
-              <h3 className="text-lg font-semibold mt-4 border-b-2 border-gray-300 pb-2">Party List</h3>
+              <h3 className="text-lg font-semibold mt-4 border-b-2 border-gray-300 pb-2">
+                Party List
+              </h3>
             </div>
-            
+
             {/* Date */}
-            <p className="mb-4">Generated on: {new Date().toLocaleDateString()}</p>
-            
+            <p className="mb-4">
+              Generated on: {new Date().toLocaleDateString()}
+            </p>
+
             {/* Party Table */}
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-gray-200">
                   <th className="border border-gray-300 p-2 text-left">NAME</th>
-                  <th className="border border-gray-300 p-2 text-left">PHONE</th>
-                  <th className="border border-gray-300 p-2 text-left">EMAIL</th>
-                  <th className="border border-gray-300 p-2 text-left">GST TYPE</th>
-                  <th className="border border-gray-300 p-2 text-left">GST NUMBER</th>
-                  <th className="border border-gray-300 p-2 text-left">GROUP</th>
-                  <th className="border border-gray-300 p-2 text-left">ADDRESS</th>
-                  <th className="border border-gray-300 p-2 text-left">BALANCE TYPE</th>
-                  <th className="border border-gray-300 p-2 text-left">BALANCE AMOUNT</th>
+                  <th className="border border-gray-300 p-2 text-left">
+                    PHONE
+                  </th>
+                  <th className="border border-gray-300 p-2 text-left">
+                    EMAIL
+                  </th>
+                  <th className="border border-gray-300 p-2 text-left">
+                    GST TYPE
+                  </th>
+                  <th className="border border-gray-300 p-2 text-left">
+                    GST NUMBER
+                  </th>
+                  <th className="border border-gray-300 p-2 text-left">
+                    GROUP
+                  </th>
+                  <th className="border border-gray-300 p-2 text-left">
+                    ADDRESS
+                  </th>
+                  <th className="border border-gray-300 p-2 text-left">
+                    BALANCE TYPE
+                  </th>
+                  <th className="border border-gray-300 p-2 text-left">
+                    BALANCE AMOUNT
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {!isLoadingParties && !isPartiesError && parties?.map((party) => (
-                  <tr key={party.id}>
-                    <td className="border border-gray-300 p-2">{party.name}</td>
-                    <td className="border border-gray-300 p-2">{party.phone || '-'}</td>
-                    <td className="border border-gray-300 p-2">{party.email || '-'}</td>
-                    <td className="border border-gray-300 p-2">{party.gstType}</td>
-                    <td className="border border-gray-300 p-2">{party.gstNumber || '-'}</td>
-                    <td className="border border-gray-300 p-2">
-                      {party.groupId ? groupMap[party.groupId] || '-' : '-'}
-                    </td>
-                    <td className="border border-gray-300 p-2">{party.billingAddress || '-'}</td>
-                    <td className="border border-gray-300 p-2">
-                      {party.openingBalanceType === 'to_receive' 
-                        ? 'Customer (To Receive)' 
-                        : party.openingBalanceType === 'to_pay' 
-                          ? 'Supplier (To Pay)' 
-                          : 'No Balance'}
-                    </td>
-                    <td className="border border-gray-300 p-2">
-                      {party.openingBalance ? `₹${party.openingBalance.toFixed(2)}` : '-'}
-                    </td>
-                  </tr>
-                ))}
+                {!isLoadingParties &&
+                  !isPartiesError &&
+                  parties?.map((party) => (
+                    <tr key={party.id}>
+                      <td className="border border-gray-300 p-2">
+                        {party.name}
+                      </td>
+                      <td className="border border-gray-300 p-2">
+                        {party.phone || "-"}
+                      </td>
+                      <td className="border border-gray-300 p-2">
+                        {party.email || "-"}
+                      </td>
+                      <td className="border border-gray-300 p-2">
+                        {party.gstType}
+                      </td>
+                      <td className="border border-gray-300 p-2">
+                        {party.gstNumber || "-"}
+                      </td>
+                      <td className="border border-gray-300 p-2">
+                        {party.groupId ? groupMap[party.groupId] || "-" : "-"}
+                      </td>
+                      <td className="border border-gray-300 p-2">
+                        {party.billingAddress || "-"}
+                      </td>
+                      <td className="border border-gray-300 p-2">
+                        {party.openingBalanceType === "to_receive"
+                          ? "Customer (To Receive)"
+                          : party.openingBalanceType === "to_pay"
+                          ? "Supplier (To Pay)"
+                          : "No Balance"}
+                      </td>
+                      <td className="border border-gray-300 p-2">
+                        {party.openingBalance
+                          ? `₹${party.openingBalance.toFixed(2)}`
+                          : "-"}
+                      </td>
+                    </tr>
+                  ))}
                 {(!parties || parties.length === 0) && (
                   <tr>
-                    <td colSpan={9} className="border border-gray-300 p-2 text-center">No parties found</td>
+                    <td
+                      colSpan={9}
+                      className="border border-gray-300 p-2 text-center"
+                    >
+                      No parties found
+                    </td>
                   </tr>
                 )}
               </tbody>
             </table>
-            
+
             {/* Summary */}
             <div className="mt-6 border border-gray-300 p-4 bg-gray-50">
               <h3 className="text-md font-semibold mb-2">Summary</h3>
               <div className="grid grid-cols-4 gap-4">
                 <div>
-                  <p><strong>Total Parties:</strong> {stats.total}</p>
+                  <p>
+                    <strong>Total Parties:</strong> {stats.total}
+                  </p>
                 </div>
                 <div>
-                  <p><strong>Customers:</strong> {stats.customers}</p>
+                  <p>
+                    <strong>Customers:</strong> {stats.customers}
+                  </p>
                 </div>
                 <div>
-                  <p><strong>Suppliers:</strong> {stats.suppliers}</p>
+                  <p>
+                    <strong>Suppliers:</strong> {stats.suppliers}
+                  </p>
                 </div>
                 <div>
-                  <p><strong>Both/Others:</strong> {stats.both}</p>
+                  <p>
+                    <strong>Both/Others:</strong> {stats.both}
+                  </p>
                 </div>
               </div>
             </div>
@@ -458,13 +507,14 @@ const AllPartiesReport = () => {
           .print\\:border-none {
             border: none !important;
           }
-          td, th {
+          td,
+          th {
             font-size: 11px;
           }
         }
       `}</style>
     </div>
-  )
-}
+  );
+};
 
-export default AllPartiesReport
+export default AllPartiesReport;
