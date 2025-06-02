@@ -342,12 +342,10 @@ const PaymentOutForm: React.FC = () => {
                             {party.phone && (
                               <div className="text-xs text-gray-500">
                                 {party.phone}
-                            </div>
+                              </div>
                             )}
-                            {
-                              party.currentBalance && (
-                               
-                                <div
+                            {party.currentBalance && (
+                              <div
                                 className={`text-xs ${
                                   party.currentBalanceType === "to_receive"
                                     ? "text-green-500"
@@ -356,9 +354,7 @@ const PaymentOutForm: React.FC = () => {
                               >
                                 ₹{party.currentBalance}
                               </div>
-                              )
-                            }
-                                
+                            )}
                           </div>
                         ))}
                       </div>
@@ -407,7 +403,6 @@ const PaymentOutForm: React.FC = () => {
                   <SelectItem value={PaymentType.BANK}>
                     Bank Transfer
                   </SelectItem>
-                  <SelectItem value={PaymentType.CHEQUE}>Cheque</SelectItem>
                 </SelectContent>
               </Select>
               {validationErrors.paymentType && (

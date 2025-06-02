@@ -38,9 +38,8 @@ const DocumentFooter: React.FC = () => {
   // Payment types
   const paymentTypes = [
     { value: PaymentType.CASH, label: "Cash" },
-    { value: PaymentType.UPI, label: "UPI" },
+
     { value: PaymentType.BANK, label: "Bank Transfer" },
-    { value: PaymentType.CHEQUE, label: "Cheque" },
   ];
 
   // Calculate totals for display

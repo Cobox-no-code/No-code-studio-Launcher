@@ -401,7 +401,6 @@ const PaymentInForm: React.FC = () => {
                   <SelectItem value={PaymentType.BANK}>
                     Bank Transfer
                   </SelectItem>
-                  <SelectItem value={PaymentType.CHEQUE}>Cheque</SelectItem>
                 </SelectContent>
               </Select>
               {validationErrors.paymentType && (
