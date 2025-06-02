@@ -3,19 +3,21 @@
 import React from "react";
 import { format } from "date-fns";
 import { useGetPaymentsQuery } from "@/redux/api/paymentApi";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { HandCoinsIcon, AlertCircleIcon, TrendingUpIcon } from "lucide-react";
+  HandCoinsIcon,
+  AlertCircleIcon,
+  TrendingUpIcon,
+  TrendingDownIcon,
+  MinusIcon,
+} from "lucide-react";
 import { PaymentDirection } from "@/models/payment/payment.model";
+import {
+  useGetPurchaseInvoicesQuery,
+  useGetSaleInvoicesQuery,
+} from "@/redux/api/documentApi";
+import { DocumentType, PaymentType } from "@/models/document/document.model";
 
 const CashInHandPage = () => {
   // Fetch all payments (we'll filter for cash payments only)
@@ -24,7 +26,20 @@ const CashInHandPage = () => {
     isLoading: isLoadingPayments,
     isError: isPaymentsError,
   } = useGetPaymentsQuery({});
+  const {
+    data: saleInvoices,
+    isLoading: isLoadingSales,
+    isError: isSalesError,
+    refetch: refetchSales,
+  } = useGetSaleInvoicesQuery({});
 
+  // Fetch purchase invoices
+  const {
+    data: purchaseInvoices,
+    isLoading: isLoadingPurchases,
+    isError: isPurchasesError,
+    refetch: refetchPurchases,
+  } = useGetPurchaseInvoicesQuery({});
   // Filter cash payments only
   const cashPayments =
     payments?.filter(
@@ -35,11 +50,26 @@ const CashInHandPage = () => {
   const calculateCashTotal = () => {
     let totalCash = 0;
 
+    // Add/Subtract payment amounts
     cashPayments.forEach((payment) => {
       if (payment.direction === PaymentDirection.IN) {
         totalCash += payment.amount;
       } else {
         totalCash -= payment.amount;
+      }
+    });
+
+    // Add paidAmount from sale invoices (cash coming in)
+    (saleInvoices || []).forEach((invoice) => {
+      if ((invoice.paymentType || "").toLowerCase() === "cash") {
+        totalCash += invoice.paidAmount || 0;
+      }
+    });
+
+    // Subtract paidAmount from purchase invoices (cash going out)
+    (purchaseInvoices || []).forEach((invoice) => {
+      if ((invoice.paymentType || "").toLowerCase() === "cash") {
+        totalCash -= invoice.paidAmount || 0;
       }
     });
 
@@ -60,13 +90,67 @@ const CashInHandPage = () => {
       .replace("₹", "₹ ");
   };
 
-  // Sort cash payments by date (newest first)
-  const sortedCashPayments = [...cashPayments].sort((a, b) => {
-    return (
-      new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
-    );
+  // Combine and sort transactions for "All" tab
+  const allTransactions = [
+    // Cash-only Sales invoices
+    ...(saleInvoices || [])
+      .filter((invoice) => invoice.paymentType === PaymentType.CASH) // Only cash payments
+      .map((invoice) => ({
+        ...invoice,
+        transactionType: "Sale",
+        counterparty: invoice.partyName,
+        amountReceived: invoice.paidAmount || 0,
+        amountPaid: 0,
+        date: invoice.documentDate,
+        sourceType: "invoice",
+      })),
+
+    // Purchase invoices (unchanged)
+    ...(purchaseInvoices || [])
+      .filter((invoice) => invoice.paymentType === PaymentType.CASH)
+      .map((invoice) => ({
+        ...invoice,
+        transactionType: "Purchase",
+        counterparty: invoice.partyName,
+        amountReceived: 0,
+        amountPaid: invoice.paidAmount || 0,
+        date: invoice.documentDate,
+        sourceType: "invoice",
+      })),
+
+    // Payment transactions (unchanged unless you also want only cash payments here)
+    ...(payments || []).map((payment) => ({
+      ...payment,
+      transactionType:
+        payment.direction === PaymentDirection.IN
+          ? "Payment In"
+          : "Payment Out",
+      documentNumber:
+        payment.receiptNumber || `PMT-${payment.id.substring(0, 8)}`,
+      counterparty: payment.partyName,
+      total: payment.amount,
+      amountReceived:
+        payment.direction === PaymentDirection.IN ? payment.amount : 0,
+      amountPaid:
+        payment.direction === PaymentDirection.OUT ? payment.amount : 0,
+      date: payment.paymentDate,
+      sourceType: "payment",
+    })),
+  ].sort((a, b) => {
+    // Sort by date descending (newest first)
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
 
+  // Filter payments for the "Payments" tab
+  const totalIn = allTransactions.reduce(
+    (sum, txn) => sum + (txn.amountReceived || 0),
+    0
+  );
+  const totalOut = allTransactions.reduce(
+    (sum, txn) => sum + (txn.amountPaid || 0),
+    0
+  );
+  const netBalance = totalIn - totalOut;
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -93,13 +177,31 @@ const CashInHandPage = () => {
             </div>
             <div className="text-right">
               <div className="flex items-center text-sm text-gray-500 mb-1">
-                <span>{cashPayments.length} Cash Transactions</span>
+                <span>{allTransactions.length} Cash Transactions</span>
               </div>
               <div className="flex items-center">
-                <TrendingUpIcon className="h-4 w-4 text-green-500 mr-1" />
-                <span className="text-sm font-medium text-green-600">
-                  Positive Balance
-                </span>
+                {netBalance > 0 ? (
+                  <>
+                    <TrendingUpIcon className="h-4 w-4 text-green-500 mr-1" />
+                    <span className="text-sm font-medium text-green-600">
+                      Positive Balance
+                    </span>
+                  </>
+                ) : netBalance < 0 ? (
+                  <>
+                    <TrendingDownIcon className="h-4 w-4 text-red-500 mr-1" />
+                    <span className="text-sm font-medium text-red-600">
+                      Negative Balance
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <MinusIcon className="h-4 w-4 text-gray-400 mr-1" />
+                    <span className="text-sm font-medium text-gray-500">
+                      Zero Balance
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -150,66 +252,51 @@ const CashInHandPage = () => {
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Amount
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Reference
-                      </th>
+
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Description
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {sortedCashPayments.length > 0 ? (
-                      sortedCashPayments.map((payment, index) => (
+                    {allTransactions.length > 0 ? (
+                      allTransactions.map((txn, index) => (
                         <tr
-                          key={payment.id}
+                          key={txn.id || `${txn.sourceType}-${index}`}
                           className={
                             index % 2 === 0 ? "bg-white" : "bg-gray-50"
                           }
                         >
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {format(
-                              new Date(payment.paymentDate),
-                              "dd/MM/yyyy"
-                            )}
+                            {format(new Date(txn.date), "dd/MM/yyyy")}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {payment.receiptNumber ||
-                              `PMT-${payment.id.substring(0, 8)}`}
+                            {txn.documentNumber || "-"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            {payment.direction === PaymentDirection.IN ? (
-                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                Payment In
-                              </span>
-                            ) : (
-                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                                Payment Out
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {payment.partyName}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                            <span
-                              className={`font-medium ${
-                                payment.direction === PaymentDirection.IN
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }`}
-                            >
-                              {payment.direction === PaymentDirection.IN
-                                ? "+"
-                                : "-"}
-                              {formatCurrency(payment.amount)}
+                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                              {txn.transactionType}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {payment.referenceNumber || "-"}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {txn.counterparty || "-"}
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                            {txn.amountReceived > 0 ? (
+                              <span className="font-medium text-green-600">
+                                +{formatCurrency(txn.amountReceived)}
+                              </span>
+                            ) : txn.amountPaid > 0 ? (
+                              <span className="font-medium text-red-600">
+                                -{formatCurrency(txn.amountPaid)}
+                              </span>
+                            ) : (
+                              "-"
+                            )}
+                          </td>
+
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {payment.description || "-"}
+                            {txn.description || "-"}
                           </td>
                         </tr>
                       ))
@@ -219,10 +306,10 @@ const CashInHandPage = () => {
                           <div className="text-center">
                             <HandCoinsIcon className="mx-auto h-12 w-12 text-gray-300" />
                             <h3 className="mt-2 text-sm font-medium text-gray-900">
-                              No cash transactions
+                              No transactions yet
                             </h3>
                             <p className="mt-1 text-sm text-gray-500">
-                              Cash payments will appear here when recorded.
+                              Transactions will appear here when recorded.
                             </p>
                           </div>
                         </td>
