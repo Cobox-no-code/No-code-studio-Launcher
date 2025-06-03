@@ -583,7 +583,12 @@ const HomePage = () => {
                       className="flex justify-between items-center p-3 hover:bg-slate-50"
                     >
                       <div>
-                        <p className="font-medium">{item.name}</p>
+                        <p className="font-medium">
+                          {" "}
+                          {item.name.length > 30
+                            ? item.name.slice(0, 30) + "..."
+                            : item.name}
+                        </p>
                         <p className="text-sm text-gray-500">
                           {item.quantity} {item.unit} left
                         </p>
