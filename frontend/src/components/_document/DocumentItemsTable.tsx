@@ -361,7 +361,6 @@ const DocumentItemsTable: React.FC = () => {
       );
 
       if (!matchingItem) {
-        // Clear wholesale data and other item-specific data
         updatedItem.itemId = "";
         updatedItem.wholesalePrice = 0;
         updatedItem.wholesaleQuantity = 0;
@@ -381,6 +380,7 @@ const DocumentItemsTable: React.FC = () => {
         "secondaryQuantity",
         "pricePerUnit",
         "discountPercent",
+        "discountAmount",
         "taxType",
         "amount",
         "salePriceTaxInclusive",
@@ -404,8 +404,6 @@ const DocumentItemsTable: React.FC = () => {
         const wholesaleQty = updatedItem.wholesaleQuantity || 0;
         const wholesalePrice = updatedItem.wholesalePrice || 0;
         const retailPrice = updatedItem.pricePerUnit || 0;
-        console.log("Applied");
-        // Check if quantity qualifies for wholesale pricing
         if (
           wholesaleQty > 0 &&
           wholesalePrice > 0 &&
@@ -476,6 +474,29 @@ const DocumentItemsTable: React.FC = () => {
         toast.error("Discount should be less than 100%");
         return;
       }
+      if (field === "discountAmount") {
+        const grossAmount = primaryQty * price;
+
+        if (grossAmount > 0) {
+          const discountAmt = parseFloat(String(value)) || 0;
+          const percent = (discountAmt / grossAmount) * 100;
+          updatedItem.discountAmount = discountAmt;
+          updatedItem.discountPercent = Number(percent.toFixed(2));
+
+          if (percent > 100) {
+            toast.error(
+              "Discount cannot be more than 100% of the total amount"
+            );
+            return;
+          }
+        } else {
+          toast.error(
+            "Cannot apply discount amount without a valid quantity and price."
+          );
+          return;
+        }
+      }
+
       // Check for unit conversion
       let hasConversion = false;
       if (updatedItem && isProduct(updatedItem)) {
@@ -485,8 +506,6 @@ const DocumentItemsTable: React.FC = () => {
           hasConversion = true;
         }
       }
-
-      // If no conversion from item, try direct conversion
       if (
         !hasConversion &&
         updatedItem.primaryUnitId &&
@@ -1314,7 +1333,7 @@ const DocumentItemsTable: React.FC = () => {
                             <div className="text-xs text-gray-500 text-center truncate">
                               {getConversionRateText(row, selectedItem)}
                             </div>
-                            <Button
+                            {/* <Button
                               variant="ghost"
                               size="sm"
                               className="w-full text-xs h-6 flex items-center justify-center text-gray-500"
@@ -1331,7 +1350,7 @@ const DocumentItemsTable: React.FC = () => {
                               }}
                             >
                               Change
-                            </Button>
+                            </Button> */}
                           </div>
                         )}
                       </td>
@@ -1426,7 +1445,6 @@ const DocumentItemsTable: React.FC = () => {
                           placeholder="0"
                           min="0"
                           max="100"
-                          step="0.01"
                           onFocus={() => setFocusedRow(index)}
                           onBlur={() => setFocusedRow(null)}
                           onChange={(e) =>
@@ -1449,7 +1467,15 @@ const DocumentItemsTable: React.FC = () => {
                           className="w-full px-2 py-1 rounded-md text-right bg-gray-50 text-sm border border-gray-200"
                           value={row.discountAmount || ""}
                           placeholder="0.00"
-                          readOnly
+                          onFocus={() => setFocusedRow(index)}
+                          onBlur={() => setFocusedRow(null)}
+                          onChange={(e) =>
+                            handleItemChange(
+                              index,
+                              "discountAmount",
+                              e.target.value
+                            )
+                          }
                         />
                       </td>
 
