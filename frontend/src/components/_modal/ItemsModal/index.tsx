@@ -231,7 +231,7 @@ const AddItems = () => {
 
       // Transform the FRESH form data
       let itemData = await transformFormToModel(currentFormData);
-      if( mode != "edit" && editItem) {
+      if( mode != "edit") {
       itemData = {
         ...itemData,
         primaryQuantity: currentFormData.primaryOpeningQuantity || 0,

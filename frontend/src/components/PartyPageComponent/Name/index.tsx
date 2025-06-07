@@ -579,7 +579,7 @@ const Parties = () => {
                 <CardTitle>
                   {selectedParty ? (
                     <div className="flex items-center gap-2">
-                      {selectedParty.name}
+                      {selectedParty.name.length>30  ? selectedParty.name.slice(0, 30) + "..." : selectedParty.name}
                       <Badge
                         variant={
                           selectedParty.gstType === "Consumer"
