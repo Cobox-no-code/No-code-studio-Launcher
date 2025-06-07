@@ -687,7 +687,7 @@ const AddItems = () => {
                           <Label htmlFor="salePrice">Sale Price</Label>
                           <Input
                             id="salePrice"
-                            type="text"
+                            type="number"
                             value={formData.salePrice || ""}
                             onChange={(e) =>
                               handleInputChange("salePrice", e.target.value)
@@ -726,7 +726,7 @@ const AddItems = () => {
                         <Label htmlFor="wholesalePrice">Wholesale Price</Label>
                         <Input
                           id="wholesalePrice"
-                          type="text"
+                          type="number"
                           value={formData.wholesalePrice || ""}
                           onChange={(e) =>
                             handleInputChange("wholesalePrice", e.target.value)
@@ -740,7 +740,7 @@ const AddItems = () => {
                         </Label>
                         <Input
                           id="wholesaleQuantity"
-                          type="text"
+                         type="number"
                           value={formData.wholesaleQuantity || ""}
                           onChange={(e) =>
                             handleInputChange(
@@ -771,7 +771,7 @@ const AddItems = () => {
                             </Label>
                             <Input
                               id="purchasePrice"
-                              type="text"
+                              type="number"
                               value={formData.purchasePrice || ""}
                               onChange={(e) =>
                                 handleInputChange(
@@ -878,7 +878,7 @@ const AddItems = () => {
                           </Label>
                           <Input
                             id="primaryOpeningQty"
-                            type="text"
+                             type="number"
                             value={formData.primaryOpeningQuantity || ""}
                             onChange={(e) =>
                               handleInputChange(
@@ -897,7 +897,7 @@ const AddItems = () => {
                           </Label>
                           <Input
                             id="secondaryOpeningQty"
-                            type="text"
+                            type="number"
                             value={formData.secondaryOpeningQuantity || ""}
                             onChange={(e) =>
                               handleInputChange(
@@ -915,7 +915,7 @@ const AddItems = () => {
                           </Label>
                           <Input
                             id="pricepperunit"
-                            type="text"
+                            type="number"
                             value={formData.pricePerUnit || ""}
                             onChange={(e) =>
                               handleInputChange("pricePerUnit", e.target.value)
@@ -966,7 +966,7 @@ const AddItems = () => {
                           </Label>
                           <Input
                             id="minStock"
-                            type="text"
+                             type="number"
                             value={formData.minStockLevel || ""}
                             onChange={(e) =>
                               handleInputChange("minStockLevel", e.target.value)
