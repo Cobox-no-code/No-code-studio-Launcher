@@ -586,7 +586,7 @@ const HomePage = () => {
                         <p className="font-medium">
                           {" "}
                           {item.name.length > 30
-                            ? item.name.slice(0, 30) + "..."
+                            ? item.name.slice(0, 20) + "..."
                             : item.name}
                         </p>
                         <p className="text-sm text-gray-500">

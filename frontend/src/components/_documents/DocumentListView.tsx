@@ -591,42 +591,7 @@ const DocumentListView: React.FC<DocumentListProps> = ({
                                   Edit
                                 </DropdownMenuItem>
 
-                                {/* Convert options */}
-                                {docInfo.convertOptions.length > 0 && (
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        className="justify-start w-full"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <ArrowRightLeft className="mr-2 h-4 w-4" />
-                                        Convert
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                      align="start"
-                                      className="w-48"
-                                    >
-                                      {docInfo.convertOptions.map(
-                                        (option, idx) => (
-                                          <DropdownMenuItem
-                                            key={idx}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleConvertDocument(
-                                                document.id,
-                                                option.type
-                                              );
-                                            }}
-                                          >
-                                            {option.label}
-                                          </DropdownMenuItem>
-                                        )
-                                      )}
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                )}
+                             
 
                                 <DropdownMenuItem
                                   className="justify-start"

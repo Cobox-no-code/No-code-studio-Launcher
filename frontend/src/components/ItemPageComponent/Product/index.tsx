@@ -470,8 +470,8 @@ const Items = () => {
             </Tabs>
           </CardHeader>
 
-          <CardContent className="p-0 overflow-hidden">
-            <div className="h-[calc(100vh-400px)] overflow-y-auto">
+          <CardContent className="p-0 overflow-hidden " >
+            <div className="h-[calc(100vh-400px)] overflow-y-auto ">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -537,7 +537,7 @@ const Items = () => {
                             <div className="flex flex-col">
                               <span className="font-medium truncate">
                                 {item.name.length > 30
-                                  ? item.name.slice(0, 30) + "..."
+                                  ? item.name.slice(0, 20) + "..."
                                   : item.name}
                               </span>
                               <div className="flex items-center gap-2 mt-1">

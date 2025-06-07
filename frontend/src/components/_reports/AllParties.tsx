@@ -344,9 +344,9 @@ const AllPartiesReport = () => {
                       </TableCell>
 
                       <TableCell className="text-right">
-                        {party.openingBalance
-                          ? `₹${party.openingBalance.toFixed(2)}`
-                          : "-"}
+                        {party.currentBalance
+                          ? `₹${party.currentBalance.toFixed(2)}`
+                          : "0.00"}
                       </TableCell>
                     </TableRow>
                   ))}

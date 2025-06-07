@@ -87,6 +87,7 @@ export interface Document extends BaseModel {
   // Common fields
   ewaybill?: string;
   billingAddress?: string;
+  shippingAddress?: string;
   billingName?: string;
   poDate?: string;
   poNumber?: string;

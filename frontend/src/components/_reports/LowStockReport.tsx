@@ -24,9 +24,8 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { isProduct } from "@/models/item/item.model";
-import { useGetUnitsQuery } from "@/redux/api";
+import { useGetUnitsQuery ,useGetItemsQuery} from "@/redux/api";
 import { useGetCategoriesQuery } from "@/redux/api/categoriesApi";
-import { useGetItemsQuery } from "@/redux/api/itemsApi";
 import { format } from "date-fns";
 import {
   AlertCircle as AlertCircleIcon,
@@ -40,7 +39,7 @@ import {
   Search as SearchIcon,
   ShoppingBag,
 } from "lucide-react";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 
 // Bar chart component using recharts
@@ -93,120 +92,191 @@ const LowStockAlertPage = () => {
   const { data: categories } = useGetCategoriesQuery();
   const { data: units } = useGetUnitsQuery();
 
-  // Calculate severity based on stock level vs minimum stock level
-  const calculateSeverity = (item: any) => {
-    if (
-      !isProduct(item) ||
-      item.minStockLevel === undefined ||
-      item.currentQuantity === undefined
-    ) {
-      return null;
-    }
+ useEffect(() => {
+    // Immediately refetch data when component mounts
+    refetchItems();
 
-    const stockLevel = item.currentQuantity;
-    const minStockLevel = item.minStockLevel;
+    // Set up interval for periodic refetching (every 5 seconds)
+    const intervalId = setInterval(() => {
+      refetchItems();
+    }, 5000); // Adjust this time as needed
 
-    // Skip items with no minimum stock level set
-    if (minStockLevel <= 0) return null;
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [refetchItems]);
+// 1. Update the calculateSeverity function
+const calculateSeverity = (item: any) => {
+  if (!isProduct(item) || item.primaryQuantity === undefined) {
+    return null;
+  }
 
-    const stockPercentage = (stockLevel / minStockLevel) * 100;
+  const stockLevel = item.primaryQuantity;
+  const minStockLevel = item.minStockLevel;
 
-    if (stockPercentage <= 25) {
-      return "critical";
-    } else if (stockPercentage <= 50) {
-      return "warning";
-    } else if (stockPercentage <= 75) {
-      return "notice";
-    }
+  // If quantity is 0 or less, treat it as critical
+  if (stockLevel <= 0) {
+    return "critical";
+  }
 
-    return null; // Not low stock
-  };
+  // If no minimum stock level is defined, only flag items with zero/negative stock
+  if (!minStockLevel || minStockLevel <= 0) {
+    return null;
+  }
 
-  // Calculate days to reorder based on average daily consumption
-  const calculateDaysToReorder = (item: any) => {
-    // This would ideally be calculated based on historical consumption data
-    // For this example, we'll use a simple estimation
-    if (!isProduct(item) || item.currentQuantity === undefined) return null;
+  const stockPercentage = (stockLevel / minStockLevel) * 100;
 
-    // Let's assume a fixed consumption rate for demo purposes
-    // In a real system, you would calculate this from sales history
-    const estimatedDailyConsumption = 0.5;
+  if (stockPercentage <= 25) {
+    return "critical";
+  } else if (stockPercentage <= 50) {
+    return "warning";
+  } else if (stockPercentage <= 75) {
+    return "notice";
+  }
 
-    if (estimatedDailyConsumption <= 0) return null;
+  return null; // Stock is sufficient
+};
 
-    return Math.ceil(item.currentQuantity / estimatedDailyConsumption);
-  };
+// 2. Update the calculateDaysToReorder function
+const calculateDaysToReorder = (item: any) => {
+  if (!isProduct(item) || item.primaryQuantity === undefined) return null;
 
-  // Process low stock items
-  const lowStockItems = React.useMemo(() => {
-    if (!items) return [];
+  // If stock is zero or negative, return 0 days
+  if (item.primaryQuantity <= 0) return 0;
 
-    return items
-      .filter((item) => {
-        // Must be a product
-        if (!isProduct(item)) return false;
+  // Let's assume a fixed consumption rate for demo purposes
+  // In a real system, you would calculate this from sales history
+  const estimatedDailyConsumption = 0.5;
 
-        // Must have a severity level (i.e., be below threshold)
-        const severity = calculateSeverity(item);
-        if (!severity) return false;
+  if (estimatedDailyConsumption <= 0) return null;
 
-        // Apply severity filter if set
-        if (severityFilter !== "all" && severity !== severityFilter) {
-          return false;
-        }
+  return Math.ceil(item.primaryQuantity / estimatedDailyConsumption);
+};
 
-        // Apply search filter if set
-        if (searchTerm) {
+// 3. Update the lowStockItems processing logic
+const lowStockItems = React.useMemo(() => {
+  if (!items) return [];
+
+  return items
+    .filter((item) => {
+      // Must be a product
+      if (!isProduct(item)) return false;
+
+      // Include items with zero/negative stock OR below minimum stock level
+      const hasZeroStock = item.primaryQuantity <= 0;
+      const severity = calculateSeverity(item);
+      
+      // Include if stock is zero/negative OR has a severity level
+      if (!hasZeroStock && !severity) return false;
+
+      // Apply severity filter if set
+      if (severityFilter !== "all" && severity !== severityFilter) {
+        return false;
+      }
+
+      // Apply search filter if set
+      if (searchTerm) {
+        return (
+          item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (item.itemCode &&
+            item.itemCode.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+      }
+
+      return true;
+    })
+    .map((item) => {
+      const severity = calculateSeverity(item);
+      const daysToReorder = calculateDaysToReorder(item);
+      const category = categories?.find((cat) => cat.id === item.categoryId);
+      const unit = units?.find((u) => u.id === item.unit_conversionId);
+
+      return {
+        ...item,
+        severity,
+        daysToReorder,
+        categoryName: category?.name || "N/A",
+        unitName: unit?.shortname || "pcs",
+      };
+    })
+    .sort((a, b) => {
+      // Sort by the selected criteria
+      switch (sortBy) {
+        case "severity":
+          // Order: critical, warning, notice
+          const severityOrder = { critical: 0, warning: 1, notice: 2 };
           return (
-            item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (item.itemCode &&
-              item.itemCode.toLowerCase().includes(searchTerm.toLowerCase()))
+            (severityOrder[a.severity as keyof typeof severityOrder] || 0) -
+            (severityOrder[b.severity as keyof typeof severityOrder] || 0)
           );
-        }
+        case "quantity":
+          return (a.primaryQuantity || 0) - (b.primaryQuantity || 0);
+        case "percentage":
+          const aPercent =
+            ((a.primaryQuantity || 0) / (a.minStockLevel || 1)) * 100;
+          const bPercent =
+            ((b.primaryQuantity || 0) / (b.minStockLevel || 1)) * 100;
+          return aPercent - bPercent;
+        case "name":
+          return a.name.localeCompare(b.name);
+        case "days":
+          return (a.daysToReorder || 0) - (b.daysToReorder || 0);
+        default:
+          return 0;
+      }
+    });
+}, [items, categories, units, searchTerm, severityFilter, sortBy]);
 
-        return true;
-      })
-      .map((item) => {
-        const severity = calculateSeverity(item);
-        const daysToReorder = calculateDaysToReorder(item);
-        const category = categories?.find((cat) => cat.id === item.categoryId);
-        const unit = units?.find((u) => u.id === item.unit_conversionId);
+// 4. Update the purchase order suggestions calculation
+const purchaseOrderSuggestions = React.useMemo(() => {
+  if (lowStockItems.length === 0) return [];
 
-        return {
-          ...item,
-          severity,
-          daysToReorder,
-          categoryName: category?.name || "N/A",
-          unitName: unit?.shortname || "pcs",
-        };
-      })
-      .sort((a, b) => {
-        // Sort by the selected criteria
-        switch (sortBy) {
-          case "severity":
-            // Order: critical, warning, notice
-            const severityOrder = { critical: 0, warning: 1, notice: 2 };
-            return (
-              (severityOrder[a.severity as keyof typeof severityOrder] || 0) -
-              (severityOrder[b.severity as keyof typeof severityOrder] || 0)
-            );
-          case "quantity":
-            return (a.currentQuantity || 0) - (b.currentQuantity || 0);
-          case "percentage":
-            const aPercent =
-              ((a.currentQuantity || 0) / (a.minStockLevel || 1)) * 100;
-            const bPercent =
-              ((b.currentQuantity || 0) / (b.minStockLevel || 1)) * 100;
-            return aPercent - bPercent;
-          case "name":
-            return a.name.localeCompare(b.name);
-          case "days":
-            return (a.daysToReorder || 0) - (b.daysToReorder || 0);
-          default:
-            return 0;
-        }
+  // Group by supplier (using category as a proxy for supplier)
+  const supplierMap = new Map();
+
+  lowStockItems.forEach((item) => {
+    const categoryName = item.categoryName;
+
+    // Calculate order quantity - ensure we order enough to reach minimum stock
+    const currentStock = item.primaryQuantity || 0;
+    const minStock = item.minStockLevel || 0;
+    
+    // If no minimum stock level, suggest ordering a default amount for zero stock items
+    const orderQuantity = minStock > 0 
+      ? Math.max(minStock - currentStock, 0)
+      : currentStock <= 0 
+        ? 10 // Default order quantity for items without min stock level
+        : 0;
+
+    if (orderQuantity <= 0) return;
+
+    if (supplierMap.has(categoryName)) {
+      supplierMap.get(categoryName).items.push({
+        id: item.id,
+        name: item.name,
+        currentStock,
+        minStock,
+        orderQuantity,
+        unitName: item.unitName,
       });
-  }, [items, categories, units, searchTerm, severityFilter, sortBy]);
+    } else {
+      supplierMap.set(categoryName, {
+        supplier: categoryName,
+        items: [
+          {
+            id: item.id,
+            name: item.name,
+            currentStock,
+            minStock,
+            orderQuantity,
+            unitName: item.unitName,
+          },
+        ],
+      });
+    }
+  });
+
+  return Array.from(supplierMap.values());
+}, [lowStockItems]);
 
   // Get severity counts for summary
   const severityCounts = React.useMemo(() => {
@@ -286,51 +356,7 @@ const LowStockAlertPage = () => {
       ? localStorage.getItem("firmPhone") || ""
       : "";
 
-  // Generate purchase order suggestions based on low stock items
-  const purchaseOrderSuggestions = React.useMemo(() => {
-    if (lowStockItems.length === 0) return [];
-
-    // Group by supplier (in a real system, you'd have supplier data)
-    // For now, we'll just group by category as a demonstration
-    const supplierMap = new Map();
-
-    lowStockItems.forEach((item) => {
-      const categoryName = item.categoryName; // Using category as a proxy for supplier
-
-      const orderQuantity = Math.max(
-        (item.minStockLevel ?? 0) - (item.currentQuantity ?? 0),
-        0
-      );
-      if (orderQuantity <= 0) return;
-
-      if (supplierMap.has(categoryName)) {
-        supplierMap.get(categoryName).items.push({
-          id: item.id,
-          name: item.name,
-          currentStock: item.currentQuantity || 0,
-          minStock: item.minStockLevel || 0,
-          orderQuantity,
-          unitName: item.unitName,
-        });
-      } else {
-        supplierMap.set(categoryName, {
-          supplier: categoryName,
-          items: [
-            {
-              id: item.id,
-              name: item.name,
-              currentStock: item.currentQuantity || 0,
-              minStock: item.minStockLevel || 0,
-              orderQuantity,
-              unitName: item.unitName,
-            },
-          ],
-        });
-      }
-    });
-
-    return Array.from(supplierMap.values());
-  }, [lowStockItems]);
+  
 
   // Format date for display
   const today = new Date();
@@ -353,14 +379,7 @@ const LowStockAlertPage = () => {
             <PrinterIcon className="h-4 w-4" />
             Print Report
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1"
-          >
-            <Mail className="h-4 w-4" />
-            Email Report
-          </Button>
+         
         </div>
       </div>
 
@@ -698,20 +717,22 @@ const LowStockAlertPage = () => {
                         <TableHead className="text-center w-[120px]">
                           Severity
                         </TableHead>
-                        <TableHead className="text-right">Action</TableHead>
+                      
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {lowStockItems.map((item) => {
-                        const stockPercentage =
-                          ((item.currentQuantity || 0) /
-                            (item.minStockLevel || 1)) *
-                          100;
+                       const stockPercentage = item.minStockLevel && item.minStockLevel > 0
+  ? ((item.primaryQuantity || 0) / item.minStockLevel) * 100
+  : item.primaryQuantity <= 0 ? 0 : 100;
+
 
                         return (
                           <TableRow key={item.id}>
                             <TableCell className="font-medium">
-                              {item.name}
+                              {item.name.length > 30
+                                  ? item.name.slice(0, 20) + "..."
+                                  : item.name}
                               {item.itemCode && (
                                 <div className="text-xs text-gray-500 mt-1">
                                   Code: {item.itemCode}
@@ -720,8 +741,9 @@ const LowStockAlertPage = () => {
                             </TableCell>
                             <TableCell>{item.categoryName}</TableCell>
                             <TableCell className="text-center">
-                              {item.currentQuantity?.toFixed(2)} {item.unitName}
-                            </TableCell>
+  {item.primaryQuantity?.toFixed(2)} {item.unitName}
+</TableCell>
+
                             <TableCell className="text-center">
                               {item.minStockLevel?.toFixed(2)} {item.unitName}
                             </TableCell>
@@ -787,16 +809,7 @@ const LowStockAlertPage = () => {
                                 {item.severity}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 gap-1"
-                              >
-                                <ShoppingBag className="h-3 w-3" />
-                                Order
-                              </Button>
-                            </TableCell>
+                           
                           </TableRow>
                         );
                       })}
@@ -833,12 +846,9 @@ const LowStockAlertPage = () => {
                     <CardTitle className="text-md flex items-center justify-between">
                       <div className="flex items-center">
                         <ShoppingBag className="h-4 w-4 mr-2 text-primary" />
-                        Suggested Order: {suggestion.supplier}
+                        Suggested Order
                       </div>
-                      <Button variant="outline" size="sm" className="h-8 gap-1">
-                        <FileTextIcon className="h-3 w-3" />
-                        Create PO
-                      </Button>
+                     
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
@@ -862,7 +872,9 @@ const LowStockAlertPage = () => {
                         {suggestion.items.map((item: any, idx: any) => (
                           <TableRow key={idx}>
                             <TableCell className="font-medium">
-                              {item.name}
+                             {item.name.length > 30
+                                  ? item.name.slice(0, 20) + "..."
+                                  : item.name}
                             </TableCell>
                             <TableCell className="text-center">
                               {item.currentStock.toFixed(2)}
@@ -956,9 +968,9 @@ const LowStockAlertPage = () => {
             </thead>
             <tbody>
               {lowStockItems.map((item, index) => {
-                const stockPercentage =
-                  ((item.currentQuantity || 0) / (item.minStockLevel || 1)) *
-                  100;
+             const stockPercentage = item.minStockLevel && item.minStockLevel > 0
+  ? ((item.primaryQuantity || 0) / item.minStockLevel) * 100
+  : item.primaryQuantity <= 0 ? 0 : 100;
 
                 return (
                   <tr key={index}>
@@ -974,8 +986,9 @@ const LowStockAlertPage = () => {
                       {item.categoryName}
                     </td>
                     <td className="border border-gray-300 p-2 text-center">
-                      {item.currentQuantity?.toFixed(2)} {item.unitName}
-                    </td>
+  {item.primaryQuantity?.toFixed(2)} {item.unitName}
+</td>
+
                     <td className="border border-gray-300 p-2 text-center">
                       {item.minStockLevel?.toFixed(2)} {item.unitName}
                     </td>

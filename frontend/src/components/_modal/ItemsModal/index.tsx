@@ -231,12 +231,13 @@ const AddItems = () => {
 
       // Transform the FRESH form data
       let itemData = await transformFormToModel(currentFormData);
+      if( mode != "edit" && editItem) {
       itemData = {
         ...itemData,
         primaryQuantity: currentFormData.primaryOpeningQuantity || 0,
         secondaryQuantity: currentFormData.secondaryOpeningQuantity || 0,
       };
-
+    }
       console.log("Final item data being sent:", itemData);
       console.log("Unit conversion ID in payload:", itemData.unit_conversionId);
 

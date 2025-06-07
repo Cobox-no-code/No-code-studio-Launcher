@@ -214,9 +214,8 @@ export const updateParty = async (
     const now = new Date().toISOString();
     updateData.updatedAt = now;
     if (name) updateData.name = name;
-    if (openingBalance) updateData.currentBalance = openingBalance;
     if (openingBalance) updateData.openingBalance = openingBalance;
-    if (currentBalanceType) updateData.currentBalanceType = openingBalanceType;
+
     await db("parties", firmId).where("id", id).update(updateData);
 
     if (additionalFields) {

@@ -236,7 +236,10 @@ const DocumentHeader: React.FC = () => {
       type: "UPDATE_FIELD",
       payload: { field: "billingAddress", value: party.billingAddress || "" },
     });
-
+ docDispatch({
+      type: "UPDATE_FIELD",
+      payload: { field: "shippingAddress", value: party.shippingAddress || "" },
+    });
     setShowPartyDropdown(false);
     setPartySearchTerm("");
   };
@@ -493,6 +496,10 @@ const DocumentHeader: React.FC = () => {
                             type: "UPDATE_FIELD",
                             payload: { field: "billingAddress", value: "" },
                           });
+                            docDispatch({
+                            type: "UPDATE_FIELD",
+                            payload: { field: "shippingAddress", value: "" },
+                          });
                         }}
                       >
                         <X className="h-3 w-3 text-gray-500" />
@@ -552,6 +559,7 @@ const DocumentHeader: React.FC = () => {
                     className="min-h-20"
                   />
                 </div>
+
               </div>
             </div>
           </div>
@@ -643,6 +651,26 @@ const DocumentHeader: React.FC = () => {
                   }
                 />
               </div>
+              <div>
+                  <Label className="text-xs font-medium mb-1 block flex items-center">
+                    <MapPin className="h-3 w-3 mr-1" />
+                    Shipping Address
+                  </Label>
+                  <Input
+                    value={document.shippingAddress || ""}
+                    onChange={(e) =>
+                      docDispatch({
+                        type: "UPDATE_FIELD",
+                        payload: {
+                          field: "shippingAddress",
+                          value: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="Enter billing address"
+                    className="min-h-20"
+                  />
+                </div>
             </div>
           </div>
 

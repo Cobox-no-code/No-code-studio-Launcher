@@ -33,7 +33,7 @@ import { API_BASE_URL } from "@/redux/api/api.config";
 import { backend_url } from "@/backend.config";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { Badge } from "@/components/ui/badge";
-import { setCurrentFirm, updateRole } from "@/redux/slices/firmSlice";
+import { fetchFirms, setCurrentFirm, updateRole } from "@/redux/slices/firmSlice";
 import { setUserInfo } from "@/redux/slices/userinfoSlice";
 import { syncAllToCloud, syncAllToLocal } from "@/lib/sync-cloud";
 import toast from "react-hot-toast";
@@ -70,10 +70,11 @@ const CompanySelector = ({
 }: CompanySelectorProps): JSX.Element => {
   const router = useRouter();
   const user = useAppSelector((state) => state.userinfo);
+  const {role,loading} = useAppSelector((state) => state.firm);
   const [open, setOpen] = useState<boolean>(false);
-  const [companies, setCompanies] = useState<Company[]>([]);
+  const companies = useAppSelector((state) => state.firm.firms);
   const [selectedCompany, setSelectedCompany] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(true);
+  
   const [isFullPageLoading, setIsFullPageLoading] = useState<boolean>(false);
   const [syncSteps, setSyncSteps] = useState<SyncStep[]>([]);
   const dispatch = useAppDispatch();
@@ -172,42 +173,11 @@ const CompanySelector = ({
   useEffect(() => {
     // Fetch all companies
     if (user.phone) {
-      fetchCompanies();
+     dispatch(fetchFirms());
     }
   }, [user]);
 
-  const fetchCompanies = async (): Promise<void> => {
-    try {
-      setLoading(true);
-
-      const [ownedResult, sharedResult] = await Promise.allSettled([
-        axios.get<Company[]>(`${API_BASE_URL}/firms?phone=${user.phone}`),
-        axios.get(`${backend_url}/get-shared-firms?phone=${user.phone}`),
-      ]);
-
-      const ownedCompanies =
-        ownedResult.status === "fulfilled" ? ownedResult.value.data : [];
-
-      const sharedFirmsRaw =
-        sharedResult.status === "fulfilled"
-          ? sharedResult.value.data?.shared_firms || []
-          : [];
-
-      const formattedSharedFirms = sharedFirmsRaw.map((firm: any) => ({
-        id: firm.firm_id,
-        name: firm.firm_name,
-        isShared: true,
-        role: firm.role,
-      }));
-
-      const allCompanies = [...ownedCompanies, ...formattedSharedFirms];
-      setCompanies(allCompanies);
-    } catch (err) {
-      console.error("Unexpected error in fetchCompanies:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+ 
 
   const performSteppedSync = async (company: any) => {
     const owner = user.phone;
@@ -539,13 +509,13 @@ const CompanySelector = ({
                     Sign out of company
                   </CommandItem>
 
-                  <CommandItem
+                  {role === "admin" &&<CommandItem
                     onSelect={() => router.push("/edit-firm")}
                     className="text-muted-foreground"
                   >
                     <Building className="mr-2 h-4 w-4" />
                     Edit company
-                  </CommandItem>
+                  </CommandItem>}
                 </>
               )}
             </CommandGroup>

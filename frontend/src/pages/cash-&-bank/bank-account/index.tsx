@@ -55,6 +55,10 @@ import {
 
 import TransactionDropdown from "@/components/Dropdown/TransactionDropdown";
 import { BankTransactionType } from "@/models/banking/banking.model";
+import { useGetPaymentsQuery } from "@/redux/api/paymentApi";
+import { useGetPurchaseInvoicesQuery, useGetSaleInvoicesQuery } from "@/redux/api/documentApi";
+import { PaymentType } from "@/models/document/document.model";
+import { PaymentDirection } from "@/models/payment/payment.model";
 
 // Utility function to format currency
 const formatCurrency = (amount: number | null) => {
@@ -84,6 +88,7 @@ const BankAccountPage = () => {
   const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
   const [transactionSearch, setTransactionSearch] = useState("");
   const [deleteBank] = useDeleteBankAccountMutation();
+  
   // Fetch bank accounts
   const {
     data: bankAccounts = [],
@@ -92,8 +97,31 @@ const BankAccountPage = () => {
     refetch,
   } = useGetBankAccountsQuery();
 
-  // Only fetch transactions when a bank is selected
-  const { data: transactions = [], isLoading: isLoadingTransactions } =
+  // Fetch payments
+  const {
+    data: payments,
+    isLoading: isLoadingPayments,
+    isError: isPaymentsError,
+  } = useGetPaymentsQuery({});
+
+  // Fetch sale invoices
+  const {
+    data: saleInvoices,
+    isLoading: isLoadingSales,
+    isError: isSalesError,
+    refetch: refetchSales,
+  } = useGetSaleInvoicesQuery({});
+
+  // Fetch purchase invoices
+  const {
+    data: purchaseInvoices,
+    isLoading: isLoadingPurchases,
+    isError: isPurchasesError,
+    refetch: refetchPurchases,
+  } = useGetPurchaseInvoicesQuery({});
+
+  // Only fetch bank transactions when a bank is selected
+  const { data: bankTransactions = [], isLoading: isLoadingBankTransactions } =
     useGetBankTransactionsQuery(
       { bankAccountId: selectedBankId || "" },
       { skip: !selectedBankId }
@@ -105,9 +133,11 @@ const BankAccountPage = () => {
       setSelectedBankId(bankAccounts[0].id);
     }
   }, [bankAccounts, selectedBankId]);
+
   const openEditModal = (itemId: string) => {
     dispatch(openEditForm(itemId));
   };
+
   // Get the currently selected bank
   const selectedBank =
     bankAccounts.find((bank) => bank.id === selectedBankId) || null;
@@ -117,15 +147,114 @@ const BankAccountPage = () => {
     account.displayName?.toLowerCase().includes(searchInput.toLowerCase())
   );
 
+  // Combine all transactions for the selected bank
+  const getAllTransactionsForBank = () => {
+    if (!selectedBankId) return [];
+
+    const allTransactions = [];
+
+    // 1. Bank transactions (deposits, withdrawals, transfers)
+    bankTransactions.forEach((transaction) => {
+      allTransactions.push({
+        ...transaction,
+        id: `bank-${transaction.id}`,
+        date: transaction.transactionDate,
+        type: transaction.transactionType,
+        description: transaction.description,
+        amount: transaction.amount,
+        counterparty: transaction.transactionType || '',
+        sourceType: 'bank_transaction',
+        isIncoming: transaction.transactionType === BankTransactionType.DEPOSIT,
+        isOutgoing: transaction.transactionType === BankTransactionType.WITHDRAWAL,
+      });
+    });
+
+    // 2. Bank payments (payment type = bank and matching bank account)
+    const bankPayments = payments?.filter(
+      (payment) => 
+        payment.paymentType?.toLowerCase() === 'bank' && 
+        payment.bankAccountId === selectedBankId
+    ) || [];
+
+    bankPayments.forEach((payment) => {
+      allTransactions.push({
+        ...payment,
+        id: `payment-${payment.id}`,
+        date: payment.paymentDate,
+        type: payment.direction === PaymentDirection.IN ? 'Payment In' : 'Payment Out',
+        description: `Payment ${payment.direction === PaymentDirection.IN ? 'from' : 'to'} ${payment.partyName}`,
+        amount: payment.amount,
+        documentNumber: payment.receiptNumber || `PMT-${payment.id.substring(0, 8)}`,
+        counterparty: payment.partyName,
+        sourceType: 'payment',
+        isIncoming: payment.direction === PaymentDirection.IN,
+        isOutgoing: payment.direction === PaymentDirection.OUT,
+      });
+    });
+
+    // 3. Sale invoices with bank payment type and matching bank account
+    const bankSaleInvoices = saleInvoices?.filter(
+      (invoice) => 
+        invoice.paymentType === PaymentType.BANK && 
+        invoice.bankId=== selectedBankId &&
+        (invoice.paidAmount || 0) > 0
+    ) || [];
+
+    bankSaleInvoices.forEach((invoice) => {
+      allTransactions.push({
+        ...invoice,
+        id: `sale-${invoice.id}`,
+        date: invoice.documentDate,
+        type: 'Sale Invoice',
+        description: `Sale to ${invoice.partyName} - ${invoice.documentNumber}`,
+        amount: invoice.paidAmount || 0,
+        documentNumber: invoice.documentNumber,
+        counterparty: invoice.partyName,
+        sourceType: 'sale_invoice',
+        isIncoming: true,
+        isOutgoing: false,
+      });
+    });
+
+    // 4. Purchase invoices with bank payment type and matching bank account
+    const bankPurchaseInvoices = purchaseInvoices?.filter(
+      (invoice) => 
+        invoice.paymentType === PaymentType.BANK && 
+        invoice.bankId === selectedBankId &&
+        (invoice.paidAmount || 0) > 0
+    ) || [];
+
+    bankPurchaseInvoices.forEach((invoice) => {
+      allTransactions.push({
+        ...invoice,
+        id: `purchase-${invoice.id}`,
+        date: invoice.documentDate,
+        type: 'Purchase Invoice',
+        description: `Purchase from ${invoice.partyName} - ${invoice.documentNumber}`,
+        amount: invoice.paidAmount || 0,
+        documentNumber: invoice.documentNumber,
+        counterparty: invoice.partyName,
+        sourceType: 'purchase_invoice',
+        isIncoming: false,
+        isOutgoing: true,
+      });
+    });
+
+    // Sort by date (newest first)
+    return allTransactions.sort((a, b) => {
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+  };
+
+  const allTransactions = getAllTransactionsForBank();
+
   // Filter transactions based on search input
-  const filteredTransactions = transactions.filter(
+  const filteredTransactions = allTransactions.filter(
     (transaction) =>
-      transaction.transactionType
-        ?.toLowerCase()
-        .includes(transactionSearch.toLowerCase()) ||
-      transaction.description
-        ?.toLowerCase()
-        .includes(transactionSearch.toLowerCase())
+      transaction.type?.toLowerCase().includes(transactionSearch.toLowerCase()) ||
+      transaction.description?.toLowerCase().includes(transactionSearch.toLowerCase()) ||
+      transaction.counterparty?.toLowerCase().includes(transactionSearch.toLowerCase()) ||
+      transaction.documentNumber?.toLowerCase().includes(transactionSearch.toLowerCase())
   );
 
   // Handle adding a new bank account
@@ -137,6 +266,47 @@ const BankAccountPage = () => {
   const handleSelectBank = (bankId: string) => {
     setSelectedBankId(bankId);
   };
+
+  // Get badge variant based on transaction type
+  const getBadgeVariant = (transaction: any) => {
+    if (transaction.isIncoming) return "default";
+    if (transaction.isOutgoing) return "destructive";
+    return "secondary";
+  };
+
+  // Get badge color classes
+  const getBadgeColorClass = (transaction: any) => {
+    if (transaction.isIncoming) {
+      return "bg-green-100 text-green-800 hover:bg-green-100";
+    }
+    return "";
+  };
+
+  // Get amount color class
+  const getAmountColorClass = (transaction: any) => {
+    if (transaction.isIncoming) return "text-green-600";
+    if (transaction.isOutgoing) return "text-red-600";
+    return "";
+  };
+
+  // Get amount prefix
+  const getAmountPrefix = (transaction: any) => {
+    if (transaction.isIncoming) return "+ ";
+    if (transaction.isOutgoing) return "- ";
+    return "";
+  };
+
+  // Get transaction icon
+  const getTransactionIcon = (transaction: any) => {
+    if (transaction.isIncoming) {
+      return <ArrowDownLeft className="mr-1 h-3 w-3" />;
+    }
+    if (transaction.isOutgoing) {
+      return <ArrowUpRight className="mr-1 h-3 w-3" />;
+    }
+    return <RefreshCw className="mr-1 h-3 w-3" />;
+  };
+
   useEffect(() => {
     // Immediately refetch data when component mounts
     refetch();
@@ -144,11 +314,13 @@ const BankAccountPage = () => {
     // Set up interval for periodic refetching (every 5 seconds)
     const intervalId = setInterval(() => {
       refetch();
-    }, 5000); // Adjust this time as needed
+    }, 5000);
 
     // Clean up interval on unmount
     return () => clearInterval(intervalId);
   }, [refetch]);
+
+  const isLoadingTransactions = isLoadingBankTransactions || isLoadingPayments || isLoadingSales || isLoadingPurchases;
 
   return (
     <div className="flex flex-col h-screen bg-slate-50">
@@ -358,7 +530,7 @@ const BankAccountPage = () => {
           <Card className="flex-1 overflow-hidden">
             <CardHeader className="pb-2">
               <div className="flex justify-between items-center">
-                <CardTitle className="text-lg">Transactions</CardTitle>
+                <CardTitle className="text-lg">All Bank Transactions</CardTitle>
                 <div className="relative w-64">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -386,10 +558,11 @@ const BankAccountPage = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[15%]">Date</TableHead>
-                      <TableHead className="w-[20%]">Type</TableHead>
-                      <TableHead className="w-[45%]">Description</TableHead>
-                      <TableHead className="text-right w-[20%]">
+                      <TableHead className="w-[12%]">Date</TableHead>
+                      <TableHead className="w-[18%]">Type</TableHead>
+                      <TableHead className="w-[35%]">Description</TableHead>
+                      <TableHead className="w-[20%]">Counterparty</TableHead>
+                      <TableHead className="text-right w-[15%]">
                         Amount
                       </TableHead>
                     </TableRow>
@@ -398,7 +571,7 @@ const BankAccountPage = () => {
                     {!selectedBankId ? (
                       <TableRow>
                         <TableCell
-                          colSpan={4}
+                          colSpan={5}
                           className="text-center py-8 text-muted-foreground"
                         >
                           Select a bank account to view transactions
@@ -407,7 +580,7 @@ const BankAccountPage = () => {
                     ) : isLoadingTransactions ? (
                       <TableRow>
                         <TableCell
-                          colSpan={4}
+                          colSpan={5}
                           className="text-center py-8 text-muted-foreground"
                         >
                           Loading transactions...
@@ -416,7 +589,7 @@ const BankAccountPage = () => {
                     ) : filteredTransactions.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={4}
+                          colSpan={5}
                           className="text-center py-8 text-muted-foreground"
                         >
                           {transactionSearch
@@ -427,61 +600,32 @@ const BankAccountPage = () => {
                     ) : (
                       filteredTransactions.map((transaction) => (
                         <TableRow key={transaction.id}>
-                          <TableCell>
-                            {formatDate(transaction.transactionDate)}
+                          <TableCell className="text-sm">
+                            {formatDate(transaction.date)}
                           </TableCell>
 
                           <TableCell>
                             <Badge
-                              variant={
-                                transaction.transactionType ===
-                                BankTransactionType.DEPOSIT
-                                  ? "default"
-                                  : transaction.transactionType ===
-                                    BankTransactionType.WITHDRAWAL
-                                  ? "destructive"
-                                  : "secondary"
-                              }
-                              className={`text-xs ${
-                                transaction.transactionType ===
-                                BankTransactionType.DEPOSIT
-                                  ? "bg-green-100 text-green-800 hover:bg-green-100"
-                                  : ""
-                              }`}
+                              variant={getBadgeVariant(transaction)}
+                              className={`text-xs ${getBadgeColorClass(transaction)}`}
                             >
-                              {transaction.transactionType ===
-                              BankTransactionType.DEPOSIT ? (
-                                <ArrowDownLeft className="mr-1 h-3 w-3" />
-                              ) : transaction.transactionType ===
-                                BankTransactionType.WITHDRAWAL ? (
-                                <ArrowUpRight className="mr-1 h-3 w-3" />
-                              ) : (
-                                <RefreshCw className="mr-1 h-3 w-3" />
-                              )}
-                              {transaction.transactionType}
+                              {getTransactionIcon(transaction)}
+                              {transaction.type}
                             </Badge>
                           </TableCell>
 
-                          <TableCell>{transaction.description}</TableCell>
+                          <TableCell className="text-sm">
+                            {transaction.description}
+                          </TableCell>
+
+                          <TableCell className="text-sm">
+                            {transaction.counterparty || '-'}
+                          </TableCell>
 
                           <TableCell
-                            className={`text-right ${
-                              transaction.transactionType ===
-                              BankTransactionType.DEPOSIT
-                                ? "text-green-600"
-                                : transaction.transactionType ===
-                                  BankTransactionType.WITHDRAWAL
-                                ? "text-red-600"
-                                : ""
-                            }`}
+                            className={`text-right text-sm font-medium ${getAmountColorClass(transaction)}`}
                           >
-                            {transaction.transactionType ===
-                            BankTransactionType.DEPOSIT
-                              ? "+ "
-                              : transaction.transactionType ===
-                                BankTransactionType.WITHDRAWAL
-                              ? "- "
-                              : ""}
+                            {getAmountPrefix(transaction)}
                             {formatCurrency(transaction.amount)}
                           </TableCell>
                         </TableRow>

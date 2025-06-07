@@ -335,8 +335,7 @@ const StockSummaryReport = () => {
                     filteredItems.map((item) => {
                       const unitNames = getUnitNames(item);
                       const stockValue =
-                        (item.primaryOpeningQuantity || 0) *
-                        (item.salePrice || 0);
+                                             (item.primaryQuantity || 0) * (item.salePrice || item.pricePerUnit || item.purchasePrice || 0);
                       const isLowStock =
                         item.minStockLevel &&
                         (item.primaryOpeningQuantity || 0) < item.minStockLevel;
@@ -344,7 +343,9 @@ const StockSummaryReport = () => {
                       return (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">
-                            {item.name}
+                             {item.name.length > 30
+                                  ? item.name.slice(0, 30) + "..."
+                                  : item.name}
                           </TableCell>
 
                           <TableCell className="text-right">

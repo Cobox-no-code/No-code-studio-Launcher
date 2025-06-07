@@ -87,6 +87,7 @@ export enum DocumentType {
     // Common fields
     ewaybill?: string;
     billingAddress?: string;
+    shippingAddress?: string;
     billingName?: string;
     poDate?: string;
     poNumber?: string;

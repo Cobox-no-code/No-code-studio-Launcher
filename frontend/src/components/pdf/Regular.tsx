@@ -341,7 +341,12 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
               </div>
               {hasValue(document.billingAddress) && (
                 <div className="text-sm">
-                  Address: {document.billingAddress}
+                  Billing Address: {document.billingAddress}
+                </div>
+              )}
+               {hasValue(document.shippingAddress) && (
+                <div className="text-sm">
+                 Shipping Address: {document.shippingAddress}
                 </div>
               )}
               {hasValue(document.phone) && (

@@ -431,6 +431,7 @@ export async function initializeDatabase() {
     -- Common fields
     ewaybill TEXT,
     billingAddress TEXT,
+    shippingAddress TEXT,
     billingName TEXT,
     poDate TEXT,
     poNumber TEXT,

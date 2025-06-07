@@ -460,15 +460,12 @@ const StockDetailsPage = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Item Code</TableHead>
+                   
                     <TableHead>Item Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
-                    <TableHead className="text-center">Unit</TableHead>
-                    <TableHead className="text-right">Sale Price (₹)</TableHead>
-                    <TableHead className="text-right">
-                      Purchase Price (₹)
-                    </TableHead>
+                   
+                    <TableHead className="text-right"> Primary Quantity</TableHead>
+                      <TableHead className="text-right"> Secondary Quantity</TableHead>
+                       <TableHead className="text-right"> Price Per unit</TableHead>
                     <TableHead className="text-right">
                       Stock Value (₹)
                     </TableHead>
@@ -482,38 +479,32 @@ const StockDetailsPage = () => {
 
                       const unitInfo = getUnitNames(item);
                       const stockValue =
-                        (item.currentQuantity || 0) * (item.salePrice || 0);
+                        (item.primaryQuantity || 0) * (item.salePrice || item.pricePerUnit || item.purchasePrice || 0);
                       const isLowStock =
                         item.minStockLevel &&
-                        (item.currentQuantity || 0) < item.minStockLevel;
+                        (item.primaryQuantity || 0) < item.minStockLevel;
                       const category = categories?.find(
                         (cat) => cat.id === item.categoryId
                       );
 
                       return (
                         <TableRow key={item.id}>
-                          <TableCell>{item.itemCode || "N/A"}</TableCell>
+                       
                           <TableCell className="font-medium">
-                            {item.name}
+                             {item.name.length > 30
+                                  ? item.name.slice(0, 20) + "..."
+                                  : item.name}
                           </TableCell>
-                          <TableCell>{category?.name || "N/A"}</TableCell>
+                     
                           <TableCell className="text-right">
-                            {(item.currentQuantity || 0).toFixed(2)}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {unitInfo.primary}
-                            {unitInfo.conversionRate > 0 && (
-                              <div className="text-xs text-gray-500">
-                                1 {unitInfo.primary} = {unitInfo.conversionRate}{" "}
-                                {unitInfo.secondary}
-                              </div>
-                            )}
+                            {(item.primaryQuantity || 0).toFixed(2)}
                           </TableCell>
                           <TableCell className="text-right">
-                            ₹{(item.salePrice || 0).toFixed(2)}
+                            {(item.secondaryQuantity || 0).toFixed(2)}
                           </TableCell>
+                        
                           <TableCell className="text-right">
-                            ₹{(item.purchasePrice || 0).toFixed(2)}
+                            ₹{(item.purchasePrice || item.pricePerUnit).toFixed(2)}
                           </TableCell>
                           <TableCell className="text-right font-medium">
                             ₹{stockValue.toFixed(2)}

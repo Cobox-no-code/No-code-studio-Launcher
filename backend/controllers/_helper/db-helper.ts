@@ -35,6 +35,8 @@ export async function insertDocument(documentData: any, firmId: string) {
   if (documentData.phone) dataToInsert.phone = documentData.phone;
   if (documentData.billingAddress)
     dataToInsert.billingAddress = documentData.billingAddress;
+  if (documentData.shippingAddress)
+    dataToInsert.shippingAddress = documentData.shippingAddress;
   if (documentData.billingName)
     dataToInsert.billingName = documentData.billingName;
   if (documentData.ewaybill) dataToInsert.ewaybill = documentData.ewaybill;

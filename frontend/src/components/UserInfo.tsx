@@ -1,15 +1,24 @@
 "use client";
 import { backend_url } from "@/backend.config";
 import { API_BASE_URL } from "@/redux/api/api.config";
-import { useAppDispatch } from "@/redux/hooks";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { fetchFirms } from "@/redux/slices/firmSlice";
 import { setUserInfo, updateIsExpired } from "@/redux/slices/userinfoSlice";
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 
 export default function UserInfo() {
   const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.userinfo)
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
+   useEffect(() => {
+      // Fetch all companies
+      if (user.phone) {
+       dispatch(fetchFirms());
+      }
+    }, [user]);
+    
   // Monitor online/offline status
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
