@@ -12,6 +12,7 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  Zap,
 } from "lucide-react";
 import { clearCurrentFirm } from "@/lib/firm-utils";
 import { Button } from "@/components/ui/button";
@@ -77,6 +78,7 @@ const CompanySelector = ({
   
   const [isFullPageLoading, setIsFullPageLoading] = useState<boolean>(false);
   const [syncSteps, setSyncSteps] = useState<SyncStep[]>([]);
+  const [loadingCompanyId, setLoadingCompanyId] = useState<string | null>(null);
   const dispatch = useAppDispatch();
 
   // Fetch data using RTK Query
@@ -103,8 +105,10 @@ const CompanySelector = ({
     isLoading: isLoadingBankAccounts,
     refetch: refetchBank,
   } = useGetBankAccountsQuery();
+  
   const firmId =
     typeof window !== "undefined" ? localStorage.getItem("firmId") : null;
+  
   useEffect(() => {
     const fetch = async () => {
       const res = await axios.get(`${API_BASE_URL}/firms/${firmId}`);
@@ -116,6 +120,7 @@ const CompanySelector = ({
       fetch();
     }
   }, [firmId]);
+
   // Initialize sync steps
   const initializeSyncSteps = (): SyncStep[] => [
     {
@@ -176,8 +181,6 @@ const CompanySelector = ({
      dispatch(fetchFirms());
     }
   }, [user]);
-
- 
 
   const performSteppedSync = async (company: any) => {
     const owner = user.phone;
@@ -270,22 +273,32 @@ const CompanySelector = ({
       console.error("Sync failed:", error);
       toast.error("Failed to sync data. Please try again.");
       setIsFullPageLoading(false);
+      setLoadingCompanyId(null);
     }
   };
 
   const handleCompanyChange = async (company: any) => {
+    setLoadingCompanyId(company.id);
     dispatch(setCurrentFirm(company));
     setSelectedCompany(company.name);
     setOpen(false);
    
     if (company.isShared != undefined) {
-      // Initialize full page loading
+      // Initialize full page loading for shared companies
       setIsFullPageLoading(true);
       setSyncSteps(initializeSyncSteps());
       dispatch(updateRole(company.role));
       await performSteppedSync(company);
     } else {
+      // Simple loading for non-shared companies
       dispatch(updateRole("admin"));
+      
+      // Add a small delay to show loading state
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      
+      toast.success(`Switched to ${company.name}`);
+      setLoadingCompanyId(null);
+      router.push("/");
     }
   };
 
@@ -295,6 +308,7 @@ const CompanySelector = ({
     setSelectedCompany("");
     setOpen(false);
   };
+  
   const handleLogout = (): void => {
     localStorage.removeItem("name");
     localStorage.removeItem("phone");
@@ -303,7 +317,6 @@ const CompanySelector = ({
     localStorage.removeItem("cachedSubscription");
     localStorage.removeItem("customer_id");
     router.push("/login");
-
     setOpen(false);
   };
 
@@ -316,79 +329,114 @@ const CompanySelector = ({
   const ownedCompanies = companies.filter((company) => !company.isShared);
   const sharedCompanies = companies.filter((company) => company.isShared);
 
-  // Full page loading overlay
+  // Improved full page loading overlay for shared companies
   if (isFullPageLoading) {
     return (
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full mx-4">
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Building className="w-8 h-8 text-blue-600" />
+      <div className="fixed inset-0 bg-gradient-to-br from-slate-900/95 to-blue-900/95 backdrop-blur-md z-50 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full mx-4 border border-slate-200">
+          <div className="text-center mb-8">
+            <div className="relative w-20 h-20 mx-auto mb-6">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full animate-pulse" />
+              <div className="absolute inset-2 bg-white rounded-full flex items-center justify-center">
+                <Building className="w-8 h-8 text-blue-600" />
+              </div>
             </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Switching Company
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">
+              Syncing Company Data
             </h2>
-            <p className="text-gray-600 text-sm">
-              Please wait while we sync your data...
+            <p className="text-gray-600 text-base leading-relaxed">
+              We're securely syncing your shared company data. This ensures you get the latest information.
             </p>
           </div>
 
-          <div className="space-y-4">
-            {syncSteps.map((step) => (
-              <div key={step.id} className="flex items-center space-x-3">
-                <div className="flex-shrink-0">
-                  {step.status === "pending" && (
-                    <div className="w-5 h-5 rounded-full border-2 border-gray-300" />
-                  )}
-                  {step.status === "loading" && (
-                    <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-                  )}
-                  {step.status === "completed" && (
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  )}
-                  {step.status === "error" && (
-                    <AlertCircle className="w-5 h-5 text-red-600" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={cn(
-                        "text-sm font-medium",
-                        step.status === "completed" && "text-green-700",
-                        step.status === "loading" && "text-blue-700",
-                        step.status === "error" && "text-red-700",
-                        step.status === "pending" && "text-gray-500"
-                      )}
-                    >
-                      {step.label}
-                    </span>
+          <div className="space-y-5">
+            {syncSteps.map((step, index) => (
+              <div key={step.id} className="relative">
+                <div className="flex items-center space-x-4">
+                  <div className="flex-shrink-0 relative">
+                    {step.status === "pending" && (
+                      <div className="w-6 h-6 rounded-full border-2 border-gray-300 bg-gray-50" />
+                    )}
                     {step.status === "loading" && (
-                      <span className="text-xs text-blue-600 animate-pulse">
-                        Processing...
-                      </span>
+                      <div className="relative">
+                        <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                          <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                        </div>
+                        <div className="absolute -inset-1 rounded-full border-2 border-blue-300 animate-ping opacity-30" />
+                      </div>
+                    )}
+                    {step.status === "completed" && (
+                      <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                      </div>
+                    )}
+                    {step.status === "error" && (
+                      <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                      </div>
                     )}
                   </div>
-                  <p
-                    className={cn(
-                      "text-xs mt-1",
-                      step.status === "completed" && "text-green-600",
-                      step.status === "loading" && "text-blue-600",
-                      step.status === "error" && "text-red-600",
-                      step.status === "pending" && "text-gray-400"
-                    )}
-                  >
-                    {step.description}
-                  </p>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span
+                        className={cn(
+                          "text-sm font-semibold truncate",
+                          step.status === "completed" && "text-green-700",
+                          step.status === "loading" && "text-blue-700",
+                          step.status === "error" && "text-red-700",
+                          step.status === "pending" && "text-gray-500"
+                        )}
+                      >
+                        {step.label}
+                      </span>
+                      {step.status === "loading" && (
+                        <span className="text-xs font-medium text-blue-600 animate-pulse flex items-center space-x-1">
+                          <Zap className="w-3 h-3" />
+                          <span>Active</span>
+                        </span>
+                      )}
+                      {step.status === "completed" && (
+                        <span className="text-xs font-medium text-green-600">
+                          Done
+                        </span>
+                      )}
+                    </div>
+                    <p
+                      className={cn(
+                        "text-xs leading-relaxed",
+                        step.status === "completed" && "text-green-600",
+                        step.status === "loading" && "text-blue-600",
+                        step.status === "error" && "text-red-600",
+                        step.status === "pending" && "text-gray-400"
+                      )}
+                    >
+                      {step.description}
+                    </p>
+                  </div>
                 </div>
+                
+                {/* Progress line */}
+                {index < syncSteps.length - 1 && (
+                  <div className="absolute left-3 top-8 w-0.5 h-4 bg-gray-200">
+                    {(step.status === "completed" || 
+                      (step.status === "loading" && syncSteps[index + 1]?.status !== "pending")) && (
+                      <div className="w-full h-full bg-gradient-to-b from-blue-500 to-green-500 rounded-full" />
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
 
-          <div className="mt-6 pt-4 border-t border-gray-200">
-            <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>This may take a few moments...</span>
+          <div className="mt-8 pt-6 border-t border-gray-100">
+            <div className="flex items-center justify-center space-x-3 text-sm text-gray-500">
+              <div className="flex space-x-1">
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" />
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}} />
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}} />
+              </div>
+              <span className="font-medium">Syncing in progress...</span>
             </div>
           </div>
         </div>
@@ -410,11 +458,17 @@ const CompanySelector = ({
             role="combobox"
             aria-expanded={open}
             className="w-full justify-between bg-transparent border-gray-700 text-white hover:bg-gray-800 hover:text-white"
+            disabled={loading || loadingCompanyId !== null}
           >
             {loading ? (
               <span className="flex items-center">
                 <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white mr-2"></div>
                 Loading...
+              </span>
+            ) : loadingCompanyId ? (
+              <span className="flex items-center">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Switching...
               </span>
             ) : selectedCompany ? (
               <span className="flex items-center truncate">
@@ -439,15 +493,20 @@ const CompanySelector = ({
                       value={company.name}
                       onSelect={() => handleCompanyChange(company)}
                       className="flex items-center"
+                      disabled={loadingCompanyId === company.id}
                     >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          selectedCompany === company.name
-                            ? "opacity-100"
-                            : "opacity-0"
-                        )}
-                      />
+                      {loadingCompanyId === company.id ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedCompany === company.name
+                              ? "opacity-100"
+                              : "opacity-0"
+                          )}
+                        />
+                      )}
                       <span className="truncate">{company.name}</span>
                     </CommandItem>
                   ))}
@@ -462,16 +521,21 @@ const CompanySelector = ({
                       value={company.name}
                       onSelect={() => handleCompanyChange(company)}
                       className="flex items-center justify-between"
+                      disabled={loadingCompanyId === company.id}
                     >
                       <div className="flex items-center">
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            selectedCompany === company.name
-                              ? "opacity-100"
-                              : "opacity-0"
-                          )}
-                        />
+                        {loadingCompanyId === company.id ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedCompany === company.name
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                        )}
                         <span className="truncate">{company.name}</span>
                       </div>
                       <Badge
@@ -509,13 +573,15 @@ const CompanySelector = ({
                     Sign out of company
                   </CommandItem>
 
-                  {role === "admin" &&<CommandItem
-                    onSelect={() => router.push("/edit-firm")}
-                    className="text-muted-foreground"
-                  >
-                    <Building className="mr-2 h-4 w-4" />
-                    Edit company
-                  </CommandItem>}
+                  {role === "admin" && (
+                    <CommandItem
+                      onSelect={() => router.push("/edit-firm")}
+                      className="text-muted-foreground"
+                    >
+                      <Building className="mr-2 h-4 w-4" />
+                      Edit company
+                    </CommandItem>
+                  )}
                 </>
               )}
             </CommandGroup>

@@ -279,7 +279,13 @@ const CashInHandPage = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {txn.counterparty || "-"}
+                            {txn.counterparty.length>20 ? (
+                              <span title={txn.counterparty}>
+                                {txn.counterparty.slice(0, 20)}...  
+                              </span>
+                            ) : (
+                              txn.counterparty
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
                             {txn.amountReceived > 0 ? (

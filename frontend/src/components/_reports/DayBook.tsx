@@ -295,7 +295,7 @@ const DayBookReport = () => {
                                 {transaction.transactionType}
                               </span>
                             </TableCell>
-                            <TableCell>{transaction.counterparty?.length >30?  transaction?.counterparty?.slice(0,15): transaction?.counterparty}</TableCell>
+                            <TableCell>{transaction.counterparty?.length >30?  transaction?.counterparty?.slice(0,15)+'...': transaction?.counterparty}</TableCell>
                             <TableCell className="text-right">₹{transaction.total.toFixed(2)}</TableCell>
                             <TableCell className="text-right">
                               {transaction.amountReceived > 0 ? `₹${transaction.amountReceived.toFixed(2)}` : '-'}

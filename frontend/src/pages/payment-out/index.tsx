@@ -172,7 +172,7 @@ const PaymentOutPage = () => {
       <div className="flex flex-1 overflow-hidden p-4 gap-4">
         {/* Left panel - Filters and summary */}
         <Card className="w-1/3 max-w-md">
-          <CardHeader className="px-4 py-3">
+          <CardHeader className="px-4 ">
             <div className="flex justify-between items-center">
               <CardTitle className="text-lg">Filters</CardTitle>
               <Button size="sm" onClick={handleAddPayment} className="bg-black">
@@ -181,7 +181,7 @@ const PaymentOutPage = () => {
             </div>
           </CardHeader>
 
-          <CardContent className="p-4 space-y-4">
+          <CardContent className="p-4 space-y-2">
             {/* Party filter */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Supplier/Party</Label>
@@ -378,7 +378,9 @@ const PaymentOutPage = () => {
                         <TableCell>
                           <div className="flex items-center">
                             <Users className="h-3.5 w-3.5 text-muted-foreground mr-1.5" />
-                            {payment.partyName || "-"}
+                            {payment.partyName.length > 20
+                              ? `${payment.partyName.slice(0, 20)}...`
+                              : payment.partyName}
                           </div>
                         </TableCell>
 

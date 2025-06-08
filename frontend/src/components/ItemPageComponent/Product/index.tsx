@@ -193,6 +193,7 @@ const Items = () => {
     // Clean up interval on unmount
     return () => clearInterval(intervalId);
   }, [refetch]);
+  
   // Calculate stock value considering both primary and secondary quantities
   const calculateStockValue = (item: any) => {
     if (!item || !item.purchasePrice) return "—";
@@ -274,6 +275,7 @@ const Items = () => {
         "minStockLevel" in item &&
         item.primaryOpeningQuantity <= (item.minStockLevel || 0)
     ).length || 0;
+
   const getTransactionHistory = () => {
     if (!selectedItem) return [];
 

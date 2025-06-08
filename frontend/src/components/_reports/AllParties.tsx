@@ -307,7 +307,7 @@ const AllPartiesReport = () => {
                   {parties?.map((party) => (
                     <TableRow key={party.id}>
                       <TableCell className="font-medium">
-                        {party.name}
+                        {party.name.length>20? party.name.slice(0, 20) + '...': party.name}
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">

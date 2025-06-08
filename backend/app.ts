@@ -2,13 +2,16 @@ import express from "express";
 import cors from "cors";
 import router from "./route";
 
+
 const app = express();
+
 
 // Enable CORS
 app.use(cors());
 
 // JSON middleware
 app.use(express.json());
+
 
 // API routes
 app.use("/api", router);

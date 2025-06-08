@@ -268,7 +268,7 @@ const PurchasesReport = () => {
                       <TableCell>
                         {invoice.documentDate ? format(new Date(invoice.documentDate), 'dd/MM/yyyy') : '-'}
                       </TableCell>
-                      <TableCell>{invoice.partyName}</TableCell>
+                      <TableCell>{invoice.partyName.length>20 ? invoice.partyName.slice(0,15)+'...': invoice.partyName}</TableCell>
                       <TableCell>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           invoice.transactionType === 'cash' 

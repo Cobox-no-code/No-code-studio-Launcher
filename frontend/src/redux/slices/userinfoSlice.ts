@@ -37,9 +37,24 @@ const userSlice = createSlice({
   name: "user",
   initialState,
   reducers: {
-    setUserInfo(state, action: PayloadAction<UserInfo>) {
-      return action.payload;
-    },
+  setUserInfo(state, action: PayloadAction<UserInfo>) {
+  const incoming = action.payload;
+
+  console.log("Setting user info:", incoming);
+  // Only update localStorage if sync_enabled value changed
+  const storedSync = localStorage.getItem("sync_enabled");
+  if (storedSync === null) {
+    localStorage.setItem("sync_enabled", String(incoming.sync_enabled));
+  }
+  const currentSync = storedSync === "true"; // localStorage stores strings
+
+  if (incoming.sync_enabled !== currentSync) {
+    localStorage.setItem("sync_enabled", String(incoming.sync_enabled));
+  }
+
+  return incoming;
+},
+
     clearUserInfo(state) {
       return initialState;
     },

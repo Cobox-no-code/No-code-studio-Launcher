@@ -16,6 +16,9 @@ import * as firmController from "./controllers/firms.controller";
 import * as syncToCloud from "./controllers/syncCloud.controller";
 
 import { syncCloudAfterChangeFn } from "./middleware/syncCloudAfterChange";
+import multer from "multer";
+import { getLoginQRCode, getWhatsAppStatus, restartWhatsApp, sendPDFController } from "./controllers/whatsapp.controller";
+import { upload } from "./controllers/whatsapp/multer.config";
 function withSync(controllerFn: any, model: string) {
   return async (
     req: express.Request,
@@ -36,7 +39,15 @@ function withSync(controllerFn: any, model: string) {
   };
 }
 
+
+
+
+
 const router = Router();
+router.get('/qr', getLoginQRCode);
+router.get('/status', getWhatsAppStatus);
+router.post('/restart', restartWhatsApp);
+router.post('/send-pdf', upload.single('file'), sendPDFController);
 // Initialization
 router.get("/init", initController.initializeHandler);
 router.get("/initData", initDataController.initDataHandler);

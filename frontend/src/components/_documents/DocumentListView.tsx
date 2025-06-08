@@ -536,7 +536,7 @@ const DocumentListView: React.FC<DocumentListProps> = ({
                               </Badge>
                             ) : (
                               <div className="flex flex-col">
-                                <span>{document.partyName.length>30  ? document.partyName.slice(0, 15) + "..." : document.partyName}</span>
+                                <span>{document.partyName.length>30  ? document.partyName.slice(0, 10) + "..." : document.partyName}</span>
                                 {document.phone && (
                                   <span className="text-xs text-muted-foreground">
                                     {document.phone}
@@ -569,7 +569,7 @@ const DocumentListView: React.FC<DocumentListProps> = ({
                               variant="outline"
                               className="bg-green-50 text-green-700 border-green-200"
                             >
-                              {document.status}
+                              {document.status.length> 20 ? document.status.slice(0, 10) + "..." : document.status}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right w-10">
@@ -709,7 +709,7 @@ const DocumentListView: React.FC<DocumentListProps> = ({
                         : "Supplier"}
                     </p>
                     <p className="text-sm font-medium">
-                      {selectedDocument.partyName}
+                      {selectedDocument.partyName.length>30  ? selectedDocument.partyName.slice(0, 15) + "..." : selectedDocument.partyName}
                     </p>
                   </div>
                   <div>
@@ -797,7 +797,7 @@ const DocumentListView: React.FC<DocumentListProps> = ({
                       <TableBody>
                         {selectedDocument.items?.map((item, index) => (
                           <TableRow key={index}>
-                            <TableCell>{item.itemName}</TableCell>
+                            <TableCell>{item.itemName.length> 30 ? item.itemName.slice(0,15)+'...': item.itemName}</TableCell>
                             <TableCell className="text-right">
                               {item.primaryQuantity} {item.primaryUnitName}
                             </TableCell>
@@ -940,7 +940,7 @@ const DocumentListView: React.FC<DocumentListProps> = ({
 
                 {/* Document conversion options if any */}
                 {getDocumentInfo(selectedDocument.documentType).convertOptions
-                  .length > 0 && (
+                  .length > 0 &&  !selectedDocument.status.includes('convert') &&(
                   <div className="pt-4 border-t">
                     <h3 className="font-medium text-sm flex items-center gap-2 mb-3">
                       <ArrowRightLeft className="h-4 w-4 text-primary" />

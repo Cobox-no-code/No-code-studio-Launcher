@@ -432,7 +432,7 @@ const Parties = () => {
           </CardHeader>
 
           <CardContent className="p-0 overflow-hidden">
-            <div className="h-[calc(100vh-400px)] overflow-y-auto">
+            <div className=" overflow-y-auto">
               <Table>
                 <TableHeader>
                   <TableRow>

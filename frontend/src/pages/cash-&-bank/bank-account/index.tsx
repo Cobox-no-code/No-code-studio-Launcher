@@ -619,7 +619,9 @@ const BankAccountPage = () => {
                           </TableCell>
 
                           <TableCell className="text-sm">
-                            {transaction.counterparty || '-'}
+                            {transaction.counterparty.length > 30
+                              ? `${transaction.counterparty.substring(0, 30)}...`
+                              : transaction.counterparty}
                           </TableCell>
 
                           <TableCell

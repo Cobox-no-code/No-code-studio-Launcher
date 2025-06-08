@@ -382,7 +382,7 @@ const PartyStatementReport = () => {
                 <h3 className="text-sm font-medium text-gray-500">
                   Party Details
                 </h3>
-                <p className="text-lg font-semibold">{selectedParty.name}</p>
+                <p className="text-lg font-semibold">{selectedParty.name.length>20 ? selectedParty.name.slice(0,15)+'...':selectedParty.name}</p>
                 {selectedParty.phone && (
                   <p className="text-sm text-gray-600">
                     Phone: {selectedParty.phone}

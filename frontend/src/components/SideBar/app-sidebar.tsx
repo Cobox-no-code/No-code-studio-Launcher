@@ -1,34 +1,29 @@
-import * as React from "react";
 import {
   AudioWaveform,
-  ShoppingCart,
+  ChartNoAxesColumnIncreasing,
+  ChevronRight,
   Command,
   GalleryVerticalEnd,
-  ReceiptIndianRupee,
-  Landmark,
-  Wrench,
-  RefreshCw,
-  Plus,
-  Wallet,
-  ChevronRight,
-  ShoppingBasket,
-  Users,
   Home,
-  ChartNoAxesColumnIncreasing,
+  Landmark,
+  Plus,
+  ReceiptIndianRupee,
+  RefreshCw,
+  ShoppingBasket,
+  ShoppingCart,
+  Users,
+  Wallet,
+  Wrench,
 } from "lucide-react";
+import * as React from "react";
 
 import { NavMain } from "@/components/SideBar/nav-main";
-import { NavUser } from "@/components/SideBar/nav-user";
-import { TeamSwitcher } from "@/components/SideBar/team-switcher";
 import {
   Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarRail,
+  SidebarContent
 } from "@/components/ui/sidebar";
-import CompanySelector from "../CompanySelector";
 import { useAppSelector } from "@/redux/hooks";
+import CompanySelector from "../CompanySelector";
 import SubscriptionStatus from "../SubscriptionStatus";
 
 // Define role types
@@ -465,4 +460,4 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 }
 
 // Optional: Export role access configuration for use in other components
-export { ROLE_ACCESS, ROLE_SUB_ACCESS, canAccessNavItem, canAccessSubItem };
+export { canAccessNavItem, canAccessSubItem, ROLE_ACCESS, ROLE_SUB_ACCESS };

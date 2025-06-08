@@ -90,7 +90,7 @@ export default function UserInfo() {
                 sync_enabled:
                   firm && firm?.data?.sync_enabled == 0
                     ? false
-                    : firm?.data?.sync_enabled,
+                    : true,
               })
             );
             console.log("Using cached user info (offline)");
@@ -183,7 +183,7 @@ export default function UserInfo() {
                 sync_enabled:
                   firm && firm?.data?.sync_enabled === 0
                     ? false
-                    : firm?.data?.sync_enabled,
+                    : true,
               })
             );
             cacheUserData(response.data);

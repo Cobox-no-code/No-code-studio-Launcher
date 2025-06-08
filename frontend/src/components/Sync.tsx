@@ -9,15 +9,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import React, { useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function Sync() {
-  const { sync_enabled, phone } = useAppSelector((state) => state.userinfo);
+  const {  phone } = useAppSelector((state) => state.userinfo);
+  const [ sync_enabled, setSyncEnabled ] = useState(false);
   const [ showRestrictionModal, setShowRestrictionModal ] = useState(false);
   const rol = useAppSelector((state) => state.firm.role);
   const [isOnline, setIsOnline] = useState(true);
   const router = useRouter()
+
+  useEffect(() => {
+  const sync_enab = window.localStorage && localStorage != undefined && localStorage.getItem("sync_enabled") === "true";
+  setSyncEnabled(sync_enab);
+   console.log("Sync enabled:", sync_enab);
+
+  },[sync_enabled])
+
   // Track online/offline status
   useEffect(() => {
     function updateOnlineStatus() {

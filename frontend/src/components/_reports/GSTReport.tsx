@@ -414,7 +414,7 @@ const GSTReport = () => {
                           const netTax = party.taxIn - party.taxOut
                           return (
                             <TableRow key={index}>
-                              <TableCell className="font-medium">{party.partyName}</TableCell>
+                              <TableCell className="font-medium">{party.partyName?.length ? party.partyName.slice(0,15)+'...': party.partyName}</TableCell>
                               <TableCell className="text-right">{party.saleTotal.toFixed(2)}</TableCell>
                               <TableCell className="text-right text-green-600">{party.taxIn.toFixed(2)}</TableCell>
                               <TableCell className="text-right">{party.purchaseTotal.toFixed(2)}</TableCell>

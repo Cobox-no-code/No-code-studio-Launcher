@@ -708,7 +708,7 @@ const ItemSalesAnalysisPage = () => {
                     {topSellingItems.map((item, index) => (
                       <TableRow key={item.id}>
                         <TableCell>{index + 1}</TableCell>
-                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell className="font-medium">{item.name?.length >20 ? item.name.slice(0,15)+'...': item.name}</TableCell>
                         <TableCell>{item.categoryName}</TableCell>
                         <TableCell className="text-right">{item.quantitySold.toFixed(2)}</TableCell>
                         <TableCell className="text-right">₹{item.averagePrice.toFixed(2)}</TableCell>

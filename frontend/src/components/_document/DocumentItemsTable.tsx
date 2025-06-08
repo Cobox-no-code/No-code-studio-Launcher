@@ -336,240 +336,178 @@ const DocumentItemsTable: React.FC = () => {
     };
   };
 
-  // Update item row with calculations
-  const handleItemChange = (
-    index: number,
-    field: keyof DocumentItem,
-    value: string | boolean
-  ): void => {
-    const items = getItems();
-    if (!items[index]) return;
+ const handleItemChange = (
+  index: number,
+  field: keyof DocumentItem,
+  value: string | boolean
+): void => {
+  const items = getItems();
+  if (!items[index]) return;
 
-    const updatedItem = { ...items[index] };
+  const updatedItem = { ...items[index] };
 
-    // Handle boolean fields separately
-    if (field === "salePriceTaxInclusive") {
-      updatedItem[field] = value === "With Tax" || value === true;
-    } else {
-      (updatedItem as any)[field] = value;
+  // Handle boolean field
+  if (field === "salePriceTaxInclusive") {
+    updatedItem[field] = value === "With Tax" || value === true;
+  } else {
+    (updatedItem as any)[field] = value;
+  }
+
+  // Clear wholesale data if itemName changed
+  if (field === "itemName" && typeof value === "string") {
+    const matchingItem = items.find(
+      (item) => item.itemName?.toLowerCase() === value.toLowerCase()
+    );
+    if (!matchingItem) {
+      updatedItem.itemId = "";
+      updatedItem.wholesalePrice = 0;
+      updatedItem.wholesaleQuantity = 0;
+      updatedItem.hsnCode = "";
+      updatedItem.taxType = "";
+      updatedItem.taxRate = 0;
+      updatedItem.salePriceTaxInclusive = false;
     }
+  }
 
-    // FIX 1: Clear wholesale data when item name is manually changed
-    if (field === "itemName" && typeof value === "string") {
-      // If manually typing (not selecting from dropdown), clear wholesale data
-      const matchingItem = items?.find(
-        (item) => item.itemName?.toLowerCase() === value.toLowerCase()
-      );
+  if (
+    [
+      "primaryQuantity",
+      "secondaryQuantity",
+      "pricePerUnit",
+      "discountPercent",
+      "discountAmount",
+      "taxType",
+      "amount",
+      "salePriceTaxInclusive",
+    ].includes(field)
+  ) {
+    const primaryQty = parseFloat(String(updatedItem.primaryQuantity)) || 0;
+    const secondaryQty = parseFloat(String(updatedItem.secondaryQuantity)) || 0;
+    let price = parseFloat(String(updatedItem.pricePerUnit)) || 0;
+    let discountPercent = parseFloat(String(updatedItem.discountPercent)) || 0;
+    let discountAmount = parseFloat(String(updatedItem.discountAmount)) || 0;
+    const grossAmount = primaryQty * price;
 
-      if (!matchingItem) {
-        updatedItem.itemId = "";
-        updatedItem.wholesalePrice = 0;
-        updatedItem.wholesaleQuantity = 0;
-        updatedItem.hsnCode = "";
-        updatedItem.taxType = "";
-        updatedItem.taxRate = 0;
-        updatedItem.salePriceTaxInclusive = false;
-        // Don't clear unit conversion data if it was manually set
-      }
-    }
+    // Wholesale pricing
+    if (field === "primaryQuantity") {
+      const wholesaleQty = updatedItem.wholesaleQuantity || 0;
+      const wholesalePrice = updatedItem.wholesalePrice || 0;
+      const retailPrice = updatedItem.pricePerUnit || 0;
 
-    // const selectedItem = items?.find((i) => i.id === updatedItem.itemId);
-
-    if (
-      [
-        "primaryQuantity",
-        "secondaryQuantity",
-        "pricePerUnit",
-        "discountPercent",
-        "discountAmount",
-        "taxType",
-        "amount",
-        "salePriceTaxInclusive",
-      ].includes(field)
-    ) {
-      // Convert to numbers safely
-      const primaryQty = parseFloat(String(updatedItem.primaryQuantity)) || 0;
-      const secondaryQty =
-        parseFloat(String(updatedItem.secondaryQuantity)) || 0;
-      let price = parseFloat(String(updatedItem.pricePerUnit)) || 0;
-      let discountPercent =
-        parseFloat(String(updatedItem.discountPercent)) || 0;
-      let discountAmount = parseFloat(String(updatedItem.discountAmount)) || 0;
-      
-      // Wholesale pricing logic
-      if (field === "primaryQuantity") {
-        const wholesaleQty = updatedItem.wholesaleQuantity || 0;
-        const wholesalePrice = updatedItem.wholesalePrice || 0;
-        const retailPrice = updatedItem.pricePerUnit || 0;
-        if (
-          wholesaleQty > 0 &&
-          wholesalePrice > 0 &&
-          primaryQty >= wholesaleQty
-        ) {
-          updatedItem.pricePerUnit = wholesalePrice;
-          price = wholesalePrice;
-          toast.success(
-            `Wholesale price applied: ₹${wholesalePrice} (Min qty: ${wholesaleQty})`
-          );
-        } else {
-          updatedItem.pricePerUnit = retailPrice;
-          price = retailPrice;
-        }
-      }
-
-      // Update unit name if changed
-      if (field === "primaryUnitId" && typeof value === "string") {
-        updatedItem.primaryUnitName = getUnitName(value);
-      }
-
-      let conversionRate = 1;
-      const totalAmount = parseFloat(String(updatedItem.amount)) || 0;
-
-      // Handle amount field changes
-      if (field === "amount" && primaryQty > 0) {
-        const taxRate = getTaxRateFromType(updatedItem.taxType as string);
-        const isTaxInclusive = updatedItem.salePriceTaxInclusive || false;
-
-        let calculatedPricePerUnit: number;
-
-        if (isTaxInclusive) {
-          calculatedPricePerUnit = totalAmount / primaryQty;
-        } else {
-          const amountWithoutTax = totalAmount / (1 + taxRate / 100);
-          calculatedPricePerUnit = amountWithoutTax / primaryQty;
-        }
-
-        updatedItem.pricePerUnit = Number(calculatedPricePerUnit.toFixed(2));
-
-        const newPrice = calculatedPricePerUnit;
-        const grossAmount = primaryQty * newPrice;
-        const discountAmount = (grossAmount * discountPercent) / 100;
-        const amountAfterDiscount = grossAmount - discountAmount;
-
-        let taxAmount: number;
-
-        if (isTaxInclusive) {
-          const baseAmount = amountAfterDiscount / (1 + taxRate / 100);
-          taxAmount = amountAfterDiscount - baseAmount;
-        } else {
-          taxAmount = (amountAfterDiscount * taxRate) / 100;
-        }
-
-        updatedItem.discountAmount = Number(
-          ((grossAmount * discountPercent) / 100).toFixed(2)
-        );
-        updatedItem.taxAmount = Number(taxAmount.toFixed(2));
-
-        dispatch({
-          type: "UPDATE_ITEM",
-          payload: { index, item: updatedItem },
-        });
-        calculateTotals();
-        return;
-      }
-      if (field === "discountPercent" && updatedItem.discountPercent > 100) {
-        toast.error("Discount should be less than 100%");
-        return;
-      }
-      if ( field =="discountAmount" ) {
-        const grossAmount = primaryQty * price;
-         console.log( value)
-        if (grossAmount > 0) {
-          const discountAmt = updatedItem.discountAmount || 0;
-          const percent = (discountAmt / grossAmount) * 100;
-          
-          discountPercent = Number(percent.toFixed(2));
-
-          if (percent > 100) {
-            toast.error(
-              "Discount cannot be more than 100% of the total amount"
-            );
-            return;
-          }
-          updatedItem.discountPercent = discountPercent;
-           updatedItem.discountAmount = Number(discountAmount.toFixed(2));
-      
-      }
-      } else if( field ==="discountPercent" ) {
-          const grossAmount = primaryQty * price;
-          const discountAmt = (grossAmount * parseFloat(String(value))) / 100;
-          updatedItem.discountAmount = Number(discountAmt.toFixed(2));
-          updatedItem.discountPercent = discountPercent;
-         
-        }
-
-      // Check for unit conversion
-      let hasConversion = false;
-      if (updatedItem && isProduct(updatedItem)) {
-        const conversion = getUnitConversion(updatedItem.id);
-        if (conversion) {
-          conversionRate = conversion.conversionRate;
-          hasConversion = true;
-        }
-      }
       if (
-        !hasConversion &&
-        updatedItem.primaryUnitId &&
-        updatedItem.secondaryUnitId
+        wholesaleQty > 0 &&
+        wholesalePrice > 0 &&
+        primaryQty >= wholesaleQty
       ) {
-        const { rate, isReversed } = findConversionRate(
-          updatedItem.primaryUnitId,
-          updatedItem.secondaryUnitId
+        updatedItem.pricePerUnit = wholesalePrice;
+        price = wholesalePrice;
+        toast.success(
+          `Wholesale price applied: ₹${wholesalePrice} (Min qty: ${wholesaleQty})`
         );
-        conversionRate = isReversed ? 1 / rate : rate;
-        hasConversion = true;
+      } else {
+        updatedItem.pricePerUnit = retailPrice;
+        price = retailPrice;
       }
+    }
 
-      // Get tax rate
+    // Update unit name if changed
+    if (field === "primaryUnitId" && typeof value === "string") {
+      updatedItem.primaryUnitName = getUnitName(value);
+    }
+
+    // Handle amount change manually
+    if (field === "amount" && primaryQty > 0) {
+      const totalAmount = parseFloat(String(updatedItem.amount)) || 0;
       const taxRate = getTaxRateFromType(updatedItem.taxType as string);
-      updatedItem.taxRate = taxRate;
-
-      // Calculate amounts based on whether tax is inclusive or not
       const isTaxInclusive = updatedItem.salePriceTaxInclusive || false;
 
-      if (hasConversion) {
-        const result = calculateItemAmount(
-          primaryQty,
-          secondaryQty,
-          price,
-          conversionRate,
-          discountPercent,
-          taxRate,
-          isTaxInclusive
-        );
-
-        updatedItem.discountAmount = Number(result.discountAmount.toFixed(2));
-        updatedItem.taxAmount = Number(result.taxAmount.toFixed(2));
-        updatedItem.amount = Number(result.netAmount.toFixed(2));
+      let calculatedPricePerUnit: number;
+      if (isTaxInclusive) {
+        calculatedPricePerUnit = totalAmount / primaryQty;
       } else {
-        let grossAmount = primaryQty * price;
-        
-        let amountAfterDiscount = grossAmount - discountAmount;
-        let taxAmount: number;
-        let netAmount: number;
-
-        if (isTaxInclusive) {
-          const baseAmount = grossAmount / (1 + taxRate / 100);
-          taxAmount = amountAfterDiscount - baseAmount;
-          netAmount = amountAfterDiscount;
-        } else {
-          taxAmount = (amountAfterDiscount * taxRate) / 100;
-          netAmount = amountAfterDiscount + taxAmount;
-        }
-       
-       
-        updatedItem.taxAmount = Number(taxAmount.toFixed(2));
-        updatedItem.amount = Number(netAmount.toFixed(2));
+        const amountWithoutTax = totalAmount / (1 + taxRate / 100);
+        calculatedPricePerUnit = amountWithoutTax / primaryQty;
       }
+
+      updatedItem.pricePerUnit = Number(calculatedPricePerUnit.toFixed(2));
+      const newPrice = calculatedPricePerUnit;
+      const gross = primaryQty * newPrice;
+      const discountAmt = (gross * discountPercent) / 100;
+      const afterDiscount = gross - discountAmt;
+
+      let taxAmount: number;
+      if (isTaxInclusive) {
+        const base = afterDiscount / (1 + taxRate / 100);
+        taxAmount = afterDiscount - base;
+      } else {
+        taxAmount = (afterDiscount * taxRate) / 100;
+      }
+
+      updatedItem.discountAmount = Number(discountAmt.toFixed(2));
+      updatedItem.taxAmount = Number(taxAmount.toFixed(2));
+      updatedItem.amount = isTaxInclusive
+        ? Number(afterDiscount.toFixed(2))
+        : Number((afterDiscount + taxAmount).toFixed(2));
+
+      dispatch({ type: "UPDATE_ITEM", payload: { index, item: updatedItem } });
+      calculateTotals();
+      return;
     }
 
-    dispatch({
-      type: "UPDATE_ITEM",
-      payload: { index, item: updatedItem },
-    });
+    // Handle direct discountAmount change
+    if (field === "discountAmount") {
+      discountAmount = parseFloat(String(value)) || 0;
+      if (grossAmount === 0) {
+        toast.error("Cannot set discount amount when gross is 0");
+        return;
+      }
+      if (discountAmount > grossAmount) {
+        toast.error("Discount cannot exceed gross amount");
+        return;
+      }
+      discountPercent = (discountAmount / grossAmount) * 100;
+      updatedItem.discountAmount = Number(discountAmount.toFixed(2));
+      updatedItem.discountPercent = Number(discountPercent.toFixed(2));
+    }
 
-    calculateTotals();
-  };
+    // Handle direct discountPercent change
+    if (field === "discountPercent") {
+      discountPercent = parseFloat(String(value)) || 0;
+      if (discountPercent > 100) {
+        toast.error("Discount should be less than or equal to 100%");
+        return;
+      }
+      discountAmount = (grossAmount * discountPercent) / 100;
+      updatedItem.discountPercent = Number(discountPercent.toFixed(2));
+      updatedItem.discountAmount = Number(discountAmount.toFixed(2));
+    }
+
+    // Calculate Tax & Net Amount
+    const taxRate = getTaxRateFromType(updatedItem.taxType as string);
+    updatedItem.taxRate = taxRate;
+
+    const isTaxInclusive = updatedItem.salePriceTaxInclusive || false;
+    let amountAfterDiscount = grossAmount - discountAmount;
+    let taxAmount: number;
+    let netAmount: number;
+
+    if (isTaxInclusive) {
+      const baseAmount = amountAfterDiscount / (1 + taxRate / 100);
+      taxAmount = amountAfterDiscount - baseAmount;
+      netAmount = amountAfterDiscount;
+    } else {
+      taxAmount = (amountAfterDiscount * taxRate) / 100;
+      netAmount = amountAfterDiscount + taxAmount;
+    }
+
+    updatedItem.taxAmount = Number(taxAmount.toFixed(2));
+    updatedItem.amount = Number(netAmount.toFixed(2));
+  }
+
+  dispatch({ type: "UPDATE_ITEM", payload: { index, item: updatedItem } });
+  calculateTotals();
+};
+
 
   // Handle item selection from dropdown
   const handleItemSelection = (index: number, item: Item): void => {

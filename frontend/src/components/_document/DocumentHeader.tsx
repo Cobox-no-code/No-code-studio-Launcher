@@ -507,7 +507,7 @@ const DocumentHeader: React.FC = () => {
                     </div>
                     <div className="flex items-center">
                       <User className="h-4 w-4 text-primary mr-2" />
-                      <span className="font-medium">{document.partyName}</span>
+                      <span className="font-medium">{document.partyName.length>30 ? document.partyName.slice(0,15)+'...': document.partyName}</span>
                     </div>
                     {document.phone && (
                       <div className="flex items-center mt-1 text-sm text-gray-600">

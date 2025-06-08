@@ -449,7 +449,7 @@ const AllTransactionsReport = () => {
                                 {transaction.transactionType}
                               </span>
                             </TableCell>
-                            <TableCell>{transaction.counterparty}</TableCell>
+                            <TableCell>{transaction.counterparty.length>20 ?  transaction.counterparty.slice(0,15)+'...': transaction.counterparty}</TableCell>
                             <TableCell className="text-right">
                               {formatCurrency(transaction.total)}
                             </TableCell>

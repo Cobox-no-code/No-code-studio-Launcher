@@ -89,6 +89,8 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
 import { toast } from "react-hot-toast";
 import { API_BASE_URL } from "@/redux/api/api.config";
 import ManagePermissionModal from "@/components/_modal/ModifySharePermision";
+import PermissionsDialog from "@/components/PermissionTable";
+import { set } from "date-fns";
 
 type Role = "admin" | "editor" | "viewer";
 
@@ -107,11 +109,11 @@ const SyncShare = () => {
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [firmData, setFirmData] = useState<any>(null);
   const [isCurrentUserAdmin, setCurrentUserAdmin] = useState(false);
-
+   const [ openPermissionTable, setOpenPermissionTable ] = useState(false);
   // Permission management modal state
   const [permissionModalOpen, setPermissionModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<SyncedUser | null>(null);
-
+    const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   // Confirm removal modal state
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [userToRemove, setUserToRemove] = useState<SyncedUser | null>(null);
@@ -356,8 +358,12 @@ const SyncShare = () => {
             <div className="space-y-2">
               {syncedUsers.map((user, index) => (
                 <div
+                 onClick={() => {
+setOpenPermissionTable(true);
+setSelectedRole(user.role);
+                    }}
                   key={index}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                  className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
                 >
                   <div className="flex items-center gap-3">
                     <div className="bg-gray-100 p-2 rounded-full">
@@ -470,6 +476,7 @@ const SyncShare = () => {
         isLoading={isRemoving}
         onConfirm={handleRemoveUser}
       />
+      <PermissionsDialog isOpen={openPermissionTable} selectedRole={selectedRole} onOpenChange={()=>setOpenPermissionTable(false)}/>
     </div>
   );
 };

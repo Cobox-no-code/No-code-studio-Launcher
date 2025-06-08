@@ -269,7 +269,7 @@ const GSTR2Report = () => {
                         <TableRow key={invoice.id}>
                           <TableCell className="font-medium">{invoice.documentNumber}</TableCell>
                           <TableCell>{format(new Date(invoice.documentDate), 'dd/MM/yyyy')}</TableCell>
-                          <TableCell>{invoice.partyName}</TableCell>
+                     <TableCell>{invoice.partyName.length>20 ? invoice.partyName.slice(0,15)+'...': invoice.partyName}</TableCell>
         
                           <TableCell className="text-right">₹{invoice.total.toFixed(2)}</TableCell>
                           <TableCell className="text-right">₹{taxableValue.toFixed(2)}</TableCell>

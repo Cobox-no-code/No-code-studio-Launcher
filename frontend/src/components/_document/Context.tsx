@@ -302,80 +302,96 @@ export const DocumentProvider: React.FC<{
     mode
   });
   
-  // Calculate all document totals
-  const calculateTotals = (): DocumentTotals => {
-    // Items total - this already includes individual item taxes
-    const itemsTotal = state.document.items?.reduce((total, item) => {
-      const itemAmount = typeof item.amount === 'string' 
-        ? parseFloat(item.amount) 
-        : (item.amount || 0);
-      return total + (isNaN(itemAmount) ? 0 : itemAmount);
-    }, 0) || 0;
-    
-    // Charges total
-    const chargesTotal = state.document.charges?.reduce((total, charge) => {
-      const chargeAmount = typeof charge.amount === 'string'
-        ? parseFloat(String(charge.amount))
-        : (charge.amount || 0);
-      return total + (isNaN(chargeAmount) ? 0 : chargeAmount);
-    }, 0) || 0;
-    
-    // Calculate the tax total from items for display
-    const taxAmount = state.document.items?.reduce((total, item) => {
-      const itemTaxAmount = typeof item.taxAmount === 'string'
-        ? parseFloat(String(item.taxAmount))
-        : (item.taxAmount || 0);
-      return total + (isNaN(itemTaxAmount) ? 0 : itemTaxAmount);
-    }, 0) || 0;
-    
-    // Get discount amount
-    const discountAmount = typeof state.document.discountAmount === 'string'
-      ? parseFloat(String(state.document.discountAmount) || '0')
-      : (state.document.discountAmount || 0);
-    
-    // Additional amounts
-    const shipping = typeof state.document.shipping === 'string'
-      ? parseFloat(String(state.document.shipping) || '0')
-      : (state.document.shipping || 0);
-    
-    const packaging = typeof state.document.packaging === 'string'
-      ? parseFloat(String(state.document.packaging) || '0')
-      : (state.document.packaging || 0);
-    
-    const adjustment = typeof state.document.adjustment === 'string'
-      ? parseFloat(String(state.document.adjustment) || '0')
-      : (state.document.adjustment || 0);
-    
-    // Calculate subtotal (tax is already included in itemsTotal)
-    const subtotal = itemsTotal + chargesTotal - discountAmount + 
-                  shipping + packaging + adjustment;
-    
-    // Apply round off
-    const roundOff = typeof state.document.roundOff === 'string'
-      ? parseFloat(String(state.document.roundOff) || '0')
-      : (state.document.roundOff || 0);
-    
-    // Calculate final total
-    const total = Math.round(subtotal + roundOff);
-    
-    // Calculate balance amount
-    const paidAmount = typeof state.document.paidAmount === 'string'
-      ? parseFloat(String(state.document.paidAmount) || '0')
-      : (state.document.paidAmount || 0);
-    
-    const balanceAmount = total - paidAmount;
-    
-    return {
-      itemsTotal,
-      subtotal,
-      total,
-      balanceAmount,
-      taxAmount,
-      discountAmount,
-      paidAmount,
-    };
+const calculateTotals = (): DocumentTotals => {
+  // Items total (including item-level tax)
+  const itemsTotal = state.document.items?.reduce((total, item) => {
+    const itemAmount = typeof item.amount === 'string' 
+      ? parseFloat(item.amount) 
+      : (item.amount || 0);
+    return total + (isNaN(itemAmount) ? 0 : itemAmount);
+  }, 0) || 0;
+
+  // Charges total
+  const chargesTotal = state.document.charges?.reduce((total, charge) => {
+    const chargeAmount = typeof charge.amount === 'string'
+      ? parseFloat(String(charge.amount))
+      : (charge.amount || 0);
+    return total + (isNaN(chargeAmount) ? 0 : chargeAmount);
+  }, 0) || 0;
+
+  // Tax from items
+  const taxAmount = state.document.items?.reduce((total, item) => {
+    const itemTax = typeof item.taxAmount === 'string'
+      ? parseFloat(item.taxAmount)
+      : (item.taxAmount || 0);
+    return total + (isNaN(itemTax) ? 0 : itemTax);
+  }, 0) || 0;
+
+  // 🔧 Sum all item-level discounts
+  const itemDiscountTotal = state.document.items?.reduce((total, item) => {
+    const discount = typeof item.discountAmount === 'string'
+      ? parseFloat(item.discountAmount)
+      : (item.discountAmount || 0);
+    return total + (isNaN(discount) ? 0 : discount);
+  }, 0) || 0;
+
+  // Global discount (optional)
+  const globalDiscount = typeof state.document.discountAmount === 'string'
+    ? parseFloat(state.document.discountAmount || '0')
+    : (state.document.discountAmount || 0);
+
+  // Add both global + item discounts
+  const discountAmount = itemDiscountTotal + globalDiscount;
+
+  // Other additions
+  const shipping = typeof state.document.shipping === 'string'
+    ? parseFloat(state.document.shipping || '0')
+    : (state.document.shipping || 0);
+
+  const packaging = typeof state.document.packaging === 'string'
+    ? parseFloat(state.document.packaging || '0')
+    : (state.document.packaging || 0);
+
+  const adjustment = typeof state.document.adjustment === 'string'
+    ? parseFloat(state.document.adjustment || '0')
+    : (state.document.adjustment || 0);
+
+  const subtotal = itemsTotal + chargesTotal - discountAmount + shipping + packaging + adjustment;
+
+  // Round off
+  const roundOff = typeof state.document.roundOff === 'string'
+    ? parseFloat(state.document.roundOff || '0')
+    : (state.document.roundOff || 0);
+
+  const total = Math.round(subtotal + roundOff);
+
+  const paidAmount = typeof state.document.paidAmount === 'string'
+    ? parseFloat(state.document.paidAmount || '0')
+    : (state.document.paidAmount || 0);
+
+  const balanceAmount = total - paidAmount;
+
+  console.log('Document Totals:', {
+    itemsTotal,
+    subtotal,
+    total,
+    balanceAmount,
+    taxAmount,
+    discountAmount,
+    paidAmount
+  });
+
+  return {
+    itemsTotal,
+    subtotal,
+    total,
+    balanceAmount,
+    taxAmount,
+    discountAmount,
+    paidAmount,
   };
-  
+};
+
   // Update the document totals when items, charges, etc. change
   useEffect(() => {
     const totals = calculateTotals();
