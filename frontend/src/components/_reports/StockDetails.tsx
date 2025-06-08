@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import React, { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
+import { DownloadButton } from "../Xl";
 
 const StockDetailsPage = () => {
   // State for filters
@@ -231,6 +232,7 @@ const StockDetailsPage = () => {
             <PrinterIcon className="h-4 w-4" />
             Print
           </Button>
+          <DownloadButton buttonText='Export  XlSX'  data={filteredItems|| []} fileName="stock-details-report" />
           <Button
             onClick={() => handlePrint()}
             variant="outline"

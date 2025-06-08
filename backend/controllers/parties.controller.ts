@@ -183,6 +183,8 @@ export const updateParty = async (
     if (!existingParty) {
       return res.status(404).json({ success: false, error: "Party not found" });
     }
+
+    // Validate name uniqueness and usage in documents
     if (name && name !== existingParty.name) {
       const usedInDocuments = await db("document_items", firmId)
         .where("itemId", id)
@@ -191,10 +193,10 @@ export const updateParty = async (
       if (usedInDocuments) {
         return res.status(400).json({
           success: false,
-          error:
-            "Cannot update Party name. The Party is used in one or more documents.",
+          error: "Cannot update Party name. The Party is used in one or more documents.",
         });
       }
+
       const possibleDuplicates = await db("parties", firmId)
         .andWhereNot("id", id)
         .select();
@@ -214,10 +216,17 @@ export const updateParty = async (
     const now = new Date().toISOString();
     updateData.updatedAt = now;
     if (name) updateData.name = name;
-    if (openingBalance) updateData.openingBalance = openingBalance;
+
+  
+       
+        updateData.openingBalance = Number(openingBalance);
+        updateData.openingBalanceType = openingBalanceType;
+         updateData.currentBalance = (existingParty.currentBalance - existingParty.openingBalance) + Number(openingBalance);
+        updateData.currentBalanceType = currentBalanceType;
 
     await db("parties", firmId).where("id", id).update(updateData);
 
+    // Update additional fields if provided
     if (additionalFields) {
       await db("party_additional_fields", firmId).where("partyId", id).delete();
 
@@ -242,11 +251,9 @@ export const updateParty = async (
       key: f.fieldKey,
       value: f.fieldValue,
     }));
-    [
-      "shippingEnabled",
-      "paymentReminderEnabled",
-      "loyaltyPointsEnabled",
-    ].forEach((field) => {
+
+    // Convert booleans
+    ["shippingEnabled", "paymentReminderEnabled", "loyaltyPointsEnabled"].forEach((field) => {
       if (field in updatedParty)
         updatedParty[field] = Boolean(updatedParty[field]);
     });
@@ -257,6 +264,7 @@ export const updateParty = async (
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
 
 // DELETE /parties/:id - Delete party
 export const deleteParty = async (
@@ -273,11 +281,14 @@ export const deleteParty = async (
     const documentRef = await db("documents", firmId)
       .where("partyId", id)
       .first();
-    if (documentRef) {
+       const paymentRef = await db("payments", firmId)
+      .where("partyId", id)
+      .first();
+    if (documentRef || paymentRef) {
       return res.status(400).json({
         success: false,
         error:
-          "Cannot delete party because it is referenced in one or more documents",
+          "Cannot delete party because it is referenced in one or more documents and payments",
       });
     }
     await db("party_additional_fields", firmId).where("partyId", id).delete();

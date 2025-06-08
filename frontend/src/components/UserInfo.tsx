@@ -12,13 +12,6 @@ export default function UserInfo() {
   const user = useAppSelector((state) => state.userinfo)
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
-   useEffect(() => {
-      // Fetch all companies
-      if (user.phone) {
-       dispatch(fetchFirms());
-      }
-    }, [user]);
-    
   // Monitor online/offline status
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);

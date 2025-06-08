@@ -29,6 +29,7 @@ import {
   RefreshCw as RefreshCwIcon,
   FileSpreadsheet,
 } from "lucide-react";
+import { DownloadButton } from "../Xl";
 
 const TaxRateReport = () => {
   // State for report period
@@ -270,6 +271,8 @@ const TaxRateReport = () => {
             <PrinterIcon className="h-4 w-4" />
             Print
           </Button>
+          <DownloadButton buttonText='Export Sale XlSX'  data={ salesTaxByRate || []} fileName="sale-taxrate-report" />
+          <DownloadButton buttonText='Export Purchase XlSX'  data={ purchasesTaxByRate || []} fileName="purchase-taxrate-report" />
           <Button
             variant="outline"
             size="sm"

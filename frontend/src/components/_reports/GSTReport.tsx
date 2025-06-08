@@ -31,6 +31,7 @@ import {
   ArrowUpRight,
   ArrowDownLeft
 } from 'lucide-react'
+import { DownloadButton } from '../Xl'
 
 const GSTReport = () => {
   // State for report period
@@ -208,6 +209,7 @@ const GSTReport = () => {
             <PrinterIcon className="h-4 w-4" />
             Print
           </Button>
+          <DownloadButton buttonText='Export XlSX'  data={ taxData|| []} fileName="gst-report" />
           <Button 
             variant="outline" 
             size="sm"

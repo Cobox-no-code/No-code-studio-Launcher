@@ -30,6 +30,7 @@ import {
   ArrowUpIcon,
   ArrowDownIcon
 } from 'lucide-react'
+import { DownloadButton } from '../Xl'
 
 const DayBookReport = () => {
   // Get current date in YYYY-MM-DD format
@@ -103,7 +104,7 @@ const DayBookReport = () => {
       return {
         ...invoice,
         transactionType: isSale ? 'Sale' : 'Purchase',
-        counterparty: isSale ? (invoice as any).customer : (invoice as any).supplier,
+        counterparty: isSale ? (invoice as any).partyName : (invoice as any).partyName,
         amountReceived: isSale ? (invoice as any).receivedAmount : 0,
         amountPaid: !isSale ? (invoice as any).paidAmount : 0
       }
@@ -134,6 +135,7 @@ const DayBookReport = () => {
             <PrinterIcon className="h-4 w-4" />
             Print
           </Button>
+          <DownloadButton  buttonText='Export XLXS' data={allTransactions} fileName='day-book'/>
           <Button 
             variant="outline" 
             size="sm"
@@ -293,7 +295,7 @@ const DayBookReport = () => {
                                 {transaction.transactionType}
                               </span>
                             </TableCell>
-                            <TableCell>{transaction.counterparty}</TableCell>
+                            <TableCell>{transaction.counterparty?.length >30?  transaction?.counterparty?.slice(0,15): transaction?.counterparty}</TableCell>
                             <TableCell className="text-right">₹{transaction.total.toFixed(2)}</TableCell>
                             <TableCell className="text-right">
                               {transaction.amountReceived > 0 ? `₹${transaction.amountReceived.toFixed(2)}` : '-'}

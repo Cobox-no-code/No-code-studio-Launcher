@@ -55,6 +55,7 @@ import {
   UnitConversion,
 } from "@/models/item/item.model";
 import { AnyARecord } from "node:dns";
+import { parse } from "node:path";
 
 interface TaxRate {
   value: string;
@@ -391,14 +392,10 @@ const DocumentItemsTable: React.FC = () => {
       const secondaryQty =
         parseFloat(String(updatedItem.secondaryQuantity)) || 0;
       let price = parseFloat(String(updatedItem.pricePerUnit)) || 0;
-      const discountPercent =
+      let discountPercent =
         parseFloat(String(updatedItem.discountPercent)) || 0;
-      console.log(
-        "primaryQuantity",
-        updatedItem.wholesalePrice,
-        updatedItem.wholesaleQuantity,
-        primaryQty
-      );
+      let discountAmount = parseFloat(String(updatedItem.discountAmount)) || 0;
+      
       // Wholesale pricing logic
       if (field === "primaryQuantity") {
         const wholesaleQty = updatedItem.wholesaleQuantity || 0;
@@ -474,14 +471,14 @@ const DocumentItemsTable: React.FC = () => {
         toast.error("Discount should be less than 100%");
         return;
       }
-      if (field === "discountAmount") {
+      if ( field =="discountAmount" ) {
         const grossAmount = primaryQty * price;
-
+         console.log( value)
         if (grossAmount > 0) {
-          const discountAmt = parseFloat(String(value)) || 0;
+          const discountAmt = updatedItem.discountAmount || 0;
           const percent = (discountAmt / grossAmount) * 100;
-          updatedItem.discountAmount = discountAmt;
-          updatedItem.discountPercent = Number(percent.toFixed(2));
+          
+          discountPercent = Number(percent.toFixed(2));
 
           if (percent > 100) {
             toast.error(
@@ -489,13 +486,17 @@ const DocumentItemsTable: React.FC = () => {
             );
             return;
           }
-        } else {
-          toast.error(
-            "Cannot apply discount amount without a valid quantity and price."
-          );
-          return;
-        }
+          updatedItem.discountPercent = discountPercent;
+           updatedItem.discountAmount = Number(discountAmount.toFixed(2));
+      
       }
+      } else if( field ==="discountPercent" ) {
+          const grossAmount = primaryQty * price;
+          const discountAmt = (grossAmount * parseFloat(String(value))) / 100;
+          updatedItem.discountAmount = Number(discountAmt.toFixed(2));
+          updatedItem.discountPercent = discountPercent;
+         
+        }
 
       // Check for unit conversion
       let hasConversion = false;
@@ -542,7 +543,7 @@ const DocumentItemsTable: React.FC = () => {
         updatedItem.amount = Number(result.netAmount.toFixed(2));
       } else {
         let grossAmount = primaryQty * price;
-        let discountAmount = (grossAmount * discountPercent) / 100;
+        
         let amountAfterDiscount = grossAmount - discountAmount;
         let taxAmount: number;
         let netAmount: number;
@@ -555,8 +556,8 @@ const DocumentItemsTable: React.FC = () => {
           taxAmount = (amountAfterDiscount * taxRate) / 100;
           netAmount = amountAfterDiscount + taxAmount;
         }
-
-        updatedItem.discountAmount = Number(discountAmount.toFixed(2));
+       
+       
         updatedItem.taxAmount = Number(taxAmount.toFixed(2));
         updatedItem.amount = Number(netAmount.toFixed(2));
       }
@@ -607,6 +608,7 @@ const DocumentItemsTable: React.FC = () => {
       secondaryUnitName: secondaryUnitName || "",
       primaryQuantity: 1,
       secondaryQuantity: 0,
+      unit_conversionId: item.unit_conversionId,
       wholesalePrice: item.wholesalePrice || 0,
       wholesaleQuantity: isProduct(item)
         ? (item as Product).wholesaleQuantity || 0
@@ -625,7 +627,9 @@ const DocumentItemsTable: React.FC = () => {
     // Calculate amounts based on unit conversion and tax settings
     const primaryQty = 1;
     const secondaryQty = 0;
-    const price = item.salePrice || 0;
+    const price = state.document.documentType.includes("sale")
+        ? item.salePrice || item.pricePerUnit
+        : item.purchasePrice || item.pricePerUnit;
     const discountPercent = 0;
     const taxRate = getTaxRateFromType(item.taxRate || "");
     const isTaxInclusive = updatedItem.salePriceTaxInclusive;
@@ -1464,8 +1468,12 @@ const DocumentItemsTable: React.FC = () => {
                       >
                         <input
                           type="number"
-                          className="w-full px-2 py-1 rounded-md text-right bg-gray-50 text-sm border border-gray-200"
-                          value={row.discountAmount || ""}
+                            className={`w-full px-2 py-1 rounded-md text-right text-sm border ${
+                            focusedRow === index
+                              ? "border-primary ring-1 ring-primary/30"
+                              : "border-gray-200"
+                          }`}
+                          value={row.discountAmount }
                           placeholder="0.00"
                           onFocus={() => setFocusedRow(index)}
                           onBlur={() => setFocusedRow(null)}

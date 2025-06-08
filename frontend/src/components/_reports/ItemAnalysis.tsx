@@ -57,6 +57,7 @@ import {
     XAxis,
     YAxis
 } from 'recharts'
+import { DownloadButton } from "../Xl"
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#8dd1e1'];
 
@@ -360,6 +361,7 @@ const ItemSalesAnalysisPage = () => {
             <PrinterIcon className="h-4 w-4" />
             Print
           </Button>
+           <DownloadButton buttonText='Export  XlSX'  data={ topSellingItems|| []} fileName="item-analysis-report" />
           <Button 
             variant="outline" 
             size="sm"

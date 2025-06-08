@@ -35,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { DownloadButton } from '../Xl'
 
 const SalesReport = () => {
   // State for filters
@@ -109,6 +110,7 @@ const SalesReport = () => {
             <PrinterIcon className="h-4 w-4" />
             Print
           </Button>
+          <DownloadButton buttonText='Export XlSX'  data={salesInvoices || []} fileName="sales-report" />
           <Button 
             variant="outline" 
             size="sm"
@@ -264,7 +266,7 @@ const SalesReport = () => {
                       <TableCell>
                         {invoice.documentDate ? format(new Date(invoice.documentDate), 'dd/MM/yyyy') : '-'}
                       </TableCell>
-                      <TableCell>{invoice.partyName}</TableCell>
+                      <TableCell>{invoice.partyName.length>30 ?  invoice.partyName.slice(0,15): invoice.partyName}</TableCell>
                       <TableCell>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           invoice.transactionType === 'cash' 

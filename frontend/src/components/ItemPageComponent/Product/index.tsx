@@ -646,7 +646,9 @@ const Items = () => {
                 <CardTitle>
                   {selectedItem ? (
                     <div className="flex items-center gap-2">
-                      {selectedItem.name}
+                      {selectedItem.name.length > 30
+                        ? selectedItem.name.slice(0, 20) + "..."
+                        : selectedItem.name}
                       <Badge
                         variant={
                           selectedItem.type === "PRODUCT"
@@ -1016,7 +1018,7 @@ const Items = () => {
                             </div>
                           </TableCell>
                           <TableCell>{transaction.documentNumber}</TableCell>
-                          <TableCell>{transaction.partyName}</TableCell>
+                          <TableCell>{transaction?.partyName?.length >30 ? transaction?.partyName?.slice(0,15): transaction?.partyName}</TableCell>
                           <TableCell>
                             {formatDate(transaction.documentDate)}
                           </TableCell>

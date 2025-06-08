@@ -107,64 +107,85 @@ export const getItemById = async (
 export const updateItem = async (req: Request, res: Response): Promise<any> => {
   try {
     const firmId = (req.headers["x-firm-id"] as string) || "";
-    console.log(req.headers);
     const { id } = req.params;
     const body = req.body;
-    if (body.name) {
-      const existingItem = await db("items", firmId).where("id", id).first();
-      if (body.name && body.name !== existingItem.name) {
-        const usedInDocuments = await db("document_items", firmId)
-          .where("itemId", id)
-          .first();
 
-        if (usedInDocuments) {
-          return res.status(400).json({
-            success: false,
-            error:
-              "Cannot update item name. The item is used in one or more documents.",
-          });
-        }
-        const possibleDuplicates = await db("items", firmId)
-          .andWhereNot("id", id)
-          .select();
+    const existingItem = await db("items", firmId).where("id", id).first();
+    if (!existingItem) {
+      return res.status(404).json({ success: false, error: "Item not found" });
+    }
 
-        const duplicate = possibleDuplicates.some(
-          (item) => item.name.toLowerCase() === body.name.toLowerCase()
-        );
+    // Check name conflict
+    if (body.name && body.name !== existingItem.name) {
+      const usedInDocuments = await db("document_items", firmId)
+        .where("itemId", id)
+        .first();
 
-        if (duplicate) {
-          return res.status(400).json({
-            success: false,
-            error: "Item name must be unique (case-insensitive)",
-          });
-        }
+      if (usedInDocuments) {
+        return res.status(400).json({
+          success: false,
+          error: "Cannot update item name. The item is used in one or more documents.",
+        });
+      }
+
+      const possibleDuplicates = await db("items", firmId)
+        .andWhereNot("id", id)
+        .select();
+
+      const duplicate = possibleDuplicates.some(
+        (item) => item.name.toLowerCase() === body.name.toLowerCase()
+      );
+
+      if (duplicate) {
+        return res.status(400).json({
+          success: false,
+          error: "Item name must be unique (case-insensitive)",
+        });
       }
     }
+
+    // Parse customFields
     if (body.customFields && typeof body.customFields === "object") {
       body.customFields = JSON.stringify(body.customFields);
     }
 
-    const updates = {
-      ...body,
+    const updates: any = {
       updatedAt: new Date().toISOString(),
     };
 
-    const result = await db("items", firmId).where("id", id).update(updates);
-
-    if (result === 0) {
-      return res.status(404).json({ success: false, error: "Item not found" });
+   // ✅ Set opening + adjust quantities
+    if (body.primaryOpeningQuantity !== undefined) {
+      const opening = Number(body.primaryOpeningQuantity)  - (existingItem.primaryOpeningQuantity || 0);
+      updates.primaryOpeningQuantity = body.primaryOpeningQuantity;
+      updates.primaryQuantity = (existingItem.primaryQuantity || 0) + opening;
     }
+
+    if (body.secondaryOpeningQuantity !== undefined) {
+      const opening = Number(body.secondaryOpeningQuantity) - (existingItem.secondaryOpeningQuantity || 0);
+      updates.secondaryOpeningQuantity = body.secondaryOpeningQuantity;
+      updates.secondaryQuantity = (existingItem.secondaryQuantity || 0) + opening;
+    }
+
+
+ 
+
+    // ✅ Other editable fields
+    const allowedFields = ["name", "type", "categoryId", "unit", "description"];
+    for (const key of allowedFields) {
+      if (body[key] !== undefined) {
+        updates[key] = body[key];
+      }
+    }
+
+    await db("items", firmId).where("id", id).update(updates);
 
     const updatedItem = await db("items", firmId).where("id", id).first();
 
-    if (
-      updatedItem.customFields &&
-      typeof updatedItem.customFields === "string"
-    ) {
+    if (updatedItem.customFields && typeof updatedItem.customFields === "string") {
       try {
         updatedItem.customFields = JSON.parse(updatedItem.customFields);
       } catch {
-        // Leave as is
+        // skip parsing error
       }
     }
 
@@ -174,6 +195,8 @@ export const updateItem = async (req: Request, res: Response): Promise<any> => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+
 
 // DELETE /items/:id - Delete item by ID
 export const deleteItem = async (req: Request, res: Response): Promise<any> => {

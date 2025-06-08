@@ -277,7 +277,7 @@ const CompanySelector = ({
     dispatch(setCurrentFirm(company));
     setSelectedCompany(company.name);
     setOpen(false);
-    console.log(company.isShared);
+   
     if (company.isShared != undefined) {
       // Initialize full page loading
       setIsFullPageLoading(true);

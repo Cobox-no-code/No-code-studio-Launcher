@@ -536,7 +536,7 @@ const DocumentListView: React.FC<DocumentListProps> = ({
                               </Badge>
                             ) : (
                               <div className="flex flex-col">
-                                <span>{document.partyName}</span>
+                                <span>{document.partyName.length>30  ? document.partyName.slice(0, 15) + "..." : document.partyName}</span>
                                 {document.phone && (
                                   <span className="text-xs text-muted-foreground">
                                     {document.phone}

@@ -246,6 +246,8 @@ const AddItems = () => {
           id: currentItemId,
           ...itemData,
           unit_conversionId: selectedUnitConversionId,
+          primaryOpeningQuantity:currentFormData.primaryOpeningQuantity || 0,
+          secondaryOpeningQuantity:currentFormData.secondaryOpeningQuantity || 0,
         };
         await updateItem({
           ...finalPayload,
@@ -966,7 +968,7 @@ const AddItems = () => {
                           </Label>
                           <Input
                             id="minStock"
-                             type="number"
+                            type="text"
                             value={formData.minStockLevel || ""}
                             onChange={(e) =>
                               handleInputChange("minStockLevel", e.target.value)

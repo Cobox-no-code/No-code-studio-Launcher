@@ -35,6 +35,7 @@ import {
   ArrowRightLeftIcon,
 } from "lucide-react";
 import { PaymentDirection } from "@/models/payment/payment.model";
+import { DownloadButton } from "../Xl";
 
 const AllTransactionsReport = () => {
   // Date filter state
@@ -233,6 +234,7 @@ const AllTransactionsReport = () => {
             <PrinterIcon className="h-4 w-4" />
             Print
           </Button>
+          <DownloadButton buttonText='Export XlSX'  data={allTransactions|| []} fileName="all-transaction-report" />
           <Button
             variant="outline"
             size="sm"

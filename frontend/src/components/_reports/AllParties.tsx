@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useReactToPrint } from "react-to-print";
 import { useGetPartiesQuery, useGetGroupsQuery } from "@/redux/api/partiesApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DownloadButton } from "../Xl";
 
 const AllPartiesReport = () => {
   // Filter states
@@ -65,7 +66,18 @@ const AllPartiesReport = () => {
       acc[group.id] = group.groupName;
       return acc;
     }, {} as Record<string, string>) || {};
+ useEffect(() => {
+    // Immediately refetch data when component mounts
+    refetchParties();
 
+    // Set up interval for periodic refetching (every 5 seconds)
+    const intervalId = setInterval(() => {
+      refetchParties();
+    }, 5000); // Adjust this time as needed
+
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [refetchParties]);
   // Handle printing
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -130,6 +142,7 @@ const AllPartiesReport = () => {
             <PrinterIcon className="h-4 w-4" />
             Print
           </Button>
+          <DownloadButton buttonText='Export XlSX'  data={ parties|| []} fileName="all-party-report" />
           <Button
             variant="outline"
             size="sm"

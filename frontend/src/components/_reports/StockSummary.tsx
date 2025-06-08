@@ -38,6 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DownloadButton } from "../Xl";
 
 const StockSummaryReport = () => {
   // State for filters
@@ -162,6 +163,7 @@ const StockSummaryReport = () => {
             <PrinterIcon className="h-4 w-4" />
             Print
           </Button>
+          <DownloadButton buttonText='Export  XlSX'  data={filteredItems|| []} fileName="stock-summary-report" />
           <Button
             variant="outline"
             size="sm"

@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/select";
 import { useGetPaymentsQuery } from "@/redux/api/paymentApi";
 import { PaymentDirection } from "@/models/payment/payment.model";
+import { DownloadButton } from "../Xl";
 
 // Transaction type for unified display
 interface Transaction {
@@ -291,6 +292,7 @@ const PartyStatementReport = () => {
             <PrinterIcon className="h-4 w-4" />
             Print
           </Button>
+          <DownloadButton buttonText='Export  XlSX'  data={allTransactions|| []} fileName="party-report" />
           <Button
             variant="outline"
             size="sm"

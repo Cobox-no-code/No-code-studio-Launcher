@@ -56,6 +56,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { DownloadButton } from "../Xl";
 
 const COLORS = [
   "#FF8042",
@@ -194,7 +195,7 @@ const lowStockItems = React.useMemo(() => {
         ...item,
         severity,
         daysToReorder,
-        categoryName: category?.name || "N/A",
+        categoryName: category?.name || "",
         unitName: unit?.shortname || "pcs",
       };
     })
@@ -379,6 +380,7 @@ const purchaseOrderSuggestions = React.useMemo(() => {
             <PrinterIcon className="h-4 w-4" />
             Print Report
           </Button>
+          <DownloadButton buttonText='Export  XlSX'  data={ lowStockItems|| []} fileName="lowstock-report" />
          
         </div>
       </div>
@@ -998,7 +1000,7 @@ const purchaseOrderSuggestions = React.useMemo(() => {
                     <td className="border border-gray-300 p-2 text-center">
                       {item.daysToReorder !== null
                         ? `${item.daysToReorder} days`
-                        : "N/A"}
+                        : ""}
                     </td>
                     <td className="border border-gray-300 p-2 text-center">
                       {item.severity}
