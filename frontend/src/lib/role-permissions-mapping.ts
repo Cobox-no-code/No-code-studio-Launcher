@@ -1,5 +1,36 @@
 // Role Permissions Mapping
 export type PermissionLevel = "allowed" | "restricted" | "not_applicable";
+const full = (): Permission => ({
+  view: "allowed",
+  create: "allowed",
+  edit: "allowed",
+  share: "allowed",
+  delete: "allowed",
+});
+
+const restricted = (): Permission => ({
+  view: "restricted",
+  create: "allowed",
+  edit: "restricted",
+  share: "allowed",
+  delete: "not_applicable",
+});
+
+const readOnly = (): Permission => ({
+  view: "allowed",
+  create: "not_applicable",
+  edit: "not_applicable",
+  share: "allowed",
+  delete: "not_applicable",
+});
+
+const notApplicable = (): Permission => ({
+  view: "not_applicable",
+  create: "not_applicable",
+  edit: "not_applicable",
+  share: "not_applicable",
+  delete: "not_applicable",
+});
 
 export interface Permission {
   view: PermissionLevel;
@@ -13,367 +44,147 @@ export interface RolePermissions {
   [key: string]: Permission;
 }
 
-// Permission mapping for each role
 export const ROLE_PERMISSIONS_MAPPING = {
-  // Biller Permissions
-  biller: {
-    // Sales transactions
-    sale: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    payment_in: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    sale_order: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    credit_note: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    delivery_challan: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    estimate: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    expense: {
-      view: "restricted",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    party: {
-      view: "allowed",
-      create: "allowed",
-      edit: "allowed",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    item: {
-      view: "allowed",
-      create: "not_applicable",
-      edit: "not_applicable",
-      share: "not_applicable",
-      delete: "not_applicable",
-    },
-  } as RolePermissions,
+  admin: {
+    sale_invoice: full(),
+    sale_order: full(),
+    sale_return: full(),
+    sale_quotation: full(),
+    delivery_challan: full(),
+    purchase_invoice: full(),
+    purchase_order: full(),
+    purchase_return: full(),
+    payment_in: full(),
+    payment_out: full(),
+    party: full(),
+    item: full(),
+    settings: full(),
+    sync_settings: full(),
+    reports: full(),
+    stock_transfer: full(),
+    user_management: full(),
+  },
 
-  // Biller and Salesman Permissions
-  biller_salesman: {
-    sale: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    payment_in: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    sale_order: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    credit_note: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    delivery_challan: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    estimate: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    expense: {
-      view: "restricted",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    party: {
-      view: "allowed",
-      create: "allowed",
-      edit: "allowed",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    item: {
-      view: "allowed",
-      create: "allowed",
-      edit: "allowed",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-  } as RolePermissions,
-
-  // CA/Accountant Permissions (Read-only except reports)
-  ca_accountant: {
-    all_transactions: {
-      view: "allowed",
-      create: "not_applicable",
-      edit: "not_applicable",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    settings: {
-      view: "not_applicable",
-      create: "not_applicable",
-      edit: "not_applicable",
-      share: "not_applicable",
-      delete: "not_applicable",
-    },
-    sync_settings: {
-      view: "not_applicable",
-      create: "not_applicable",
-      edit: "not_applicable",
-      share: "not_applicable",
-      delete: "not_applicable",
-    },
-    reports: {
-      view: "allowed",
-      create: "allowed",
-      edit: "allowed",
-      share: "allowed",
-      delete: "allowed",
-    },
-    stock_transfer: {
-      view: "allowed",
-      create: "not_applicable",
-      edit: "not_applicable",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-  } as RolePermissions,
-
-  // Stock Keeper Permissions
-  stock_keeper: {
-    purchase: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "not_applicable",
-      delete: "not_applicable",
-    },
-    payment_out: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "not_applicable",
-      delete: "not_applicable",
-    },
-    purchase_order: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "not_applicable",
-      delete: "not_applicable",
-    },
-    debit_note: {
-      view: "allowed",
-      create: "allowed",
-      edit: "restricted",
-      share: "not_applicable",
-      delete: "not_applicable",
-    },
-    stock_transfer: {
-      view: "restricted",
-      create: "allowed",
-      edit: "not_applicable",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-  } as RolePermissions,
-
-  // Salesman Permissions
-  salesman: {
-    sale: {
-      view: "restricted",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    payment_in: {
-      view: "restricted",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    sale_order: {
-      view: "restricted",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    credit_note: {
-      view: "restricted",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    delivery_challan: {
-      view: "restricted",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    estimate: {
-      view: "restricted",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    expense: {
-      view: "restricted",
-      create: "allowed",
-      edit: "restricted",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-  } as RolePermissions,
-
-  // CA/Accountant (Edit Access) - Full permissions
-  ca_account_edit: {
-    all_transactions: {
-      view: "allowed",
-      create: "allowed",
-      edit: "allowed",
-      share: "allowed",
-      delete: "allowed",
-    },
-    settings: {
-      view: "allowed",
-      create: "not_applicable",
-      edit: "allowed",
-      share: "not_applicable",
-      delete: "not_applicable",
-    },
-    sync_settings: {
-      view: "not_applicable",
-      create: "not_applicable",
-      edit: "not_applicable",
-      share: "not_applicable",
-      delete: "not_applicable",
-    },
-    reports: {
-      view: "allowed",
-      create: "not_applicable",
-      edit: "not_applicable",
-      share: "allowed",
-      delete: "not_applicable",
-    },
-    stock_transfer: {
-      view: "allowed",
-      create: "allowed",
-      edit: "not_applicable",
-      share: "allowed",
-      delete: "allowed",
-    },
-    party_smart_connect: {
-      view: "not_applicable",
-      create: "not_applicable",
-      edit: "not_applicable",
-      share: "not_applicable",
-      delete: "not_applicable",
-    },
-  } as RolePermissions,
-
-  // Secondary Admin - Near full access
   secondary_admin: {
-    // Similar to full admin but may have some restrictions
-    all_transactions: {
+    sale_invoice: full(),
+    sale_order: full(),
+    sale_return: full(),
+    sale_quotation: full(),
+    delivery_challan: full(),
+    purchase_invoice: full(),
+    purchase_order: full(),
+    purchase_return: full(),
+    payment_in: full(),
+    payment_out: full(),
+    party: full(),
+    item: full(),
+    settings: full(),
+    sync_settings: full(),
+    reports: full(),
+    stock_transfer: full(),
+    user_management: full(),
+  },
+
+  biller: {
+    sale_invoice: restricted(),
+    sale_order: restricted(),
+    sale_return: restricted(),
+    sale_quotation: restricted(),
+    delivery_challan: restricted(),
+    payment_in: restricted(),
+    party: {
       view: "allowed",
       create: "allowed",
       edit: "allowed",
       share: "allowed",
-      delete: "allowed",
+      delete: "not_applicable",
     },
+    item: readOnly(),
+  },
+
+  biller_salesman: {
+    sale_invoice: restricted(),
+    sale_order: restricted(),
+    sale_return: restricted(),
+    sale_quotation: restricted(),
+    delivery_challan: restricted(),
+    payment_in: restricted(),
+    party: {
+      view: "allowed",
+      create: "allowed",
+      edit: "allowed",
+      share: "allowed",
+      delete: "not_applicable",
+    },
+    item: {
+      view: "allowed",
+      create: "allowed",
+      edit: "allowed",
+      share: "allowed",
+      delete: "not_applicable",
+    },
+  },
+
+  salesman: {
+    sale_invoice: restricted(),
+    sale_order: restricted(),
+    sale_return: restricted(),
+    sale_quotation: restricted(),
+    delivery_challan: restricted(),
+    payment_in: restricted(),
+    party: readOnly(),
+    item: readOnly(),
+  },
+
+  stock_keeper: {
+    purchase_invoice: restricted(),
+    purchase_order: restricted(),
+    purchase_return: restricted(),
+    payment_out: restricted(),
+    stock_transfer: {
+      view: "restricted",
+      create: "allowed",
+      edit: "not_applicable",
+      share: "allowed",
+      delete: "not_applicable",
+    },
+    item: readOnly(),
+  },
+
+  ca_accountant: {
+    sale_invoice: readOnly(),
+    purchase_invoice: readOnly(),
+    payment_in: readOnly(),
+    payment_out: readOnly(),
+    reports: full(),
+    stock_transfer: readOnly(),
+    settings: notApplicable(),
+    sync_settings: notApplicable(),
+    item: readOnly(),
+    party: readOnly(),
+  },
+
+  ca_account_edit: {
+    sale_invoice: full(),
+    purchase_invoice: full(),
+    payment_in: full(),
+    payment_out: full(),
+    reports: full(),
+    stock_transfer: full(),
     settings: {
       view: "allowed",
-      create: "allowed",
+      create: "not_applicable",
       edit: "allowed",
-      share: "allowed",
-      delete: "restricted",
+      share: "not_applicable",
+      delete: "not_applicable",
     },
-    sync_settings: {
-      view: "allowed",
-      create: "restricted",
-      edit: "restricted",
-      share: "restricted",
-      delete: "restricted",
-    },
-    reports: {
-      view: "allowed",
-      create: "allowed",
-      edit: "allowed",
-      share: "allowed",
-      delete: "allowed",
-    },
-    stock_transfer: {
-      view: "allowed",
-      create: "allowed",
-      edit: "allowed",
-      share: "allowed",
-      delete: "allowed",
-    },
-    user_management: {
-      view: "allowed",
-      create: "restricted",
-      edit: "restricted",
-      share: "restricted",
-      delete: "restricted",
-    },
-  } as RolePermissions,
-};
+    sync_settings: notApplicable(),
+    user_management: notApplicable(),
+    item: readOnly(),
+    party: full(),
+  },
+} satisfies Record<string, RolePermissions>;
+
 
 // Helper function to check if a user has permission for a specific action
 export const hasPermission = (
@@ -381,6 +192,7 @@ export const hasPermission = (
   transaction: string,
   action: keyof Permission
 ): boolean => {
+  console.log(`Checking permission for role: ${role}, transaction: ${transaction}, action: ${action}`);
   const rolePermissions = ROLE_PERMISSIONS_MAPPING[role];
   if (!rolePermissions || !rolePermissions[transaction]) {
     return false;

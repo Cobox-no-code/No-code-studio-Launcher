@@ -476,7 +476,7 @@ setSelectedRole(user.role);
         isLoading={isRemoving}
         onConfirm={handleRemoveUser}
       />
-      <PermissionsDialog isOpen={openPermissionTable} selectedRole={selectedRole} onOpenChange={()=>setOpenPermissionTable(false)}/>
+      <PermissionsDialog isOpen={openPermissionTable && !permissionModalOpen && !confirmModalOpen} selectedRole={selectedRole} onOpenChange={()=>setOpenPermissionTable(false)}/>
     </div>
   );
 };

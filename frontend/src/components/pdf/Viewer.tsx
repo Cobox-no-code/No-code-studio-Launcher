@@ -141,23 +141,12 @@ const QRLoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   <ol className="text-left space-y-1 text-blue-700">
                     <li>1. Open WhatsApp on your phone</li>
                     <li>2. Tap the three dots (⋮) in the top right</li>
-                    <li>3. Select "Linked devices"</li>
-                    <li>4. Tap "Link a device"</li>
+                    <li>3. Select &lsquo;Linked devices&lsquo;</li>
+                    <li>4. Tap &lsquo;Link a device&lsquo;</li>
                     <li>5. Point your camera at this QR code</li>
                   </ol>
                 </div>
 
-                <div className="bg-yellow-50 p-3 rounded-lg">
-                  <p className="font-medium text-yellow-800 mb-1">
-                    ⚠️ Troubleshooting:
-                  </p>
-                  <ul className="text-left space-y-1 text-yellow-700 text-xs">
-                    <li>• Make sure you have a stable internet connection</li>
-                    <li>• Ensure WhatsApp is updated to the latest version</li>
-                    <li>• If it fails, close this dialog and try again</li>
-                    <li>• QR code refreshes automatically every 30 seconds</li>
-                  </ul>
-                </div>
               </div>
               {isCheckingStatus && (
                 <div className="flex items-center justify-center py-2">

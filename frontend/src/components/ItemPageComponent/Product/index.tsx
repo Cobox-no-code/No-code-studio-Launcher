@@ -65,7 +65,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useAppDispatch } from "@/redux/hooks";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { openCreateForm, openEditForm } from "@/redux/slices/itemsSlice";
 import toast from "react-hot-toast";
 import {
@@ -80,6 +80,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DocumentType } from "@/models/document/document.model";
+import { hasPermission } from "@/lib/role-permissions-mapping";
 // Helper to format currency
 const formatCurrency = (amount: string | number | bigint) => {
   const numericAmount =
@@ -106,6 +107,7 @@ const Items = () => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const { deleteItem } = useDeleteActions();
+  const role = useAppSelector((state) => state.firm.role);
   // State management
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filterProduct, setFilterProduct] = useState("");
@@ -433,9 +435,9 @@ const Items = () => {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle>Item Inventory</CardTitle>
-              <Button onClick={() => openCreateModal()}>
+             { hasPermission(role,'item','create')&& <Button onClick={() => openCreateModal()}>
                 <Plus className="h-4 w-4 mr-1" /> Add Item
-              </Button>
+              </Button>}
             </div>
 
             <div className="relative mt-2">
@@ -605,6 +607,7 @@ const Items = () => {
                                 </button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-40">
+                               { hasPermission(role,'item','edit') && 
                                 <DropdownMenuItem
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -612,8 +615,8 @@ const Items = () => {
                                   }}
                                 >
                                   Edit Item
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
+                                </DropdownMenuItem>}
+                               { hasPermission(role,'item','delete')&&   <DropdownMenuItem
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     deleteItem(
@@ -625,7 +628,7 @@ const Items = () => {
                                   className="text-red-600 focus:text-red-600"
                                 >
                                   Delete Item
-                                </DropdownMenuItem>
+                                </DropdownMenuItem>}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -668,7 +671,7 @@ const Items = () => {
                     "Item Details"
                   )}
                 </CardTitle>
-                {selectedItem && (
+                 { hasPermission(role,'item','edit')&& selectedItem && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -934,8 +937,8 @@ const Items = () => {
             </CardContent>
           </Card>
 
-          {/* Transaction History */}
-          <Card>
+     
+        {  hasPermission(role,'sale_invoice','view') && hasPermission(role,'purchase_invoice','view')&& <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
@@ -1113,7 +1116,7 @@ const Items = () => {
                 </Table>
               </div>
             </CardContent>
-          </Card>
+          </Card>}
         </div>
       </div>
     </div>

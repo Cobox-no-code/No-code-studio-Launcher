@@ -83,6 +83,8 @@ import { PaymentDirection } from "@/models/payment/payment.model";
 import { useDeleteActions } from "@/hooks/useDeleteAction";
 import { useRouter } from "next/navigation";
 import { DocumentType } from "@/models/document/document.model";
+import { hasPermission } from "@/lib/role-permissions-mapping";
+import { useAppSelector } from "@/redux/hooks";
 
 // Helper to format currency
 const formatCurrency = (amount: string | number | bigint) => {
@@ -108,7 +110,7 @@ const formatDate = (dateString: string) => {
 
 const Parties = () => {
   const dispatch = useDispatch<AppDispatch>();
-
+  const role = useAppSelector((state)=>state.firm.role)
   // State management
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filterParty, setFilterParty] = useState("");
@@ -392,9 +394,9 @@ const Parties = () => {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle>Party Directory</CardTitle>
-              <Button onClick={() => openCreateModal()}>
+              {hasPermission(role,'party','create') && <Button onClick={() => openCreateModal()}>
                 <Plus className="h-4 w-4 mr-1" /> Add Party
-              </Button>
+              </Button>}
             </div>
 
             <div className="relative mt-2">
@@ -537,15 +539,15 @@ const Parties = () => {
                               </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-40">
-                              <DropdownMenuItem
+                             {hasPermission(role,'party','edit')&& <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   openEditModal(party.id);
                                 }}
                               >
                                 Edit Item
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
+                              </DropdownMenuItem>}
+                              {hasPermission(role,'party','delete')&& <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   deleteParty(
@@ -557,7 +559,7 @@ const Parties = () => {
                                 className="text-red-600 focus:text-red-600"
                               >
                                 Delete Item
-                              </DropdownMenuItem>
+                              </DropdownMenuItem>}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -597,7 +599,7 @@ const Parties = () => {
                     "Party Details"
                   )}
                 </CardTitle>
-                {selectedParty && (
+                {selectedParty && hasPermission(role,'party','edit') &&(
                   <Button
                     variant="outline"
                     onClick={() => openEditModal(selectedParty.id)}
@@ -858,7 +860,7 @@ const Parties = () => {
           </Card>
 
           {/* Transaction History */}
-          <Card>
+         {  hasPermission(role,'sale_invoice','view') && hasPermission(role,'purchase_invoice','view')&&  <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
@@ -1030,7 +1032,7 @@ const Parties = () => {
                 </Table>
               </div>
             </CardContent>
-          </Card>
+          </Card>}
         </div>
       </div>
     </div>

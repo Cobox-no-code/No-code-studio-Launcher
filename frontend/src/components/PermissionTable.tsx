@@ -6,39 +6,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-// Mock data for demonstration - replace with your actual imports
-const ROLE_PERMISSIONS_MAPPING = {
-  biller: {
-    sales: { view: "allowed", create: "allowed", edit: "restricted", share: "not_applicable", delete: "not_applicable" },
-    purchases: { view: "allowed", create: "not_applicable", edit: "not_applicable", share: "not_applicable", delete: "not_applicable" },
-    inventory: { view: "allowed", create: "not_applicable", edit: "not_applicable", share: "not_applicable", delete: "not_applicable" },
-  },
-  salesman: {
-    sales: { view: "allowed", create: "allowed", edit: "allowed", share: "allowed", delete: "restricted" },
-    purchases: { view: "restricted", create: "not_applicable", edit: "not_applicable", share: "not_applicable", delete: "not_applicable" },
-    inventory: { view: "allowed", create: "not_applicable", edit: "not_applicable", share: "not_applicable", delete: "not_applicable" },
-  },
-  ca_accountant: {
-    sales: { view: "allowed", create: "allowed", edit: "allowed", share: "allowed", delete: "allowed" },
-    purchases: { view: "allowed", create: "allowed", edit: "allowed", share: "allowed", delete: "restricted" },
-    inventory: { view: "allowed", create: "restricted", edit: "restricted", share: "allowed", delete: "not_applicable" },
-  },
-};
-
-const TRANSACTION_DISPLAY_NAMES = {
-  sales: "Sales",
-  purchases: "Purchases", 
-  inventory: "Inventory Management",
-};
-
-const getRolePermissions = (role) => {
-  return ROLE_PERMISSIONS_MAPPING[role];
-};
-
-type Role = keyof typeof ROLE_PERMISSIONS_MAPPING;
+import {
+  ROLE_PERMISSIONS_MAPPING,
+  TRANSACTION_DISPLAY_NAMES,
+  ACTION_DISPLAY_NAMES,
+  PERMISSION_ICONS,
+  hasPermission,
+  isPermissionRestricted,
+  getRolePermissions,
+} from "@/lib/role-permissions-mapping";
 
 interface PermissionsDialogProps {
-  selectedRole: Role | any;
+  selectedRole:  any;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -64,7 +43,7 @@ const PermissionsDialog: React.FC<PermissionsDialogProps> = ({
   }
 
   // Get role display name
-  const getRoleDisplayName = (role: Role): string => {
+  const getRoleDisplayName = (role:any): string => {
     const roleNames = {
       biller: "Biller",
       biller_salesman: "Biller and Salesman",

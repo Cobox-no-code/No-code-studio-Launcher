@@ -3,6 +3,7 @@ import axios from "axios";
 import { API_BASE_URL } from "../api/api.config";
 import { set } from "date-fns";
 import { backend_url } from "@/backend.config";
+import { ROLE_PERMISSIONS_MAPPING } from "@/lib/role-permissions-mapping";
 interface Company {
   id: string;
   name: string;
@@ -25,7 +26,7 @@ interface FirmState {
   firms: any[];
   loading: boolean;
   error: string | null;
-  role: string | null;
+  role: keyof typeof ROLE_PERMISSIONS_MAPPING ;
 }
 
 const initialState: FirmState = {

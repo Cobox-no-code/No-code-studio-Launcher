@@ -97,24 +97,7 @@ export default function Sync() {
         </DialogContent>
       </Dialog>
 
-      {/* SYNC NOT ENABLED OR NOT ADMIN */}
-      <Dialog open={showRestrictionModal} onOpenChange={() => router.push("/firm")}>
-        <DialogContent
-          className="sm:max-w-md"
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onEscapeKeyDown={(e) => e.preventDefault()}
-        >
-          <DialogHeader>
-            <DialogTitle className="text-center text-orange-500">
-              SYNC NOT AVAILABLE
-            </DialogTitle>
-            <p className="text-center mt-2">
-              Sync is not enabled. Please contact your Admin to enable sync for
-              your account.
-            </p>
-          </DialogHeader>
-        </DialogContent>
-      </Dialog>
+   
     </>
   );
 }

@@ -21,6 +21,7 @@ import { useAppSelector } from "@/redux/hooks";
 import Sync from "@/components/Sync";
 import Updater from "@/components/Updater";
 import { DeleteConfirmationProvider } from "@/lib/context/DeleteConfirmationContext";
+import { hasPermission } from "@/lib/role-permissions-mapping";
 // Subscription access control wrapper component
 const SubscriptionGuard = ({ children, router }) => {
   const userInfo = useAppSelector((state) => state.userinfo);
@@ -126,7 +127,11 @@ function MyApp({ Component, pageProps }: AppProps) {
   const isDocumentRoute =
     router.pathname.includes("/document") && !router.pathname.includes("list");
 
-  const LayoutWrapper = ({ children }: { children: React.ReactNode }) => (
+  const LayoutWrapper = ({ children }: { children: React.ReactNode }) => {
+     const role = useAppSelector((state) => state.firm.role);
+    return(
+   
+
     <div className="w-full flex bg-primary text-black">
       <SidebarProvider>
         <AppSidebar />
@@ -134,20 +139,20 @@ function MyApp({ Component, pageProps }: AppProps) {
           <header className="border flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
             <div className="flex justify-end w-full items-center gap-2 px-4">
               <div className="flex justify-center gap-3">
-                <Link
+                { hasPermission(role , 'sale_invoice','create') &&<Link
                   href="/document/sale_invoice"
                   className="shadow-md gap-2 h-10 text-sm font-medium py-2 px-4 items-center flex justify-center rounded-lg bg-rose-100 text-rose-600 hover:bg-rose-200 transition-colors duration-200"
                 >
                   <Plus className="w-4 h-4" />
                   Add Sale
-                </Link>
-                <Link
+                </Link>}
+                { hasPermission(role , 'purchase_invoice','create') &&<Link
                   href="/document/purchase_invoice"
                   className="shadow-md gap-2 h-10 text-sm font-medium py-2 px-4 items-center flex justify-center rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors duration-200"
                 >
                   <Plus className="w-4 h-4" />
                   Add Purchase
-                </Link>
+                </Link>}
               </div>
             </div>
           </header>
@@ -155,7 +160,7 @@ function MyApp({ Component, pageProps }: AppProps) {
         </SidebarInset>
       </SidebarProvider>
     </div>
-  );
+  );}
 
   // Wrapper with store to use Redux hooks
   const AppWrapper = () => {

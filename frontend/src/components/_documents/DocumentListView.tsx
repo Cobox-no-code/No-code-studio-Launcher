@@ -58,6 +58,8 @@ import {
 } from "@/redux/api/documentApi";
 import { DocumentType } from "@/models/document/document.model";
 import { useDeleteActions } from "@/hooks/useDeleteAction";
+import { hasPermission } from "@/lib/role-permissions-mapping";
+import { useAppSelector } from "@/redux/hooks";
 
 // Helper to format currency
 const formatCurrency = (amount: string | number | bigint) => {
@@ -226,7 +228,7 @@ const DocumentListView: React.FC<DocumentListProps> = ({
   title = "Documents",
 }) => {
   const router = useRouter();
-
+  const role = useAppSelector((state => state.firm.role));
   // State management
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
     null
@@ -388,9 +390,9 @@ const DocumentListView: React.FC<DocumentListProps> = ({
         </div>
 
         <div className="flex items-start gap-4">
-          <Button onClick={handleCreateNew}>
-            <Plus className="h-4 w-4 mr-1" /> New {mainDocInfo.title}
-          </Button>
+           { hasPermission(role , documentType,'create') && <Button onClick={handleCreateNew}>
+                <Plus className="h-4 w-4 mr-1" /> Add New
+              </Button>}
         </div>
       </section>
 
@@ -400,9 +402,9 @@ const DocumentListView: React.FC<DocumentListProps> = ({
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle>{mainDocInfo.title} List</CardTitle>
-              <Button onClick={handleCreateNew}>
+            { hasPermission(role , documentType,'create') && <Button onClick={handleCreateNew}>
                 <Plus className="h-4 w-4 mr-1" /> Add New
-              </Button>
+              </Button>}
             </div>
 
             <div className="relative mt-2">
@@ -580,7 +582,7 @@ const DocumentListView: React.FC<DocumentListProps> = ({
                                 </button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-40">
-                                <DropdownMenuItem
+                             { hasPermission(role , documentType,'edit') &&   <DropdownMenuItem
                                   className="justify-start"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -589,10 +591,10 @@ const DocumentListView: React.FC<DocumentListProps> = ({
                                 >
                                   <Edit className="mr-2 h-4 w-4" />
                                   Edit
-                                </DropdownMenuItem>
+                                </DropdownMenuItem>}
 
                              
-
+{ hasPermission(role , documentType,'view') &&
                                 <DropdownMenuItem
                                   className="justify-start"
                                   onClick={(e) => {
@@ -602,9 +604,9 @@ const DocumentListView: React.FC<DocumentListProps> = ({
                                 >
                                   <Printer className="mr-2 h-4 w-4" />
                                   Print
-                                </DropdownMenuItem>
+                                </DropdownMenuItem>}
 
-                                <DropdownMenuItem
+                                { hasPermission(role , documentType,'delete') &&<DropdownMenuItem
                                   className="justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -613,7 +615,7 @@ const DocumentListView: React.FC<DocumentListProps> = ({
                                 >
                                   <X className="mr-2 h-4 w-4" />
                                   Delete
-                                </DropdownMenuItem>
+                                </DropdownMenuItem>}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -658,7 +660,7 @@ const DocumentListView: React.FC<DocumentListProps> = ({
                   "Document Details"
                 )}
               </CardTitle>
-              {selectedDocument && (
+              {selectedDocument && hasPermission(role , documentType,'view') && (
                 <div className="flex gap-2">
                   <Button
                     size="sm"

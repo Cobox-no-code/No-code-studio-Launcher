@@ -345,7 +345,7 @@ const CompanySelector = ({
               Syncing Company Data
             </h2>
             <p className="text-gray-600 text-base leading-relaxed">
-              We're securely syncing your shared company data. This ensures you get the latest information.
+              We&lsquo;re securely syncing your shared company data. This ensures you get the latest information.
             </p>
           </div>
 
