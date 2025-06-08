@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 
 export default function Sync() {
   const { sync_enabled, phone } = useAppSelector((state) => state.userinfo);
+  const [ showRestrictionModal, setShowRestrictionModal ] = useState(false);
   const rol = useAppSelector((state) => state.firm.role);
   const [isOnline, setIsOnline] = useState(true);
   const router = useRouter()
@@ -50,11 +51,21 @@ export default function Sync() {
     return () => clearInterval(interval);
   }, [sync_enabled, isOnline, phone]);
 
+
+  useEffect(()=>{
+  // Restriction Modal if sync is not enabled or not admin
+  const showRestrictionModal = !sync_enabled && rol !== "admin";
+  
+  if( showRestrictionModal ) {
+    setShowRestrictionModal(true);
+  }
+  else {
+    setShowRestrictionModal(false);
+  }
+  },[sync_enabled, rol]);
   // Offline Modal if sync is enabled but offline
   const showOfflineModal = sync_enabled && !isOnline;
 
-  // Restriction Modal if sync is not enabled or not admin
-  const showRestrictionModal = !sync_enabled && rol !== "admin";
 
   return (
     <>
