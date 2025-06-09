@@ -267,15 +267,13 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
 
           <div className="border border-gray-300 p-2 mb-4 flex gap-3">
             <div className="flex-shrink-0">
-              {hasValue(firmData?.businessLogo) ? (
+              {hasValue(firmData?.businessLogo) &&(
                 <img
                   src={firmData.businessLogo}
                   alt="Business Logo"
                   className="h-20 w-20 object-contain"
                 />
-              ) : (
-                <div className="h-20 w-20 bg-gray-100 border border-gray-300 flex items-center justify-center text-sm text-gray-400"></div>
-              )}
+              ) }
             </div>
 
             <div className="grid grid-cols-3  w-full">
@@ -566,7 +564,7 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
                     {Object.entries(
                       document.items.reduce(
                         (acc: Record<any, any>, item: any) => {
-                          const hsnCode = item.hsnCode || "UNKNOWN";
+                          const hsnCode = item.hsnCode || " ";
                           if (!acc[hsnCode]) {
                             acc[hsnCode] = {
                               taxableValue: 0,

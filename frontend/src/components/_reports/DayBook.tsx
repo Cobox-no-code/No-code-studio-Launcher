@@ -31,6 +31,8 @@ import {
   ArrowDownIcon
 } from 'lucide-react'
 import { DownloadButton } from '../Xl'
+import { PaymentDirection } from '@/models/payment/payment.model'
+import { useGetPaymentsQuery } from '@/redux/api/paymentApi'
 
 const DayBookReport = () => {
   // Get current date in YYYY-MM-DD format
@@ -62,6 +64,15 @@ const DayBookReport = () => {
     startDate: selectedDate,
     endDate: selectedDate
   })
+  const { 
+    data: payments, 
+    isLoading: isLoadingPayments, 
+    isError: isPaymentsError,
+    refetch: refetchPayments 
+  } = useGetPaymentsQuery({ 
+    startDate: selectedDate,
+    endDate: selectedDate
+  })
 
   // Handle printing
   const handlePrint = useReactToPrint({
@@ -81,12 +92,13 @@ const DayBookReport = () => {
   const calculateTotals = () => {
     const salesTotal = saleInvoices?.reduce((sum, invoice) => sum + invoice.total, 0) || 0
     const purchasesTotal = purchaseInvoices?.reduce((sum, invoice) => sum + invoice.total, 0) || 0
-    
+    const paymentsTotal = payments?.reduce((sum, payment) => sum + payment.amount, 0) || 0
     return {
       salesCount: saleInvoices?.length || 0,
       purchasesCount: purchaseInvoices?.length || 0,
       salesTotal,
       purchasesTotal,
+      paymentsTotal,
       netCashFlow: salesTotal - purchasesTotal
     }
   }
@@ -98,23 +110,51 @@ const DayBookReport = () => {
   const companyPhone = typeof window !== 'undefined' ? localStorage.getItem('firmPhone') || '9752133459' : '9752133459'
 
   // Combine and sort transactions for "All" tab
-  const allTransactions = [...(saleInvoices || []), ...(purchaseInvoices || [])]
-    .map(invoice => {
-      const isSale = invoice.documentType.includes('sale')
-      return {
-        ...invoice,
-        transactionType: isSale ? 'Sale' : 'Purchase',
-        counterparty: isSale ? (invoice as any).partyName : (invoice as any).partyName,
-        amountReceived: isSale ? (invoice as any).receivedAmount : 0,
-        amountPaid: !isSale ? (invoice as any).paidAmount : 0
-      }
-    })
-    .sort((a, b) => {
-      // Sort by date and time if available
-      const dateA = new Date(a.documentDate + (a.documentTime ? 'T' + a.documentTime : 'T00:00:00'))
-      const dateB = new Date(b.documentDate+ (b.documentTime ? 'T' + b.documentTime : 'T00:00:00'))
-      return dateA.getTime() - dateB.getTime()
-    })
+  const allTransactions = [
+    // Sales invoices
+    ...(saleInvoices || []).map((invoice) => ({
+      ...invoice,
+      transactionType: "Sale",
+      counterparty: invoice.partyName,
+      amountReceived: invoice.paidAmount || 0,
+      amountPaid: 0,
+      date: invoice.documentDate,
+      sourceType: "invoice",
+    })),
+
+    // Purchase invoices
+    ...(purchaseInvoices || []).map((invoice) => ({
+      ...invoice,
+      transactionType: "Purchase",
+      counterparty: invoice.partyName,
+      amountReceived: 0,
+      amountPaid: invoice.paidAmount || 0,
+      date: invoice.documentDate,
+      sourceType: "invoice",
+    })),
+
+    // Payment transactions
+    ...(payments || []).map((payment) => ({
+      ...payment,
+      transactionType:
+        payment.direction === PaymentDirection.IN
+          ? "Payment In"
+          : "Payment Out",
+      documentNumber:
+        payment.receiptNumber || `PMT-${payment.id.substring(0, 8)}`,
+      counterparty: payment.partyName,
+      total: payment.amount,
+      amountReceived:
+        payment.direction === PaymentDirection.IN ? payment.amount : 0,
+      amountPaid:
+        payment.direction === PaymentDirection.OUT ? payment.amount : 0,
+      date: payment.paymentDate,
+      sourceType: "payment",
+    })),
+  ].sort((a, b) => {
+    // Sort by date descending (newest first)
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
 
   const refreshAllData = () => {
     refetchSales()
@@ -182,7 +222,7 @@ const DayBookReport = () => {
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="p-4">
             <p className="text-sm text-gray-500">Total Transactions</p>
-            <h3 className="text-2xl font-bold mt-1">{totals.salesCount + totals.purchasesCount}</h3>
+            <h3 className="text-2xl font-bold mt-1">{totals.salesCount + totals.purchasesCount } </h3>
             <div className="flex justify-between text-xs mt-2">
               <span className="text-green-600">Sales: {totals.salesCount}</span>
               <span className="text-blue-600">Purchases: {totals.purchasesCount}</span>

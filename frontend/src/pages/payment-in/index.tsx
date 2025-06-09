@@ -103,12 +103,12 @@ const PaymentInPage = () => {
     isLoading: isLoadingPayments,
     isError: isPaymentsError,
     refetch,
-  } = useGetPaymentInsQuery({
+  } = useGetPaymentInsQuery( selectedPartyId !="all"? {
     partyId: selectedPartyId || undefined,
     paymentType: paymentTypeFilter || undefined,
     startDate: dateRange.startDate || undefined,
     endDate: dateRange.endDate || undefined,
-  });
+  }:{ });
 
   // Fetch parties for filter
   const { data: parties = [], isLoading: isLoadingParties } =
@@ -199,7 +199,7 @@ const PaymentInPage = () => {
                   <SelectValue placeholder="All parties" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="None">All parties</SelectItem>
+                  <SelectItem value="all">All parties</SelectItem>
                   {parties.map((party) => (
                     <SelectItem key={party.id} value={party.id}>
                       {party.name}

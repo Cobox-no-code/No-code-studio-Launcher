@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import React, { ChangeEvent, useState } from "react";
+import React, { ChangeEvent, useEffect, useState } from "react";
 
 // UI Components
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -262,6 +262,19 @@ const DocumentListView: React.FC<DocumentListProps> = ({
     startDate: selectedDates.date1,
     endDate: selectedDates.date2,
   });
+
+      useEffect(() => {
+        // Immediately refetch data when component mounts
+      refetch()
+        // Set up interval for periodic refetching (every 5 seconds)
+        const intervalId = setInterval(() => {
+          refetch()
+        }, 5000); // Adjust this time as needed
+    
+        // Clean up interval on unmount
+        return () => clearInterval(intervalId);
+      }, [refetch
+      ]);
   const { deleteDocument } = useDeleteActions();
 
   // Delete document mutation

@@ -93,16 +93,7 @@ const QRLoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
     }, 2000); // Check every 2 seconds
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchQRCode();
-    } else {
-      // Clear states when modal closes
-      setQrCode(null);
-      setIsCheckingStatus(false);
-      setIsLoading(false);
-    }
-  }, [isOpen]);
+  
 
   if (!isOpen) return null;
 
@@ -451,12 +442,12 @@ useEffect(() => {
     if (status.status === 'initializing') {
       console.log("WhatsApp still initializing...");
     }
-  }, 5000);
+  }, 10000);
 
   // Set up interval for periodic data refetching
   const dataInterval = setInterval(() => {
     refetch();
-  }, 5000);
+  }, 10000);
 
   // Clean up intervals on unmount
   return () => {

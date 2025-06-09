@@ -66,6 +66,7 @@ import {
   useGetUnitsQuery,
   useUpdateItemMutation,
 } from "@/redux/api";
+import { min } from "date-fns";
 
 const AddItems = () => {
   // Redux state from our new slice
@@ -142,10 +143,6 @@ const AddItems = () => {
   }, [formData]);
 
   const handleSaveUnit = async () => {
-    console.log("=== SAVE UNIT FUNCTION ===");
-    console.log("Primary Unit ID:", primaryUnitId);
-    console.log("Secondary Unit ID:", secondaryUnitId);
-    console.log("Conversion Rate:", conversionRate);
 
     if (!primaryUnitId) {
       toast.error("Please select a primary unit");
@@ -245,6 +242,7 @@ const AddItems = () => {
         const finalPayload: any = {
           id: currentItemId,
           ...itemData,
+          minStockLevel: formData.minStockLevel || 0,
           unit_conversionId: selectedUnitConversionId,
           primaryOpeningQuantity:currentFormData.primaryOpeningQuantity || 0,
           secondaryOpeningQuantity:currentFormData.secondaryOpeningQuantity || 0,

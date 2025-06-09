@@ -78,7 +78,10 @@ import {
   useDeleteDocumentMutation,
   useGetDocumentsQuery,
 } from "@/redux/api/documentApi";
-import { useGetPaymentsQuery } from "@/redux/api/paymentApi";
+import {
+  useDeletePaymentMutation,
+  useGetPaymentsQuery,
+} from "@/redux/api/paymentApi";
 import { PaymentDirection } from "@/models/payment/payment.model";
 import { useDeleteActions } from "@/hooks/useDeleteAction";
 import { useRouter } from "next/navigation";
@@ -110,15 +113,17 @@ const formatDate = (dateString: string) => {
 
 const Parties = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const role = useAppSelector((state)=>state.firm.role)
+  const role = useAppSelector((state) => state.firm.role);
   // State management
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filterParty, setFilterParty] = useState("");
   const [filterTransaction, setFilterTransaction] = useState("");
   const [currentTab, setCurrentTab] = useState("all");
-  const { deleteParty } = useDeleteActions();
+  const { deleteParty ,deletePayment} = useDeleteActions();
   const [deletePartyMutation, { isLoading: isDeleting, error: deleteError }] =
     useDeletePartyMutation();
+
+  const [deletePaymentMutation] = useDeletePaymentMutation();
   const { data: documents } = useGetDocumentsQuery({});
   const { data: payments } = useGetPaymentsQuery({});
   const router = useRouter();
@@ -333,11 +338,15 @@ const Parties = () => {
     id: string,
     documentType: DocumentType
   ) => {
+    const direction = documentType.includes("Payment In") ?  PaymentDirection.IN : PaymentDirection.OUT;
     try {
       const documentTypeFinal =
         convertDocumentTypeToApiParam(documentType) || "sale_invoice";
-
-      deleteDocument(id, documentTypeFinal, deleteDocumentMutation);
+      if (!documentType.includes("Payment")) {
+        deleteDocument(id, documentTypeFinal, deleteDocumentMutation);
+      } else {
+        deletePayment(id, direction, deletePaymentMutation);
+      }
       // If the deleted document was selected, clear selection
     } catch (error) {
       console.error("Failed to delete document:", error);
@@ -394,9 +403,11 @@ const Parties = () => {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle>Party Directory</CardTitle>
-              {hasPermission(role,'party','create') && <Button onClick={() => openCreateModal()}>
-                <Plus className="h-4 w-4 mr-1" /> Add Party
-              </Button>}
+              {hasPermission(role, "party", "create") && (
+                <Button onClick={() => openCreateModal()}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Party
+                </Button>
+              )}
             </div>
 
             <div className="relative mt-2">
@@ -428,7 +439,6 @@ const Parties = () => {
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="to_pay">To Pay</TabsTrigger>
                 <TabsTrigger value="to_receive">To Receive</TabsTrigger>
-
               </TabsList>
             </Tabs>
           </CardHeader>
@@ -539,27 +549,31 @@ const Parties = () => {
                               </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-40">
-                             {hasPermission(role,'party','edit')&& <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openEditModal(party.id);
-                                }}
-                              >
-                                Edit Item
-                              </DropdownMenuItem>}
-                              {hasPermission(role,'party','delete')&& <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteParty(
-                                    party.id,
-                                    party.name,
-                                    deletePartyMutation
-                                  );
-                                }}
-                                className="text-red-600 focus:text-red-600"
-                              >
-                                Delete Item
-                              </DropdownMenuItem>}
+                              {hasPermission(role, "party", "edit") && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEditModal(party.id);
+                                  }}
+                                >
+                                  Edit Item
+                                </DropdownMenuItem>
+                              )}
+                              {hasPermission(role, "party", "delete") && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteParty(
+                                      party.id,
+                                      party.name,
+                                      deletePartyMutation
+                                    );
+                                  }}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  Delete Item
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -581,7 +595,9 @@ const Parties = () => {
                 <CardTitle>
                   {selectedParty ? (
                     <div className="flex items-center gap-2">
-                      {selectedParty.name.length>30  ? selectedParty.name.slice(0, 30) + "..." : selectedParty.name}
+                      {selectedParty.name.length > 30
+                        ? selectedParty.name.slice(0, 30) + "..."
+                        : selectedParty.name}
                       <Badge
                         variant={
                           selectedParty.gstType === "Consumer"
@@ -599,7 +615,7 @@ const Parties = () => {
                     "Party Details"
                   )}
                 </CardTitle>
-                {selectedParty && hasPermission(role,'party','edit') &&(
+                {selectedParty && hasPermission(role, "party", "edit") && (
                   <Button
                     variant="outline"
                     onClick={() => openEditModal(selectedParty.id)}
@@ -860,179 +876,197 @@ const Parties = () => {
           </Card>
 
           {/* Transaction History */}
-         {  hasPermission(role,'sale_invoice','view') && hasPermission(role,'purchase_invoice','view')&&  <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <History className="h-4 w-4" /> Transaction History
-                </CardTitle>
-                <div className="relative w-64">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search transactions..."
-                    value={filterTransaction}
-                    onChange={(e) => setFilterTransaction(e.target.value)}
-                    className="pl-9 pr-9"
-                  />
-                  {filterTransaction && (
-                    <button
-                      onClick={() => setFilterTransaction("")}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                    >
-                      <X className="h-4 w-4 text-gray-400" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[60px]">Sl.No</TableHead>
-                      <TableHead className="w-[120px]">Type</TableHead>
-                      <TableHead className="w-[120px]">Invoice No.</TableHead>
-                      <TableHead className="w-[120px]">Date</TableHead>
-                      <TableHead className="w-[120px]">
-                        <div className="flex items-center">
-                          Total
-                          <ArrowUpDown className="ml-1 h-3 w-3" />
-                        </div>
-                      </TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {!selectedParty ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={6}
-                          className="text-center py-10 text-muted-foreground"
+          {hasPermission(role, "sale_invoice", "view") &&
+            hasPermission(role, "purchase_invoice", "view") && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <History className="h-4 w-4" /> Transaction History
+                    </CardTitle>
+                    <div className="relative w-64">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search transactions..."
+                        value={filterTransaction}
+                        onChange={(e) => setFilterTransaction(e.target.value)}
+                        className="pl-9 pr-9"
+                      />
+                      {filterTransaction && (
+                        <button
+                          onClick={() => setFilterTransaction("")}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2"
                         >
-                          Select a party to view their transaction history
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredTransactions.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={6}
-                          className="text-center py-10 text-muted-foreground"
-                        >
-                          No transactions found for this party
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredTransactions.map((transaction, index) => (
-                        <TableRow
-                          key={`${transaction.sourceType}-${transaction.id}`}
-                        >
-                          <TableCell>{index + 1}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {transaction.direction === "in" ? (
-                                <ArrowDownRight className="h-4 w-4 text-green-500" />
-                              ) : (
-                                <ArrowUpRight className="h-4 w-4 text-blue-500" />
-                              )}
-                              <span
-                                className={
-                                  transaction.direction === "in"
-                                    ? "text-green-600"
-                                    : "text-blue-600"
-                                }
-                              >
-                                {transaction.transactionType}
-                              </span>
+                          <X className="h-4 w-4 text-gray-400" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[60px]">Sl.No</TableHead>
+                          <TableHead className="w-[120px]">Type</TableHead>
+                          <TableHead className="w-[120px]">
+                            Invoice No.
+                          </TableHead>
+                          <TableHead className="w-[120px]">Date</TableHead>
+                          <TableHead className="w-[120px]">
+                            <div className="flex items-center">
+                              Total
+                              <ArrowUpDown className="ml-1 h-3 w-3" />
                             </div>
-                          </TableCell>
-                          <TableCell>{transaction.documentNumber}</TableCell>
-                          <TableCell>
-                            {formatDate(transaction.documentDate)}
-                          </TableCell>
-                          <TableCell>
-                            <span
-                              className={
-                                transaction.direction === "in"
-                                  ? "text-green-600"
-                                  : "text-blue-600"
-                              }
-                            >
-                              {formatCurrency(transaction.total)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {transaction.sourceType === "payment" ? (
-                              <span className="text-gray-500">—</span>
-                            ) : (
-                              <span
-                                className={
-                                  transaction.balanceAmount > 0
-                                    ? "text-red-600"
-                                    : "text-green-600"
-                                }
-                              >
-                                {formatCurrency(transaction.balanceAmount)}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right w-10">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button className="p-1 hover:bg-gray-100 rounded">
-                                  <EllipsisVertical className="h-4 w-4 text-gray-500" />
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-40">
-                                <DropdownMenuItem
-                                  className="justify-start"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditDocument(
-                                      transaction.id,
-                                      transaction.transactionType
-                                    );
-                                  }}
-                                >
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Edit
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem
-                                  className="justify-start"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    router.push(`/viewer?Id=${transaction.id}`);
-                                  }}
-                                >
-                                  <Printer className="mr-2 h-4 w-4" />
-                                  Print
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem
-                                  className="justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteDocument(
-                                      transaction.id,
-                                      transaction.transactionType
-                                    );
-                                  }}
-                                >
-                                  <X className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
+                          </TableHead>
+                          <TableHead className="text-right">Balance</TableHead>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>}
+                      </TableHeader>
+                      <TableBody>
+                        {!selectedParty ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={6}
+                              className="text-center py-10 text-muted-foreground"
+                            >
+                              Select a party to view their transaction history
+                            </TableCell>
+                          </TableRow>
+                        ) : filteredTransactions.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={6}
+                              className="text-center py-10 text-muted-foreground"
+                            >
+                              No transactions found for this party
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredTransactions.map((transaction, index) => (
+                            <TableRow
+                              key={`${transaction.sourceType}-${transaction.id}`}
+                            >
+                              <TableCell>{index + 1}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  {transaction.direction === "in" ? (
+                                    <ArrowDownRight className="h-4 w-4 text-green-500" />
+                                  ) : (
+                                    <ArrowUpRight className="h-4 w-4 text-blue-500" />
+                                  )}
+                                  <span
+                                    className={
+                                      transaction.direction === "in"
+                                        ? "text-green-600"
+                                        : "text-blue-600"
+                                    }
+                                  >
+                                    {transaction.transactionType}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {transaction.documentNumber}
+                              </TableCell>
+                              <TableCell>
+                                {formatDate(transaction.documentDate)}
+                              </TableCell>
+                              <TableCell>
+                                <span
+                                  className={
+                                    transaction.direction === "in"
+                                      ? "text-green-600"
+                                      : "text-blue-600"
+                                  }
+                                >
+                                  {formatCurrency(transaction.total)}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {transaction.sourceType === "payment" ? (
+                                  <span className="text-gray-500">—</span>
+                                ) : (
+                                  <span
+                                    className={
+                                      transaction.balanceAmount > 0
+                                        ? "text-red-600"
+                                        : "text-green-600"
+                                    }
+                                  >
+                                    {formatCurrency(transaction.balanceAmount)}
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right w-10">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button className="p-1 hover:bg-gray-100 rounded">
+                                      <EllipsisVertical className="h-4 w-4 text-gray-500" />
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align="end"
+                                    className="w-40"
+                                  >
+                                    <DropdownMenuItem
+                                      className="justify-start"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditDocument(
+                                          transaction.id,
+                                          transaction.transactionType
+                                        );
+                                      }}
+                                    >
+                                      <Edit className="mr-2 h-4 w-4" />
+                                      Edit
+                                    </DropdownMenuItem>
+
+                                    {!transaction.transactionType.includes(
+                                      "Payment In"
+                                    ) &&
+                                      !transaction.transactionType.includes(
+                                        "Payment Out"
+                                      ) && (
+                                        <DropdownMenuItem
+                                          className="justify-start"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            router.push(
+                                              `/viewer?Id=${transaction.id}`
+                                            );
+                                          }}
+                                        >
+                                          <Printer className="mr-2 h-4 w-4" />
+                                          Print
+                                        </DropdownMenuItem>
+                                      )}
+                                    <DropdownMenuItem
+                                      className="justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteDocument(
+                                          transaction.id,
+                                          transaction.transactionType
+                                        );
+                                      }}
+                                    >
+                                      <X className="mr-2 h-4 w-4" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
         </div>
       </div>
     </div>
