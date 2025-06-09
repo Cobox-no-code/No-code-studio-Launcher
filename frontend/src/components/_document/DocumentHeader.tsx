@@ -42,6 +42,7 @@ import { openCreateForm as openPartyCreateForm } from "@/redux/slices/partySlice
 import { useDispatch } from "react-redux";
 import { DocumentType } from "@/models/document/document.model";
 import { useGetDocumentsQuery } from "@/redux/api/documentApi";
+import { Textarea } from "../ui/textarea";
 
 const DocumentHeader: React.FC = () => {
   const { state, dispatch: docDispatch } = useDocument();
@@ -544,7 +545,8 @@ const DocumentHeader: React.FC = () => {
                     <MapPin className="h-3 w-3 mr-1" />
                     Billing Address
                   </Label>
-                  <Input
+                  <Textarea
+                    rows={3}
                     value={document.billingAddress || ""}
                     onChange={(e) =>
                       docDispatch({
@@ -656,7 +658,8 @@ const DocumentHeader: React.FC = () => {
                     <MapPin className="h-3 w-3 mr-1" />
                     Shipping Address
                   </Label>
-                  <Input
+                  <Textarea
+                    rows={3}
                     value={document.shippingAddress || ""}
                     onChange={(e) =>
                       docDispatch({
