@@ -282,6 +282,10 @@ export default function EditFirmPage(): JSX.Element {
     setLoading(true);
 
     try {
+      await axios.post(`${backend_url}/delete-with-shared/`, {
+        firmId,
+        owner,
+      });
       await axios.delete(
         `${API_BASE_URL}/firms/${firmId}?cloudurl=${encodeURIComponent(
           backend_url

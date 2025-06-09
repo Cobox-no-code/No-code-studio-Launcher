@@ -149,26 +149,7 @@ export const deleteFirm = async (req: Request, res: Response): Promise<any> => {
 
     // Fetch updated firms list
     const updatedFirms = await db("firms").select();
-    console.log(`📦 Updated firms count: ${updatedFirms.length}`);
-
-    // Sync to cloud
-    if (cloudurl) {
-      try {
-        console.log(`🚀 Sending updated firms to cloud...`);
-        const response = await axios.post(`${cloudurl}/sync/`, {
-          table: "firms",
-          records: updatedFirms,
-          owner,
-        });
-        console.log(`✅ Cloud sync successful. Response:`, response.data);
-      } catch (syncErr: any) {
-        console.error(`❌ Error syncing to cloud:`, syncErr.message || syncErr);
-      }
-    } else {
-      console.warn(`⚠️ Cloud URL not provided. Skipping sync.`);
-    }
-
-    res.json({ success: true, message: "Firm deleted successfully" });
+  res.json({ success: true, message: "Firm deleted successfully" });
   } catch (error: any) {
     console.error("❌ Error deleting firm:", error.message || error);
     res.status(500).json({ success: false, error: error.message });

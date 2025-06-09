@@ -174,116 +174,154 @@ const CompanySelector = ({
       )
     );
   };
+// 1. Add helper function to handle fallback firm selection
+const handleFallbackFirmSelection = () => {
+  // First try to select any owned company
+  if (ownedCompanies.length > 0) {
+    const fallbackCompany = ownedCompanies[0];
+    dispatch(setCurrentFirm(fallbackCompany));
+    dispatch(updateRole("admin"));
+    setSelectedCompany(fallbackCompany.name);
+    localStorage.setItem("firmId", fallbackCompany.id);
+    toast.success(`Switched to ${fallbackCompany.name}`);
+    router.push("/");
+    return true;
+  }
+  
+  // If no owned companies, try any available company
+  if (companies.length > 0) {
+    const fallbackCompany = companies[0];
+    dispatch(setCurrentFirm(fallbackCompany));
+    dispatch(updateRole(fallbackCompany.role || "viewer"));
+    setSelectedCompany(fallbackCompany.name);
+    localStorage.setItem("firmId", fallbackCompany.id);
+    toast.success(`Switched to ${fallbackCompany.name}`);
+    router.push("/");
+    return true;
+  }
+  
+  // No companies available, redirect to firm creation
+  clearCurrentFirm();
+  toast.error("No companies available. Please create a new company.");
+  router.push("/firm");
+  return false;
+};
 
-  useEffect(() => {
-    // Fetch all companies
-    if (user.phone) {
-     dispatch(fetchFirms());
+// 2. Modified performSteppedSync function with error handling
+const performSteppedSync = async (company: any) => {
+  const owner = user.phone;
+  console.log(company.id);
+  
+  try {
+    const result = await syncAllToLocal(backend_url, company.id, owner);
+
+    // Check if sync returned no results or failed
+    if (!result || result.status !== "completed") {
+      throw new Error("Sync failed or returned no results");
     }
-  }, [user]);
 
-  const performSteppedSync = async (company: any) => {
-    const owner = user.phone;
-    console.log(company.id);
+    // Step 1: Company Data
+    updateSyncStep("company-data", "loading");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    updateSyncStep("company-data", "completed", "Company data loaded successfully");
+
+    // Step 2: Items Data
+    updateSyncStep("items-data", "loading");
     try {
-      const result = await syncAllToLocal(backend_url, company.id, owner);
-
-      if (result.status === "completed") {
-        // Step 1: Company Data
-        updateSyncStep("company-data", "loading");
-        await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate processing time
-        updateSyncStep(
-          "company-data",
-          "completed",
-          "Company data loaded successfully"
-        );
-
-        // Step 2: Items Data
-        updateSyncStep("items-data", "loading");
-        try {
-          await refetchItems();
-          updateSyncStep(
-            "items-data",
-            "completed",
-            `${items.length} items synced`
-          );
-        } catch (error) {
-          updateSyncStep("items-data", "error", "Failed to sync items");
-          throw error;
-        }
-
-        // Step 3: Sales Data
-        updateSyncStep("sales-data", "loading");
-        try {
-          await refetchSales();
-          updateSyncStep(
-            "sales-data",
-            "completed",
-            `${salesInvoices.length} sales records synced`
-          );
-        } catch (error) {
-          updateSyncStep("sales-data", "error", "Failed to sync sales data");
-          throw error;
-        }
-
-        // Step 4: Purchase Data
-        updateSyncStep("purchase-data", "loading");
-        try {
-          await refetchPurchase();
-          updateSyncStep(
-            "purchase-data",
-            "completed",
-            `${purchaseInvoices.length} purchase records synced`
-          );
-        } catch (error) {
-          updateSyncStep(
-            "purchase-data",
-            "error",
-            "Failed to sync purchase data"
-          );
-          throw error;
-        }
-
-        // Step 5: Bank Data
-        updateSyncStep("bank-data", "loading");
-        try {
-          await refetchBank();
-          updateSyncStep(
-            "bank-data",
-            "completed",
-            `${bankAccounts.length} bank accounts synced`
-          );
-        } catch (error) {
-          updateSyncStep("bank-data", "error", "Failed to sync bank data");
-          throw error;
-        }
-      }
-      // Step 6: Finalize
-      updateSyncStep("finalize", "loading");
-
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Finalization delay
-      updateSyncStep("finalize", "completed", "Sync completed successfully");
-
-      // Small delay before redirect
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      toast.success(`Successfully switched to ${company.name}`);
-      router.push("/");
+      await refetchItems();
+      updateSyncStep("items-data", "completed", `${items.length} items synced`);
     } catch (error) {
-      console.error("Sync failed:", error);
-      toast.error("Failed to sync data. Please try again.");
-      setIsFullPageLoading(false);
-      setLoadingCompanyId(null);
+      updateSyncStep("items-data", "error", "Failed to sync items");
+      throw error;
+    }
+
+    // Step 3: Sales Data
+    updateSyncStep("sales-data", "loading");
+    try {
+      await refetchSales();
+      updateSyncStep("sales-data", "completed", `${salesInvoices.length} sales records synced`);
+    } catch (error) {
+      updateSyncStep("sales-data", "error", "Failed to sync sales data");
+      throw error;
+    }
+
+    // Step 4: Purchase Data
+    updateSyncStep("purchase-data", "loading");
+    try {
+      await refetchPurchase();
+      updateSyncStep("purchase-data", "completed", `${purchaseInvoices.length} purchase records synced`);
+    } catch (error) {
+      updateSyncStep("purchase-data", "error", "Failed to sync purchase data");
+      throw error;
+    }
+
+    // Step 5: Bank Data
+    updateSyncStep("bank-data", "loading");
+    try {
+      await refetchBank();
+      updateSyncStep("bank-data", "completed", `${bankAccounts.length} bank accounts synced`);
+    } catch (error) {
+      updateSyncStep("bank-data", "error", "Failed to sync bank data");
+      throw error;
+    }
+
+    // Step 6: Finalize
+    updateSyncStep("finalize", "loading");
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    updateSyncStep("finalize", "completed", "Sync completed successfully");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    toast.success(`Successfully switched to ${company.name}`);
+    router.push("/");
+    
+  } catch (error) {
+    console.error("Sync failed:", error);
+    
+    // Reset loading states
+    setIsFullPageLoading(false);
+    setLoadingCompanyId(null);
+    
+    // Show error message
+    toast.error(`Failed to sync ${company.name}. Switching to available company.`);
+    
+    // Try to switch to fallback firm
+    const fallbackSuccess = handleFallbackFirmSelection();
+    
+    // If no fallback available, just close the loading
+    if (!fallbackSuccess) {
+      setOpen(false);
+    }
+  }
+};
+
+// 3. Add check in useEffect to handle case when current firm becomes unavailable
+useEffect(() => {
+  const checkCurrentFirm = async () => {
+    if (firmId && companies.length > 0) {
+      const currentFirm = companies.find(company => company.id === firmId);
+      
+      // If current firm is not found in available companies
+      if (!currentFirm) {
+        console.log("Current firm not found in available companies");
+        handleFallbackFirmSelection();
+      }
     }
   };
+  
+  if (companies.length > 0 && !loading) {
+    checkCurrentFirm();
+  }
+}, [companies, firmId, loading]);
 
-  const handleCompanyChange = async (company: any) => {
-    setLoadingCompanyId(company.id);
-    dispatch(setCurrentFirm(company));
-    setSelectedCompany(company.name);
-    setOpen(false);
-   
-    if (company.isShared != undefined) {
+// 4. Enhanced handleCompanyChange with better error handling
+const handleCompanyChange = async (company: any) => {
+  setLoadingCompanyId(company.id);
+  dispatch(setCurrentFirm(company));
+  setSelectedCompany(company.name);
+  setOpen(false);
+ 
+  try {
+    if (company.isShared !== undefined) {
       // Initialize full page loading for shared companies
       setIsFullPageLoading(true);
       setSyncSteps(initializeSyncSteps());
@@ -300,7 +338,24 @@ const CompanySelector = ({
       setLoadingCompanyId(null);
       router.push("/");
     }
-  };
+  } catch (error) {
+    console.error("Company change failed:", error);
+    setLoadingCompanyId(null);
+    toast.error("Failed to switch company");
+    
+    // Try fallback selection
+    handleFallbackFirmSelection();
+  }
+};
+  useEffect(() => {
+    // Fetch all companies
+    if (user.phone) {
+     dispatch(fetchFirms());
+    }
+  }, [user]);
+
+  
+
 
   const handleRemoveCompany = (): void => {
     clearCurrentFirm();
