@@ -279,18 +279,13 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
             </div>
 
             <div className="grid grid-cols-3  w-full">
-              {hasValue(firmData?.name) && firmData.name !== businessName && (
+              {hasValue(firmData?.name)  && (
                 <div className="text-lg font-semibold text-gray-800">
                   {firmData.name}
                 </div>
               )}
 
-              {hasValue(firmData?.ownerName) && (
-                <div className="text-sm text-gray-700">
-                  <span className="font-medium">Owner:</span>{" "}
-                  {firmData.ownerName}
-                </div>
-              )}
+             
 
               {hasValue(firmData?.address) && (
                 <div className="text-sm text-gray-700">
@@ -336,6 +331,7 @@ const DocumentPrinter: React.FC<DocumentPrinterProps> = ({
           <div className="flex mb-4">
             {/* Party Details */}
             <div className="w-1/2 border border-gray-300 p-2">
+            <div className=" text-sm">Bill To:</div>
               <div className="font-bold">
                 {document.billingName || document.partyName}
               </div>
