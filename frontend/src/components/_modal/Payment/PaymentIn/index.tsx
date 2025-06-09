@@ -73,7 +73,7 @@ const PaymentInForm: React.FC = () => {
       skip: !currentPaymentId || mode !== "edit",
     });
 
-  const { data: parties, isLoading: isLoadingParties } = useGetPartiesQuery({
+  const { data: parties, isLoading: isLoadingParties ,refetch} = useGetPartiesQuery({
     search: partySearchTerm,
   });
 
@@ -153,6 +153,18 @@ const PaymentInForm: React.FC = () => {
     }
   }, [mode, paymentData, dispatch]);
 
+    useEffect(() => {
+      // Immediately refetch data when component mounts
+      refetch();
+  
+      // Set up interval for periodic refetching (every 5 seconds)
+      const intervalId = setInterval(() => {
+        refetch();
+      }, 5000); // Adjust this time as needed
+  
+      // Clean up interval on unmount
+      return () => clearInterval(intervalId);
+    }, [refetch]);
   // Handle form submission
   const handleSubmit = async () => {
     // Validate form data

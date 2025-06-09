@@ -9,7 +9,7 @@ const full = (): Permission => ({
 });
 
 const restricted = (): Permission => ({
-  view: "restricted",
+  view: "allowed",
   create: "allowed",
   edit: "restricted",
   share: "allowed",

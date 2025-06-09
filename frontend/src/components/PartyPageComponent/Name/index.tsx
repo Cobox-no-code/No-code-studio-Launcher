@@ -194,14 +194,14 @@ const Parties = () => {
       return matchesSearch;
     if (
       currentTab === "to_pay" &&
-      party.openingBalanceType === "to_pay" &&
-      party?.openingBalance > 0
+      party.currentBalanceType === "to_pay" &&
+      party?.currentBalance > 0
     )
       return matchesSearch;
     if (
       currentTab === "to_receive" &&
-      party.openingBalanceType === "to_receive" &&
-      party?.openingBalance > 0
+      party.currentBalanceType === "to_receive" &&
+      party?.currentBalance > 0
     )
       return matchesSearch;
 
@@ -222,12 +222,12 @@ const Parties = () => {
   const totalToPay =
     parties?.filter(
       (party) =>
-        party.openingBalanceType === "to_pay" && party.openingBalance > 0
+        party.currentBalanceType === "to_pay" && party.currentBalance > 0
     ).length || 0;
   const totalToReceive =
     parties?.filter(
       (party) =>
-        party.openingBalanceType === "to_receive" && party.openingBalance > 0
+        party.currentBalanceType === "to_receive" && party.currentBalance > 0
     ).length || 0;
 
   // Get transaction history data (mock data)
@@ -424,11 +424,11 @@ const Parties = () => {
               className="mt-2"
               onValueChange={(value) => setCurrentTab(value)}
             >
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-3 ">
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="to_pay">To Pay</TabsTrigger>
                 <TabsTrigger value="to_receive">To Receive</TabsTrigger>
-                <TabsTrigger value="credit">With Credit</TabsTrigger>
+
               </TabsList>
             </Tabs>
           </CardHeader>

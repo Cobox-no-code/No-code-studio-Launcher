@@ -325,42 +325,145 @@ const DocumentViewerPage: React.FC = () => {
     router.push("/");
   };
 
-  // Check WhatsApp login status
-  const checkWhatsAppLoginStatus = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/qr`);
-      const data = await response.json();
-      setIsWhatsAppLoggedIn(!data?.qr);
-    } catch (error) {
-      console.error("Error checking WhatsApp status:", error);
-      setIsWhatsAppLoggedIn(false);
-    }
-  };
+ 
 
-  // Handle WhatsApp login
-  const handleLogin = async () => {
-    if (!document) {
-      toast.error("Document not loaded");
-      return;
-    }
+// Updated frontend functions for DocumentViewerPage
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/qr`);
-      const data = await response.json();
+// Check WhatsApp login status
+const checkWhatsAppLoginStatus = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/qr`);
+    const data = await response.json();
+    console.log("WhatsApp login status:", data);
+    
+    // Only consider logged in if status is explicitly "logged_in"
+    const isLoggedIn = data?.status === 'logged_in';
+    
+    setIsWhatsAppLoggedIn(isLoggedIn);
+    
+    return {
+      isLoggedIn,
+      status: data?.status,
+      message: data?.message
+    };
+  } catch (error) {
+    console.error("Error checking WhatsApp status:", error);
+    setIsWhatsAppLoggedIn(false);
+    return {
+      isLoggedIn: false,
+      status: 'error',
+      message: 'Failed to check status'
+    };
+  }
+};
 
-      if (data?.qr) {
-        // Not logged in yet, show QR modal
-        setShowQRModal(true);
-      } else {
-        // Already logged in
+// Handle WhatsApp login
+const handleLogin = async () => {
+  if (!document) {
+    toast.error("Document not loaded");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/qr`);
+    const data = await response.json();
+    
+    console.log("Login check response:", data);
+
+    switch (data?.status) {
+      case 'logged_in':
         setIsWhatsAppLoggedIn(true);
         toast.success("WhatsApp is already logged in!");
-      }
-    } catch (error: any) {
-      console.error("❌ Error checking login status:", error);
-      toast.error("Failed to check WhatsApp login status");
+        break;
+        
+      case 'pending_login':
+        if (data?.qr) {
+          setShowQRModal(true);
+        } else {
+          toast.error("No QR code available. Please try again.");
+        }
+        break;
+        
+      case 'initializing':
+        toast.error("WhatsApp is still initializing. Please wait a moment and try again.");
+        // Optionally retry after a delay
+        setTimeout(() => {
+          checkWhatsAppLoginStatus();
+        }, 3000);
+        break;
+        
+      case 'error':
+      default:
+        toast.error("WhatsApp client error. Please try restarting.");
+        break;
     }
+  } catch (error: any) {
+    console.error("❌ Error checking login status:", error);
+    toast.error("Failed to check WhatsApp login status");
+  }
+};
+
+// Updated handle share document function
+const handleShareDocument = async () => {
+  if (!document) {
+    toast.error("Document not loaded");
+    return;
+  }
+
+  // Check current login status before proceeding
+  const statusCheck = await checkWhatsAppLoginStatus();
+  console.log("Current login status:", statusCheck);
+  
+  if (statusCheck.status === 'initializing') {
+    toast.error("WhatsApp is still starting up. Please wait a moment and try again.");
+    return;
+  }
+  
+  // If not logged in, initiate login process
+  if (!statusCheck.isLoggedIn) {
+    await handleLogin();
+    return;
+  }
+
+  // If logged in, proceed with sharing
+  if (document.phone) {
+    // Use document phone number
+    await generateAndSendPDF(document.phone);
+  } else {
+    // Show phone input modal
+    setShowPhoneModal(true);
+  }
+};
+
+// Update the useEffect to check status more frequently during initialization
+useEffect(() => {
+  // Initial check
+  checkWhatsAppLoginStatus();
+  
+  // Immediately refetch data when component mounts
+  refetch();
+  refetchBank();
+
+  // Set up interval for periodic status checking
+  const statusInterval = setInterval(async () => {
+    const status = await checkWhatsAppLoginStatus();
+    // If initializing, check more frequently
+    if (status.status === 'initializing') {
+      console.log("WhatsApp still initializing...");
+    }
+  }, 5000);
+
+  // Set up interval for periodic data refetching
+  const dataInterval = setInterval(() => {
+    refetch();
+  }, 5000);
+
+  // Clean up intervals on unmount
+  return () => {
+    clearInterval(statusInterval);
+    clearInterval(dataInterval);
   };
+}, [refetch, refetchBank]);
 
   const generateAndSendPDF = async (phoneNum: string) => {
     if (!document || !contentRef.current) {
@@ -400,28 +503,7 @@ const DocumentViewerPage: React.FC = () => {
     }
   };
 
-  // Handle share document
-  const handleShareDocument = async () => {
-    if (!document) {
-      toast.error("Document not loaded");
-      return;
-    }
 
-    // Check if WhatsApp is logged in
-    if (!isWhatsAppLoggedIn) {
-      await handleLogin();
-      return;
-    }
-
-    // Check if document has phone number
-    if (document.phone) {
-      // Use document phone number
-      await generateAndSendPDF(document.phone);
-    } else {
-      // Show phone input modal
-      setShowPhoneModal(true);
-    }
-  };
 
   // Handle phone number submission
   const handlePhoneSubmit = async (phoneNum: string) => {
@@ -445,22 +527,7 @@ const DocumentViewerPage: React.FC = () => {
     }
   }, [firmId]);
 
-  useEffect(() => {
-    // Check WhatsApp login status on component mount
-    checkWhatsAppLoginStatus();
 
-    // Immediately refetch data when component mounts
-    refetch();
-    refetchBank();
-
-    // Set up interval for periodic refetching (every 5 seconds)
-    const intervalId = setInterval(() => {
-      refetch();
-    }, 5000);
-
-    // Clean up interval on unmount
-    return () => clearInterval(intervalId);
-  }, [refetch, refetchBank]);
 
   if (isLoading) {
     return (

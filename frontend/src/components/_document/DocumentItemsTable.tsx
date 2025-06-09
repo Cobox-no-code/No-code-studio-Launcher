@@ -297,6 +297,7 @@ const DocumentItemsTable: React.FC = () => {
     taxRate: number,
     isTaxInclusive: boolean = false
   ) => {
+   
     // Guard against invalid conversion rate
     if (!conversionRate || conversionRate <= 0) {
       conversionRate = 1;
@@ -336,7 +337,7 @@ const DocumentItemsTable: React.FC = () => {
     };
   };
 
- const handleItemChange = (
+const handleItemChange = (
   index: number,
   field: keyof DocumentItem,
   value: string | boolean
@@ -386,7 +387,6 @@ const DocumentItemsTable: React.FC = () => {
     let price = parseFloat(String(updatedItem.pricePerUnit)) || 0;
     let discountPercent = parseFloat(String(updatedItem.discountPercent)) || 0;
     let discountAmount = parseFloat(String(updatedItem.discountAmount)) || 0;
-    const grossAmount = primaryQty * price;
 
     // Wholesale pricing
     if (field === "primaryQuantity") {
@@ -415,6 +415,31 @@ const DocumentItemsTable: React.FC = () => {
       updatedItem.primaryUnitName = getUnitName(value);
     }
 
+    // Check for unit conversion
+    let conversionRate = 1;
+    let hasConversion = false;
+    
+    if (updatedItem && isProduct(updatedItem)) {
+      const conversion = getUnitConversion(updatedItem.id);
+      if (conversion) {
+        conversionRate = conversion.conversionRate;
+        hasConversion = true;
+      }
+    }
+    
+    if (
+      !hasConversion &&
+      updatedItem.primaryUnitId &&
+      updatedItem.secondaryUnitId
+    ) {
+      const { rate, isReversed } = findConversionRate(
+        updatedItem.primaryUnitId,
+        updatedItem.secondaryUnitId
+      );
+      conversionRate = isReversed ? 1 / rate : rate;
+      hasConversion = true;
+    }
+
     // Handle amount change manually
     if (field === "amount" && primaryQty > 0) {
       const totalAmount = parseFloat(String(updatedItem.amount)) || 0;
@@ -431,9 +456,16 @@ const DocumentItemsTable: React.FC = () => {
 
       updatedItem.pricePerUnit = Number(calculatedPricePerUnit.toFixed(2));
       const newPrice = calculatedPricePerUnit;
-      const gross = primaryQty * newPrice;
-      const discountAmt = (gross * discountPercent) / 100;
-      const afterDiscount = gross - discountAmt;
+      
+      let grossAmount: number;
+      if (hasConversion) {
+        grossAmount = primaryQty * newPrice + secondaryQty * newPrice * conversionRate;
+      } else {
+        grossAmount = primaryQty * newPrice;
+      }
+      
+      const discountAmt = (grossAmount * discountPercent) / 100;
+      const afterDiscount = grossAmount - discountAmt;
 
       let taxAmount: number;
       if (isTaxInclusive) {
@@ -445,13 +477,18 @@ const DocumentItemsTable: React.FC = () => {
 
       updatedItem.discountAmount = Number(discountAmt.toFixed(2));
       updatedItem.taxAmount = Number(taxAmount.toFixed(2));
-      updatedItem.amount = isTaxInclusive
-        ? Number(afterDiscount.toFixed(2))
-        : Number((afterDiscount + taxAmount).toFixed(2));
 
       dispatch({ type: "UPDATE_ITEM", payload: { index, item: updatedItem } });
       calculateTotals();
       return;
+    }
+
+    // Calculate gross amount (with or without conversion)
+    let grossAmount: number;
+    if (hasConversion) {
+      grossAmount = primaryQty * price + secondaryQty * price * conversionRate;
+    } else {
+      grossAmount = primaryQty * price;
     }
 
     // Handle direct discountAmount change
@@ -487,21 +524,39 @@ const DocumentItemsTable: React.FC = () => {
     updatedItem.taxRate = taxRate;
 
     const isTaxInclusive = updatedItem.salePriceTaxInclusive || false;
-    let amountAfterDiscount = grossAmount - discountAmount;
-    let taxAmount: number;
-    let netAmount: number;
+    
+    // Use the calculateItemAmount function if conversion exists, otherwise calculate manually
+    if (hasConversion) {
+      const result = calculateItemAmount(
+        primaryQty,
+        secondaryQty,
+        price,
+        conversionRate,
+        discountPercent,
+        taxRate,
+        isTaxInclusive
+      );
 
-    if (isTaxInclusive) {
-      const baseAmount = amountAfterDiscount / (1 + taxRate / 100);
-      taxAmount = amountAfterDiscount - baseAmount;
-      netAmount = amountAfterDiscount;
+      updatedItem.discountAmount = Number(result.discountAmount.toFixed(2));
+      updatedItem.taxAmount = Number(result.taxAmount.toFixed(2));
+      updatedItem.amount = Number(result.netAmount.toFixed(2));
     } else {
-      taxAmount = (amountAfterDiscount * taxRate) / 100;
-      netAmount = amountAfterDiscount + taxAmount;
-    }
+      let amountAfterDiscount = grossAmount - discountAmount;
+      let taxAmount: number;
+      let netAmount: number;
 
-    updatedItem.taxAmount = Number(taxAmount.toFixed(2));
-    updatedItem.amount = Number(netAmount.toFixed(2));
+      if (isTaxInclusive) {
+        const baseAmount = amountAfterDiscount / (1 + taxRate / 100);
+        taxAmount = amountAfterDiscount - baseAmount;
+        netAmount = amountAfterDiscount;
+      } else {
+        taxAmount = (amountAfterDiscount * taxRate) / 100;
+        netAmount = amountAfterDiscount + taxAmount;
+      }
+
+      updatedItem.taxAmount = Number(taxAmount.toFixed(2));
+      updatedItem.amount = Number(netAmount.toFixed(2));
+    }
   }
 
   dispatch({ type: "UPDATE_ITEM", payload: { index, item: updatedItem } });

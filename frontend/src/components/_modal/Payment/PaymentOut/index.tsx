@@ -73,7 +73,7 @@ const PaymentOutForm: React.FC = () => {
       skip: !currentPaymentId || mode !== "edit",
     });
 
-  const { data: parties, isLoading: isLoadingParties } = useGetPartiesQuery({
+  const { data: parties, isLoading: isLoadingParties ,refetch} = useGetPartiesQuery({
     search: partySearchTerm,
   });
 
@@ -87,7 +87,18 @@ const PaymentOutForm: React.FC = () => {
         party.name.toLowerCase().includes(partySearchTerm.toLowerCase()) ||
         (party.phone && party.phone.includes(partySearchTerm))
     ) || [];
-
+    useEffect(() => {
+      // Immediately refetch data when component mounts
+      refetch();
+  
+      // Set up interval for periodic refetching (every 5 seconds)
+      const intervalId = setInterval(() => {
+        refetch();
+      }, 5000); // Adjust this time as needed
+  
+      // Clean up interval on unmount
+      return () => clearInterval(intervalId);
+    }, [refetch]);
   // Load payment data when editing
   useEffect(() => {
     if (mode === "edit" && paymentData) {
