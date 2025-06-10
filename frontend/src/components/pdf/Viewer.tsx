@@ -432,12 +432,12 @@ useEffect(() => {
     if (status.status === 'initializing') {
       console.log("WhatsApp still initializing...");
     }
-  }, 10000);
+  }, 100000);
 
   // Set up interval for periodic data refetching
   const dataInterval = setInterval(() => {
     refetch();
-  }, 10000);
+  }, 100000);
 
   // Clean up intervals on unmount
   return () => {
@@ -458,7 +458,7 @@ useEffect(() => {
       const element = contentRef.current;
 
       const formData = {
-        number: phoneNum.includes('+91') ? phoneNum : `+91${phoneNum}`,
+        number: phoneNum.includes('91') ? phoneNum : `91${phoneNum}`,
         invoice: document,
         html: element.outerHTML,
       };

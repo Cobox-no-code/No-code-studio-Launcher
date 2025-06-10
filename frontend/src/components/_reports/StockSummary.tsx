@@ -95,11 +95,11 @@ const StockSummaryReport = () => {
 
     return filteredItems.reduce(
       (acc, item) => {
-        const stockValue = item.primaryOpeningQuantity * item.salePrice;
+        const stockValue = item.primaryQuantity * item.salePrice;
 
         acc.totalStockValue += stockValue;
-        acc.totalPrimaryQty += item.primaryOpeningQuantity || 0;
-        acc.totalSecondaryQty += item.secondaryOpeningQuantity || 0;
+        acc.totalPrimaryQty += item.primaryQuantity || 0;
+        acc.totalSecondaryQty += item.secondaryQuantity || 0;
 
         return acc;
       },

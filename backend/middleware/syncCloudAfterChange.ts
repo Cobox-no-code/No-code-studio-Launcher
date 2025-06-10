@@ -51,7 +51,19 @@ export async function syncCloudAfterChangeFn(
       "document_transportation",
       "document_relationships",
       "stock_movements",
+      "parties",
+      "items"
     ];
+  }
+  else if( tableName === "payments" ){
+     tablesToSync = [
+      "payments",
+      "bank_transactions",
+      "bank_accounts",
+      "parties",
+      "items"
+    ];
+
   } else if (tableName === "parties") {
     tablesToSync = ["parties", "party_additional_fields"];
   } else {
