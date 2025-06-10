@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import router from "./route";
+import { initClient } from "./controllers/whatsapp/whatsapp.service";
 
 
 const app = express();
@@ -12,6 +13,7 @@ app.use(cors());
 // JSON middleware
 app.use(express.json());
 
+initClient()
 
 // API routes
 app.use("/api", router);

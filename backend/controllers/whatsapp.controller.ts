@@ -6,12 +6,9 @@ import fs from "fs";
 import chromium from "@sparticuz/chromium";
 import {
   getQRCode,
+  getStatus,
   sendPDF,
-  isWhatsAppReady,
-  restartWhatsAppClient,
-  isWhatsAppInitializing,
-  getWhatsAppStatus as getWhatsStatus,
-  forceInitialize,
+
 } from "../controllers/whatsapp/whatsapp.service";
 import { app } from "electron";
 
@@ -19,175 +16,33 @@ const isDev = process.env.NODE_ENV !== "production";
 const puppeteer = isDev ? require("puppeteer") : require("puppeteer-core");
 const isElectron = !!process.versions.electron;
 
-// Prevent concurrent QR requests
-let qrRequestInProgress = false;
-let lastQRRequestTime = 0;
-const QR_REQUEST_COOLDOWN = 2000; // 2 seconds between requests
 
-export const getLoginQRCode = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const getLoginQRCode = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log('🎯 QR Code requested...');
-
-    const status = getWhatsStatus();
     const qr = getQRCode();
-
-    if (status.isReady) {
-      res.json({
-        qr: null,
-        status: "logged_in",
-        message: "WhatsApp is already logged in and ready",
-      });
+    const status = getStatus();
+    console.log(`Current WhatsApp status: ${status}`);
+    
+    if (!qr && status === "disconnected") {
+      res.status(503).json({ message: "WhatsApp client is disconnected" });
       return;
     }
-
+    if (status === "ready") {
+      res.json({ status: "ready", message: "WhatsApp client is ready" });
+      return;
+    }
+    if (status === "authenticated") {
+      res.json({ status: "authenticated", message: "WhatsApp client is authenticated" });
+      return;
+    }
     if (qr) {
-      const qrImage = await qrcode.toDataURL(qr, {
-        width: 300,
-        margin: 2,
-        color: {
-          dark: "#000000",
-          light: "#FFFFFF",
-        },
-      });
-
-      res.json({
-        qr: qrImage,
-        status: "pending_login",
-        message: "Scan QR code to login",
-      });
-      return;
-    }
-
-    if (status.isInit) {
-      res.json({
-        qr: null,
-        status: "initializing",
-        message: "WhatsApp client is initializing...",
-      });
-      return;
-    }
-
-    res.json({
-      qr: null,
-      status: "error",
-      message: status.lastError || "Unknown error. Please restart client.",
-    });
-
-  } catch (err: any) {
-    console.error("❌ Error in getLoginQRCode:", err);
-    res.status(500).json({
-      error: err.message,
-      status: "error",
-      message: "Failed to get QR code",
-    });
-  }
-};
-
-
-// GET /whatsapp/status - Check login status
-export const getWhatsAppStatus = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const status = getWhatsStatus();
-    const qr = status.hasQR ? getQRCode() : null;
-
-    let currentStatus = "error";
-    let message = "";
-
-    if (status.isReady) {
-      currentStatus = "logged_in";
-      message = "WhatsApp is logged in and ready";
-    } else if (status.hasQR && qr) {
-      currentStatus = "pending_login";
-      message = "QR code available - please scan to login";
-    } else if (status.isInit) {
-      currentStatus = "initializing";
-      message = `WhatsApp client is initializing... (Attempt ${status.retryCount + 1}/3)`;
-    } else if (status.lastError) {
-      currentStatus = "error";
-      message = `Error: ${status.lastError}`;
+      const qrImage = await qrcode.toDataURL(qr);
+      res.json({ qr: qrImage });
     } else {
-      currentStatus = "disconnected";
-      message = "WhatsApp client is not connected";
+      res.status(400).json({ message: "QR not generated yet" });
     }
-
-    res.json({
-      isLoggedIn: status.isReady,
-      isInitializing: status.isInit,
-      hasQR: status.hasQR,
-      status: currentStatus,
-      message: message,
-      lastError: status.lastError,
-      retryCount: status.retryCount,
-      maxRetries: 3,
-      qr: qr,
-      needsRestart: status.retryCount >= 3 && !status.isReady
-    });
   } catch (err: any) {
-    res.status(500).json({ 
-      error: err.message, 
-      status: "error",
-      message: "Failed to get WhatsApp status"
-    });
-  }
-};
-
-// POST /whatsapp/restart - Restart WhatsApp client
-export const restartWhatsApp = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    console.log('🔄 WhatsApp restart requested via API...');
-    
-    // Reset the request flags
-    qrRequestInProgress = false;
-    lastQRRequestTime = 0;
-    
-    await restartWhatsAppClient();
-    res.json({ 
-      message: "WhatsApp client restart initiated",
-      status: "restarting"
-    });
-  } catch (err: any) {
-    console.error('❌ Error restarting WhatsApp:', err);
-    res.status(500).json({ 
-      error: err.message,
-      status: "restart_failed"
-    });
-  }
-};
-
-// POST /whatsapp/force-init - Force initialization
-export const forceInitWhatsApp = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    console.log('🚀 Force initialization requested via API...');
-    
-    // Reset the request flags
-    qrRequestInProgress = false;
-    lastQRRequestTime = 0;
-    
-    // Don't await - let it run async
-    forceInitialize();
-    
-    res.json({ 
-      message: "Force initialization triggered",
-      status: "initializing"
-    });
-  } catch (err: any) {
-    console.error('❌ Error in forceInitWhatsApp:', err);
-    res.status(500).json({ 
-      error: err.message,
-      status: "force_init_failed"
-    });
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -210,21 +65,7 @@ export const sendPDFController = async (
     return;
   }
 
-  // Check WhatsApp status
-  if (!isWhatsAppReady()) {
-    const status = getWhatsStatus();
-    res.status(400).json({
-      message: "WhatsApp is not logged in. Please scan QR code first.",
-      status: "not_logged_in",
-      details: {
-        isReady: status.isReady,
-        isInitializing: status.isInit,
-        hasQR: status.hasQR,
-        lastError: status.lastError
-      }
-    });
-    return;
-  }
+ 
 
   let browser = null;
   let tempPath = "";
@@ -305,7 +146,7 @@ export const sendPDFController = async (
     // Save PDF temporarily
     tempPath = isElectron
       ? path.join(app.getPath("userData"), filename)
-      : path.join(process.cwd(), `temp-${filename}`);
+      : path.join(process.cwd(), `${filename}`);
 
     console.log('💾 Saving PDF to:', tempPath);
     fs.writeFileSync(tempPath, pdfBuffer);

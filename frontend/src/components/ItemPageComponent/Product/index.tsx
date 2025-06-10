@@ -10,6 +10,7 @@ import {
   useDeleteItemMutation,
 } from "@/redux/api";
 
+
 // UI Components
 import { Button } from "@/components/ui/button";
 import {
@@ -122,6 +123,7 @@ const Items = () => {
     error,
     refetch,
   } = useGetItemsQuery({});
+  
   const { data: categories, isLoading: isLoadingCategories } =
     useGetCategoriesQuery();
   const { data: units, isLoading: isLoadingUnits } = useGetUnitsQuery();
@@ -314,10 +316,8 @@ const Items = () => {
             sourceType: "document",
             // Additional item-specific information
             quantity: itemInDoc ? itemInDoc.primaryQuantity : 0,
-            rate: itemInDoc ? itemInDoc.conversionRate : 0,
-            itemTotal: itemInDoc
-              ? itemInDoc.primaryQuantity * itemInDoc.conversionRate
-              : 0,
+        
+            itemTotal: doc.total,
             partyName: doc.partyName || "Unknown",
           };
         })
@@ -368,7 +368,12 @@ const Items = () => {
   }
   // Open edit form
   const handleEditDocument = (id: string, documentType: DocumentType) => {
+    if(!documentType && documentType.includes('payment')) {
     router.push(`/document/${documentType}?id=${id}`);
+    }
+    else{
+
+    }
   };
   const handleDeleteDocument = async (
     id: string,
@@ -972,9 +977,9 @@ const Items = () => {
                       <TableHead className="w-[120px]">Type</TableHead>
                       <TableHead className="w-[120px]">Invoice No.</TableHead>
                       <TableHead className="w-[120px]">Party</TableHead>
-                      <TableHead className="w-[120px]">Date</TableHead>
+                   
                       <TableHead className="w-[100px]">Quantity</TableHead>
-                      <TableHead className="w-[100px]">Rate</TableHead>
+                    
                       <TableHead className="text-right">Item Total</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1024,9 +1029,7 @@ const Items = () => {
                           </TableCell>
                           <TableCell>{transaction.documentNumber}</TableCell>
                           <TableCell>{transaction?.partyName?.length >30 ? transaction?.partyName?.slice(0,15): transaction?.partyName}</TableCell>
-                          <TableCell>
-                            {formatDate(transaction.documentDate)}
-                          </TableCell>
+                      
                           <TableCell>
                             <span
                               className={
@@ -1038,17 +1041,7 @@ const Items = () => {
                               {transaction.quantity}
                             </span>
                           </TableCell>
-                          <TableCell>
-                            <span
-                              className={
-                                transaction.direction === "in"
-                                  ? "text-green-600"
-                                  : "text-blue-600"
-                              }
-                            >
-                              {formatCurrency(transaction.rate)}
-                            </span>
-                          </TableCell>
+                        
                           <TableCell className="text-right">
                             <span
                               className={

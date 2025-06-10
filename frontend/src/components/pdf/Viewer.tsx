@@ -16,6 +16,7 @@ import { useGetDocumentByIdQuery } from "@/redux/api/documentApi";
 import axios from "axios";
 import {
   ArrowLeft,
+  Database,
   FileText,
   Loader2,
   Printer,
@@ -69,20 +70,27 @@ const QRLoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
       try {
         const response = await fetch(`${API_BASE_URL}/qr`);
         const data = await response.json();
-
-        if (!data?.qr) {
-          // No QR code means logged in
+       if (data?.status === 'authenticated') {
           clearInterval(interval);
           setIsCheckingStatus(false);
-          toast.success("WhatsApp logged in successfully!");
-          onLoginSuccess();
-          onClose();
-        } else if (attempts >= maxAttempts) {
-          // Timeout - stop checking
-          clearInterval(interval);
-          setIsCheckingStatus(false);
-          toast.error("Login timeout. Please try again.");
+          setQrCode(null); // Clear QR code
+          onLoginSuccess(); // Notify parent component
+          toast.success("WhatsApp login successful!");
         }
+        if(data.status === 'disconnected') {
+          clearInterval(interval);
+          setIsCheckingStatus(false);
+          setQrCode(null); // Clear QR code
+          toast.error("WhatsApp client disconnected. Please try again.");
+        }
+        if(data?.status === 'ready') {
+          clearInterval(interval);
+          setIsCheckingStatus(false);
+          setQrCode(null); // Clear QR code
+          onLoginSuccess(); // Notify parent component
+          toast.success("WhatsApp client is ready!");
+        }
+
       } catch (error) {
         console.error("Error checking login status:", error);
         if (attempts >= maxAttempts) {
@@ -328,7 +336,7 @@ const checkWhatsAppLoginStatus = async () => {
     console.log("WhatsApp login status:", data);
     
     // Only consider logged in if status is explicitly "logged_in"
-    const isLoggedIn = data?.status === 'logged_in';
+    const isLoggedIn = data?.status === 'ready' || data?.status === 'authenticated';
     
     setIsWhatsAppLoggedIn(isLoggedIn);
     
@@ -361,32 +369,14 @@ const handleLogin = async () => {
     
     console.log("Login check response:", data);
 
-    switch (data?.status) {
-      case 'logged_in':
-        setIsWhatsAppLoggedIn(true);
-        toast.success("WhatsApp is already logged in!");
-        break;
-        
-      case 'pending_login':
-        if (data?.qr) {
-          setShowQRModal(true);
-        } else {
-          toast.error("No QR code available. Please try again.");
-        }
-        break;
-        
-      case 'initializing':
-        toast.error("WhatsApp is still initializing. Please wait a moment and try again.");
-        // Optionally retry after a delay
-        setTimeout(() => {
-          checkWhatsAppLoginStatus();
-        }, 3000);
-        break;
-        
-      case 'error':
-      default:
-        toast.error("WhatsApp client error. Please try restarting.");
-        break;
+  
+    if (data?.qr) {
+      setShowQRModal(true);
+    } else if (data?.status === 'ready' || data?.status === 'authenticated') {
+      // Already logged in, proceed with sharing
+      await generateAndSendPDF(document.phone || phoneNumber);
+    } else {
+      toast.error("Failed to initiate WhatsApp login");
     }
   } catch (error: any) {
     console.error("❌ Error checking login status:", error);
@@ -468,7 +458,7 @@ useEffect(() => {
       const element = contentRef.current;
 
       const formData = {
-        number: phoneNum,
+        number: phoneNum.includes('+91') ? phoneNum : `+91${phoneNum}`,
         invoice: document,
         html: element.outerHTML,
       };

@@ -8,7 +8,7 @@ import {
   useGetGroupsQuery,
   useDeletePartyMutation,
 } from "@/redux/api/partiesApi";
-
+import { openEditForm as openPayments } from "@/redux/slices/paymentSlice";
 // UI Components
 import { Button } from "@/components/ui/button";
 import {
@@ -332,7 +332,12 @@ const Parties = () => {
   }
   // Open edit form
   const handleEditDocument = (id: string, documentType: DocumentType) => {
-    router.push(`/document/${documentType}?id=${id}`);
+    const direction = documentType.includes("Payment In") ?  PaymentDirection.IN : PaymentDirection.OUT;
+    if(!documentType) {
+    router.push(`/document/${documentType}?id=${id}`);}
+    else{
+dispatch(openPayments(id))
+    }
   };
   const handleDeleteDocument = async (
     id: string,
