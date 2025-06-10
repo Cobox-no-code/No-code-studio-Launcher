@@ -69,7 +69,7 @@ const StockSummaryReport = () => {
         item.itemCode.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const isLowStock = lowStockOnly
-      ? item.minStockLevel && item.primaryOpeningQuantity < item.minStockLevel
+      ? item.minStockLevel && item.primaryQuantity < item.minStockLevel
       : true;
 
     return matchesSearch && isLowStock && item.type === "PRODUCT";
@@ -340,7 +340,7 @@ const StockSummaryReport = () => {
                                              (item.primaryQuantity || 0) * (item.salePrice || item.pricePerUnit || item.purchasePrice || 0);
                       const isLowStock =
                         item.minStockLevel &&
-                        (item.primaryOpeningQuantity || 0) < item.minStockLevel;
+                        (item.primaryQuantity || 0) < item.minStockLevel;
 
                       return (
                         <TableRow key={item.id}>
@@ -351,11 +351,11 @@ const StockSummaryReport = () => {
                           </TableCell>
 
                           <TableCell className="text-right">
-                            {(item.primaryOpeningQuantity || 0).toFixed(2)}
+                            {(item.primaryQuantity || 0).toFixed(2)}
                           </TableCell>
 
                           <TableCell className="text-right">
-                            {(item.secondaryOpeningQuantity || 0).toFixed(2)}
+                            {(item.secondaryQuantity || 0).toFixed(2)}
                           </TableCell>
 
                           <TableCell className="text-right font-medium">

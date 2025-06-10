@@ -2,8 +2,9 @@
 
 import {
   openCreatePaymentInForm,
-  openEditForm,
+  openEditForm as openPaymentsEditForm,
 } from "@/redux/slices/paymentSlice";
+
 import { AppDispatch } from "@/redux/store";
 import React, { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -449,8 +450,8 @@ const PaymentInPage = () => {
                             <DropdownMenuContent align="end" className="w-40">
                               <DropdownMenuItem
                                 onClick={(e) => {
-                                  e.stopPropagation();
-                                  openEditForm(payment.id);
+                                 console.log("Edit payment", payment.id);
+                                  dispatch(openPaymentsEditForm(payment.id));
                                 }}
                               >
                                 Edit Item

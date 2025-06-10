@@ -363,7 +363,7 @@ const calculateTotals = (): DocumentTotals => {
     ? parseFloat(state.document.roundOff || '0')
     : (state.document.roundOff || 0);
 
-  const total = Math.round(subtotal + roundOff);
+  const total =  subtotal
 
   const paidAmount = typeof state.document.paidAmount === 'string'
     ? parseFloat(state.document.paidAmount || '0')

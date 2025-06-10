@@ -336,7 +336,7 @@ const Parties = () => {
     if(!documentType) {
     router.push(`/document/${documentType}?id=${id}`);}
     else{
-dispatch(openPayments(id))
+    dispatch(openPayments(id))
     }
   };
   const handleDeleteDocument = async (

@@ -101,7 +101,7 @@ const ThermalPrinter: React.FC<ThermalPrinterProps> = ({
         >
           {/* Business Info */}
           <div style={{ textAlign: 'center', marginBottom: '4px' }}>
-            <div style={{ fontWeight: 'bold' }}>{businessName}</div>
+            <div style={{ fontWeight: 'bold' }}>{firmData?.name}</div>
             <div>Ph.No.: {phoneNumber}</div>
           </div>
           

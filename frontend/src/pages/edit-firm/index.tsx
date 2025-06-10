@@ -411,7 +411,7 @@ export default function EditFirmPage(): JSX.Element {
                   id="address"
                   name="address"
                   value={formData.address}
-                  onChange={() => handleChange}
+                  onChange={(e:any) => handleChange(e)}
                   placeholder="Enter Address"
                 />
               </div>

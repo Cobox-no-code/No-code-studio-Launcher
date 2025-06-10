@@ -444,7 +444,7 @@ const PaymentOutPage = () => {
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  openEditForm(payment.id);
+                                  dispatch(openEditForm(payment.id));
                                 }}
                               >
                                 Edit Item

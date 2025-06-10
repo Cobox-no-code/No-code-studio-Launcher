@@ -632,6 +632,7 @@ useEffect(() => {
         <ThermalInvoicePrinter
           document={document}
           businessName={businessName}
+          
           phoneNumber={phoneNumber}
           contentRef={contentRef}
           firmData={firm}
