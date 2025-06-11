@@ -478,11 +478,9 @@ const [conversionTitle, setConversionTitle] = useState<string>("");
   };
   // FIX 4: Handle back button with warning
   const handleBackClick = () => {
-    if (hasUnsavedChanges) {
+   
       setShowBackWarning(true);
-    } else {
-      router.push("/");
-    }
+    
   };
 
   const handleConfirmBack = () => {
@@ -690,8 +688,8 @@ const [conversionTitle, setConversionTitle] = useState<string>("");
             <X className="h-4 w-4" />
             Back
           </Button>
-          {hasUnsavedChanges && (
-            <AlertDialog open={showBackWarning} onOpenChange={setShowBackWarning}>
+          {showBackWarning && (
+            <AlertDialog open={showBackWarning} onOpenChange={()=>setShowBackWarning(!showBackWarning)}>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>

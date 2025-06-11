@@ -319,16 +319,13 @@ const AddBankAccountModal = () => {
   return (
     <Dialog open={isOpen} onOpenChange={() => dispatch(closeForm())}>
       <DialogContent className="max-w-lg sm:max-w-xl">
-        <div className="sticky top-0 z-10 bg-white">
+        <div className="sticky top-0 z-10 ">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="text-xl font-semibold">
                 {mode === "create" ? "Add Bank Account" : "Edit Bank Account"}
               </DialogTitle>
-              <DialogClose className="rounded-full opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-                <X className="h-4 w-4" />
-                <span className="sr-only">Close</span>
-              </DialogClose>
+            
             </div>
             <p className="text-sm text-muted-foreground">
               Fields marked with <span className="text-red-500">*</span> are
