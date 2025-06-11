@@ -60,7 +60,8 @@ type DocumentAction =
   | { type: 'SET_ACTIVE_TAB'; payload: number }
   | { type: 'SET_SUBMITTING'; payload: boolean }
   | { type: 'SET_VALIDATION_ERRORS'; payload: Record<string, string> }
-  | { type: 'RESET' };
+  | { type: 'RESET' }
+  | { type: "RESTORE_STATE"; payload: any }; // Add this line
 
 // Helper function to get default document values based on document type
 const getDefaultDocument = (documentType: DocumentType): Document => {
@@ -270,6 +271,21 @@ const documentReducer = (state: DocumentState, action: DocumentAction): Document
         ...initialState,
         document: getDefaultDocument(state.document.documentType)
       };
+         case "RESTORE_STATE":
+      return {
+        ...action.payload,
+        // Ensure proper date handling if you have date fields
+        document: {
+          ...action.payload.document,
+          // Convert date strings back to Date objects if needed
+          date: action.payload.document.date 
+            ? new Date(action.payload.document.date) 
+            : action.payload.document.date,
+          dueDate: action.payload.document.dueDate 
+            ? new Date(action.payload.document.dueDate) 
+            : action.payload.document.dueDate,
+        },
+      };
     
     default:
       return state;
@@ -371,15 +387,7 @@ const calculateTotals = (): DocumentTotals => {
 
   const balanceAmount = total - paidAmount;
 
-  console.log('Document Totals:', {
-    itemsTotal,
-    subtotal,
-    total,
-    balanceAmount,
-    taxAmount,
-    discountAmount,
-    paidAmount
-  });
+  
 
   return {
     itemsTotal,

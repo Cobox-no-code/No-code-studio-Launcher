@@ -280,53 +280,45 @@ const Items = () => {
         item.primaryOpeningQuantity <= (item.minStockLevel || 0)
     ).length || 0;
 
-  const getTransactionHistory = () => {
-    if (!selectedItem) return [];
+const getTransactionHistory = () => {
+  if (!selectedItem) return [];
 
-    const transactions = [];
+  const transactions = [];
 
-    // Add documents (only sale and purchase bills) that contain this item
-    if (documents) {
-      const itemDocuments = documents.filter(
-        (document) =>
-          // Check if document contains this item in its items array
-          document.items &&
-          document.items.some((item) => item.itemId === selectedId) &&
-          (document.documentType.toLowerCase().includes("sale") ||
-            document.documentType.toLowerCase().includes("purchase"))
-      );
+  if (documents) {
+    const itemDocuments = documents.filter(
+      (document) =>
+        document.items &&
+        document.items.some((item) => item.itemId === selectedId) &&
+        (document.documentType.toLowerCase().startsWith("sale_") ||
+         document.documentType.toLowerCase().startsWith("purchase_") || document.documentType.toLowerCase().startsWith("challan"))
+    );
 
-      transactions.push(
-        ...itemDocuments.map((doc) => {
-          // Find the specific item in this document to get quantity and price
-          const itemInDoc = doc.items.find(
-            (item) => item.itemId === selectedId
-          );
+    console.log(documents, itemDocuments);
 
-          return {
-            id: doc.id,
-            transactionType: doc.documentType,
-            documentNumber: doc.documentNumber,
-            documentDate: doc.documentDate,
-            total: doc.total,
-            balanceAmount: doc.balanceAmount || 0,
-            direction: doc.documentType.toLowerCase().includes("sale")
-              ? "out"
-              : "in", // Sale = stock out, Purchase = stock in
-            sourceType: "document",
-            // Additional item-specific information
-            quantity: itemInDoc ? itemInDoc.primaryQuantity : 0,
-        
-            itemTotal: doc.total,
-            partyName: doc.partyName || "Unknown",
-          };
-        })
-      );
-    }
+    transactions.push(
+      ...itemDocuments.map((doc) => {
+        const itemInDoc = doc.items.find((item) => item.itemId === selectedId);
 
-    // Sort by date (newest first)
-    return transactions;
-  };
+        return {
+          id: doc.id,
+          transactionType: doc.documentType,
+          documentNumber: doc.documentNumber,
+          documentDate: doc.documentDate,
+          total: doc.total,
+          balanceAmount: doc.balanceAmount || 0,
+          direction: doc.documentType.toLowerCase().startsWith("sale_") ? "out" : "in",
+          sourceType: "document",
+          quantity: itemInDoc ? itemInDoc.primaryQuantity : 0,
+          itemTotal: doc.total,
+          partyName: doc.partyName || "Unknown",
+        };
+      })
+    );
+  }
+
+  return transactions;
+};
 
   // Use this function to get complete transaction history
   const transactionHistory = getTransactionHistory();
@@ -368,12 +360,10 @@ const Items = () => {
   }
   // Open edit form
   const handleEditDocument = (id: string, documentType: DocumentType) => {
-    if(!documentType && documentType.includes('payment')) {
+  
     router.push(`/document/${documentType}?id=${id}`);
-    }
-    else{
-
-    }
+    
+    
   };
   const handleDeleteDocument = async (
     id: string,

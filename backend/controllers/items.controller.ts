@@ -150,8 +150,10 @@ export const updateItem = async (req: Request, res: Response): Promise<any> => {
     }
 
     const updates: any = {
+      ...body,
       updatedAt: new Date().toISOString(),
     };
+
 
    // ✅ Set opening + adjust quantities
     if (body.primaryOpeningQuantity !== undefined) {
@@ -176,8 +178,6 @@ export const updateItem = async (req: Request, res: Response): Promise<any> => {
         updates[key] = body[key];
       }
     }
-    updates.minStockLevel = body.minStockLevel;
-
     await db("items", firmId).where("id", id).update(updates);
 
     const updatedItem = await db("items", firmId).where("id", id).first();

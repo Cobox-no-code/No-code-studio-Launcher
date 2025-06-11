@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import {
   useGetSaleInvoicesQuery,
   useGetPurchaseInvoicesQuery,
+  useGetDocumentsQuery,
 } from "@/redux/api/documentApi";
 import { useGetPaymentsQuery } from "@/redux/api/paymentApi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,6 +63,15 @@ const AllTransactionsReport = () => {
     isError: isPurchasesError,
     refetch: refetchPurchases,
   } = useGetPurchaseInvoicesQuery({
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
+  });
+    const {
+    data: documents,
+    isLoading: isLoadingDocuments,
+    isError: isErrorDocuments,
+    refetch: refetchDocuments,
+  } = useGetDocumentsQuery({
     startDate: startDate || undefined,
     endDate: endDate || undefined,
   });
@@ -142,9 +152,9 @@ const AllTransactionsReport = () => {
   // Combine and sort transactions for "All" tab
   const allTransactions = [
     // Sales invoices
-    ...(saleInvoices || []).map((invoice) => ({
+    ...(documents || []).map((invoice) => ({
       ...invoice,
-      transactionType: "Sale",
+      transactionType: invoice.documentType,
       counterparty: invoice.partyName,
       amountReceived: invoice.paidAmount || 0,
       amountPaid: 0,
@@ -152,17 +162,7 @@ const AllTransactionsReport = () => {
       sourceType: "invoice",
     })),
 
-    // Purchase invoices
-    ...(purchaseInvoices || []).map((invoice) => ({
-      ...invoice,
-      transactionType: "Purchase",
-      counterparty: invoice.partyName,
-      amountReceived: 0,
-      amountPaid: invoice.paidAmount || 0,
-      date: invoice.documentDate,
-      sourceType: "invoice",
-    })),
-
+   
     // Payment transactions
     ...(payments || []).map((payment) => ({
       ...payment,

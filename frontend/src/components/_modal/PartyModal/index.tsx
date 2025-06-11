@@ -915,7 +915,7 @@ const AddParty = () => {
 
         {/* BOTTOM BUTTONS - STICKY */}
         <div className="sticky bottom-0 bg-white border-t p-4 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => dispatch(closeModal())}>
+          <Button variant="outline" onClick={() => dispatch(closeForm())}>
             Cancel
           </Button>
           <Button

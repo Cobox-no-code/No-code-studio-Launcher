@@ -248,7 +248,7 @@ const Parties = () => {
         (document) =>
           document.partyId === selectedId &&
           (document.documentType.toLowerCase().includes("sale") ||
-            document.documentType.toLowerCase().includes("purchase"))
+            document.documentType.toLowerCase().includes("purchase") || (document.documentType.toLowerCase().startsWith("challan")))
       );
 
       transactions.push(

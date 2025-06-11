@@ -59,7 +59,56 @@ const StockSummaryReport = () => {
   const { data: categories } = useGetCategoriesQuery();
   const { data: units } = useGetUnitsQuery();
   const { data: unitConversions } = useGetUnitConversionsQuery();
+  const getUnitInfo = (item: any) => {
+    if (!units) return { name: "—", shortName: "" };
 
+    // First try to get unit from unit_conversionId
+    if (item.unit_conversionId && unitConversions) {
+      const conversion = unitConversions.find(
+        (uc) => uc.id === item.unit_conversionId
+      );
+      if (conversion) {
+        const unit = units.find((u) => u.id === conversion.primaryUnitId);
+        return {
+          name: unit ? unit.fullname : "—",
+          shortName: unit ? unit.shortname : "",
+          secondaryUnitId: conversion.secondaryUnitId,
+          conversionRate: conversion.conversionRate || 1,
+        };
+      }
+    }
+
+    // Fallback to unitId for backward compatibility
+    if (item.unitId) {
+      const unit = units.find((u) => u.id === item.unitId);
+      return {
+        name: unit ? unit.fullname : "—",
+        shortName: unit ? unit.shortname : "",
+        conversionRate: 1,
+      };
+    }
+
+    return { name: "—", shortName: "", conversionRate: 1 };
+  };
+const formatCurrency = (amount: string | number | bigint) => {
+  const numericAmount =
+    typeof amount === "string" ? parseFloat(amount) : amount;
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 2,
+  }).format(numericAmount);
+};
+
+  // Get secondary unit info
+  const getSecondaryUnitInfo = (secondaryUnitId: any) => {
+    if (!secondaryUnitId || !units) return { name: "—", shortName: "" };
+    const unit = units.find((u) => u.id === secondaryUnitId);
+    return {
+      name: unit ? unit.fullname : "—",
+      shortName: unit ? unit.shortname : "",
+    };
+  };
   // Filter items by search term and low stock if enabled
   const filteredItems = items?.filter((item) => {
     const matchesSearch =
@@ -87,6 +136,30 @@ const StockSummaryReport = () => {
       acc[conv.id] = conv;
       return acc;
     }, {} as Record<string, any>) || {};
+  // Calculate stock value considering both primary and secondary quantities
+  const calculateStockValue = (item: any) => {
+    if (!item || !item.purchasePrice) return 0;
+
+    let totalValue = 0;
+
+    // Add primary quantity value
+    if (item.primaryQuantity) {
+      totalValue += item.primaryQuantity * item.purchasePrice;
+    }
+
+    // Add secondary quantity value if exists
+    if (item.secondaryQuantity && item.unit_conversionId) {
+      const unitInfo = getUnitInfo(item);
+      if (unitInfo.conversionRate) {
+        // Convert secondary units to primary units for value calculation
+        const primaryEquivalent =
+          item.secondaryQuantity / unitInfo.conversionRate;
+        totalValue += primaryEquivalent * item.purchasePrice;
+      }
+    }
+
+    return totalValue > 0 ? totalValue : 0;
+  };
 
   // Calculate stock values
   const calculateStockValues = () => {
@@ -95,7 +168,7 @@ const StockSummaryReport = () => {
 
     return filteredItems.reduce(
       (acc, item) => {
-        const stockValue = item.primaryQuantity * item.salePrice;
+        const stockValue = Number(calculateStockValue(item));
 
         acc.totalStockValue += stockValue;
         acc.totalPrimaryQty += item.primaryQuantity || 0;
@@ -336,8 +409,7 @@ const StockSummaryReport = () => {
                   {filteredItems && filteredItems.length > 0 ? (
                     filteredItems.map((item) => {
                       const unitNames = getUnitNames(item);
-                      const stockValue =
-                                             (item.primaryQuantity || 0) * (item.salePrice || item.pricePerUnit || item.purchasePrice || 0);
+                      const stockValue = calculateStockValue(item);
                       const isLowStock =
                         item.minStockLevel &&
                         (item.primaryQuantity || 0) < item.minStockLevel;

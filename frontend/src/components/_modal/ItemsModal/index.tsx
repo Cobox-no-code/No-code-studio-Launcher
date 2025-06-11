@@ -898,7 +898,7 @@ const AddItems = () => {
                           <Input
                             id="secondaryOpeningQty"
                             type="number"
-                            value={formData.secondaryOpeningQuantity || ""}
+                            value={formData.secondaryOpeningQuantity || 0}
                             onChange={(e) =>
                               handleInputChange(
                                 "secondaryOpeningQuantity",
