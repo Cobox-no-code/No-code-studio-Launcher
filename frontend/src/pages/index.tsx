@@ -359,7 +359,7 @@ const HomePage = () => {
       refetchBank();
       refetchItems();
       refetchSales();
-    }, 5000); // Adjust this time as needed
+    }, 2000); // Adjust this time as needed
 
     // Clean up interval on unmount
     return () => clearInterval(intervalId);

@@ -55,7 +55,7 @@ export default function Sync() {
     };
     let interval;
     if (sync_enabled && isOnline) {
-      interval = setInterval(syncToLocal, 8000);
+      interval = setInterval(syncToLocal, 3000);
     }
     return () => clearInterval(interval);
   }, [sync_enabled, isOnline, phone]);

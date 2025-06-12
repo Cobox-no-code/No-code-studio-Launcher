@@ -427,11 +427,11 @@ useEffect(() => {
 
   // Set up interval for periodic status checking
   const statusInterval = setInterval(async () => {
-    const status = await checkWhatsAppLoginStatus();
-    // If initializing, check more frequently
-    if (status.status === 'initializing') {
-      console.log("WhatsApp still initializing...");
-    }
+    // const status = await checkWhatsAppLoginStatus();
+    // // If initializing, check more frequently
+    // if (status.status === 'initializing') {
+    //   console.log("WhatsApp still initializing...");
+    // }
   }, 100000);
 
   // Set up interval for periodic data refetching
@@ -598,7 +598,7 @@ useEffect(() => {
             Print Document
           </Button>
 
-          <Button
+          {/* <Button
             variant="outline"
             onClick={handleShareDocument}
             disabled={isSendingPDF}
@@ -614,7 +614,7 @@ useEffect(() => {
                 WhatsApp Share
               </>
             )}
-          </Button>
+          </Button> */}
         </div>
       </div>
 

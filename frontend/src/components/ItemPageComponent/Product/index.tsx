@@ -82,6 +82,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DocumentType } from "@/models/document/document.model";
 import { hasPermission } from "@/lib/role-permissions-mapping";
+import { ref } from "node:process";
 // Helper to format currency
 const formatCurrency = (amount: string | number | bigint) => {
   const numericAmount =
@@ -114,14 +115,14 @@ const Items = () => {
   const [filterProduct, setFilterProduct] = useState("");
   const [filterTransaction, setFilterTransaction] = useState("");
   const [currentTab, setCurrentTab] = useState("all");
-  const { data: documents } = useGetDocumentsQuery({});
+  const { data: documents , refetch:refetchDocuments} = useGetDocumentsQuery({});
   // Use RTK Query to fetch items, categories, and units
   const {
     data: items,
     isLoading,
     isError,
     error,
-    refetch,
+    refetch:refetchItems,
   } = useGetItemsQuery({});
   
   const { data: categories, isLoading: isLoadingCategories } =
@@ -187,16 +188,18 @@ const Items = () => {
   };
   useEffect(() => {
     // Immediately refetch data when component mounts
-    refetch();
+    refetchItems();
+    refetchDocuments();
 
     // Set up interval for periodic refetching (every 5 seconds)
     const intervalId = setInterval(() => {
-      refetch();
-    }, 5000); // Adjust this time as needed
+      refetchItems();
+      refetchDocuments();
+    }, 2000); // Adjust this time as needed
 
     // Clean up interval on unmount
     return () => clearInterval(intervalId);
-  }, [refetch]);
+  }, [refetchItems, refetchDocuments]);
   
   // Calculate stock value considering both primary and secondary quantities
   const calculateStockValue = (item: any) => {

@@ -17,7 +17,7 @@ import * as syncToCloud from "./controllers/syncCloud.controller";
 
 import { syncCloudAfterChangeFn } from "./middleware/syncCloudAfterChange";
 
-import { getLoginQRCode, sendPDFController } from "./controllers/whatsapp.controller";
+// import { getLoginQRCode, sendPDFController } from "./controllers/whatsapp.controller";
 import { upload } from "./controllers/whatsapp/multer.config";
 function withSync(controllerFn: any, model: string) {
   return async (
@@ -44,9 +44,9 @@ function withSync(controllerFn: any, model: string) {
 
 
 const router = Router();
-router.get('/qr', getLoginQRCode);
+// router.get('/qr', getLoginQRCode);
 
-router.post('/send-pdf', upload.single('file'), sendPDFController);
+// router.post('/send-pdf', upload.single('file'), sendPDFController);
 // Initialization
 router.get("/init", initController.initializeHandler);
 router.get("/initData", initDataController.initDataHandler);

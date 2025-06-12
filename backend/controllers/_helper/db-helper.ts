@@ -388,7 +388,7 @@ export async function updatePartyBalance(
 
   const party = partyResult[0];
   const currentBalance = Number(party.currentBalance) || 0;
-  const balanceType = party.currentBalanceType || "to_pay";
+  const balanceType = party.currentBalanceType 
 
   const transactionAmount = Number(document.total) || 0;
   const paidAmount = Number(document.paidAmount) || 0;
@@ -396,9 +396,29 @@ export async function updatePartyBalance(
 
   if (balanceAmount === 0) return; // fully paid
 
-  const isCustomer = document.documentType.startsWith("sale_");
-  const effectiveIsCustomer = reverse ? !isCustomer : isCustomer;
+let effectiveIsCustomer = null;
 
+switch (document.documentType) {
+  case "sale":
+  case "sale_invoice":
+    effectiveIsCustomer = true;
+    break;
+  case "sale_return":
+    effectiveIsCustomer = false; // we give money back
+    break;
+  case "purchase":
+  case "purchase_invoice":
+    effectiveIsCustomer = false;
+    break;
+  case "purchase_return":
+    effectiveIsCustomer = true; // supplier gives us money
+    break;
+  default:
+    return; // unknown type, skip balance update
+}
+
+// Reverse effect if needed
+if (reverse) effectiveIsCustomer = !effectiveIsCustomer;
   let newBalance = currentBalance;
   let newBalanceType = balanceType;
 

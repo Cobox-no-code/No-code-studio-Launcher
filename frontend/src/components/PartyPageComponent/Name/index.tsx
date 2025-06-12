@@ -124,8 +124,8 @@ const Parties = () => {
     useDeletePartyMutation();
 
   const [deletePaymentMutation] = useDeletePaymentMutation();
-  const { data: documents } = useGetDocumentsQuery({});
-  const { data: payments } = useGetPaymentsQuery({});
+  const { data: documents ,refetch:refetchDocuments} = useGetDocumentsQuery({});
+  const { data: payments, refetch:refecthPayments } = useGetPaymentsQuery({});
   const router = useRouter();
   // Use RTK Query to fetch parties
   const {
@@ -133,7 +133,7 @@ const Parties = () => {
     isLoading,
     isError,
     error,
-    refetch,
+    refetch:refetchParties,
   } = useGetPartiesQuery(
     {},
     {
@@ -152,16 +152,20 @@ const Parties = () => {
 
   useEffect(() => {
     // Immediately refetch data when component mounts
-    refetch();
+    refetchParties();
+    refecthPayments();
+    refetchDocuments();
 
     // Set up interval for periodic refetching (every 5 seconds)
     const intervalId = setInterval(() => {
-      refetch();
-    }, 5000); // Adjust this time as needed
+        refetchParties();
+    refecthPayments();
+    refetchDocuments();
+    }, 2000); // Adjust this time as needed
 
     // Clean up interval on unmount
     return () => clearInterval(intervalId);
-  }, [refetch]);
+  }, [refecthPayments, refetchDocuments, refetchParties]);
   // Use RTK Query to fetch groups
   const { data: groups, isLoading: isLoadingGroups } = useGetGroupsQuery();
 
