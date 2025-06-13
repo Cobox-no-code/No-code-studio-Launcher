@@ -1,4 +1,3 @@
-// lib/sync-enable.ts
 import { cloud_url } from "@/backend.config";
 import axios from "axios";
 import { store } from "@/redux/store"; // Import your store

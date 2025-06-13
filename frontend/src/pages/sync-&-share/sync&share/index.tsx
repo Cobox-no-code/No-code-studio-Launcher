@@ -21,7 +21,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { syncAllToCloud } from "@/lib/sync-cloud";
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
 import { setUserInfo } from "@/redux/slices/userinfoSlice";
 import axios from "axios";
@@ -138,7 +137,7 @@ const SyncShare = () => {
     const firm_id = localStorage.getItem("firmId");
     try {
     
-      const response = await axios.get(`${apiUrl}/firm/${firm_id}/shares`);
+      const response = await axios.get(`${cloud_url}/firm/${firm_id}/shares`);
       console.log(response.data);
       setSyncedUsers(response.data || []);
     } catch (error) {

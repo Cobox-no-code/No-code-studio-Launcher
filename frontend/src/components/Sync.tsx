@@ -139,7 +139,7 @@ export default function Sync() {
       </Dialog>
 
       {/* RESTRICTION MODAL */}
-   { !path.includes('firm')  && <Dialog open={showRestrictionModal} onOpenChange={() => {}}>
+   {  path && !path?.includes('firm')  && <Dialog open={showRestrictionModal} onOpenChange={() => {}}>
         <DialogContent
           className="sm:max-w-md"
           onPointerDownOutside={(e) => e.preventDefault()}

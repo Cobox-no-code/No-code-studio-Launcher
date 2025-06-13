@@ -1,26 +1,47 @@
-// hooks/useApiUrl.ts
+// hooks/useSafeSelector.ts
 import { useAppSelector } from "@/redux/hooks";
+import { useState, useEffect } from "react";
+// hooks/useApiUrl.ts
 import { cloud_url } from "@/backend.config";
-import { useEffect, useState } from "react";
 
-// ✅ Hook that safely uses Redux with error handling
-export const useApiUrl = () => {
-  const [fallbackUrl, setFallbackUrl] = useState('http://localhost:4000/api');
+export const useSafeSelector = <T>(
+  selector: (state: any) => T, 
+  defaultValue: T
+): T => {
+  const [mounted, setMounted] = useState(false);
   
-  // Try to use Redux, fallback to localStorage
-  let syncEnabled = false;
-  try {
-    syncEnabled = useAppSelector((state) => state.sync.isEnabled);
-  } catch (error) {
-    // Redux not available, use localStorage fallback
-    useEffect(() => {
-      if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem('sync_enabled') === 'true';
-        setFallbackUrl(stored ? cloud_url : 'http://localhost:4000/api');
-      }
-    }, []);
-    return fallbackUrl;
-  }
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  return syncEnabled ? cloud_url : 'http://localhost:4000/api';
+  // Always call the hook, but handle the error gracefully
+  try {
+    const result = useAppSelector(selector);
+    return mounted ? result : defaultValue;
+  } catch (error) {
+    // If Redux context is not available (SSR), return default
+    return defaultValue;
+  }
+};
+
+
+
+export const useApiUrl = () => {
+  const [url, setUrl] = useState("http://localhost:4000/api");
+  
+  const syncEnabled = useSafeSelector(
+    (state) => state.sync?.isEnabled,
+    undefined
+  );
+
+  useEffect(() => {
+    if (syncEnabled !== undefined) {
+      setUrl(syncEnabled ? cloud_url : "http://localhost:4000/api");
+    } else if (typeof window !== "undefined") {
+      const local = localStorage.getItem("sync_enabled") === "true";
+      setUrl(local ? cloud_url : "http://localhost:4000/api");
+    }
+  }, [syncEnabled]);
+
+  return url;
 };
