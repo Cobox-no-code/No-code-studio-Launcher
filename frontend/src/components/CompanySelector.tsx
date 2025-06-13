@@ -30,13 +30,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { API_BASE_URL } from "@/redux/api/api.config";
 import { backend_url } from "@/backend.config";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { Badge } from "@/components/ui/badge";
 import { fetchFirms, setCurrentFirm, updateRole } from "@/redux/slices/firmSlice";
 import { setUserInfo } from "@/redux/slices/userinfoSlice";
-import { syncAllToCloud, syncAllToLocal } from "@/lib/sync-cloud";
+
 import toast from "react-hot-toast";
 import {
   useGetPurchaseInvoicesQuery,
@@ -44,6 +43,10 @@ import {
 } from "@/redux/api/documentApi";
 import { useGetItemsQuery } from "@/redux/api/itemsApi";
 import { useGetBankAccountsQuery } from "@/redux/api/bankingApi";
+import { fetchFirm } from "@/lib/sync-enable";
+import { useApiUrl } from "@/hooks/useApiUrl";
+import { setSyncEnabled } from "@/redux/slices/sync";
+
 
 // Type definitions
 interface Company {
@@ -75,7 +78,7 @@ const CompanySelector = ({
   const [open, setOpen] = useState<boolean>(false);
   const companies = useAppSelector((state) => state.firm.firms);
   const [selectedCompany, setSelectedCompany] = useState<string>("");
-  
+  const apiUrl = useApiUrl();
   const [isFullPageLoading, setIsFullPageLoading] = useState<boolean>(false);
   const [syncSteps, setSyncSteps] = useState<SyncStep[]>([]);
   const [loadingCompanyId, setLoadingCompanyId] = useState<string | null>(null);
@@ -111,7 +114,7 @@ const CompanySelector = ({
   
   useEffect(() => {
     const fetch = async () => {
-      const res = await axios.get(`${API_BASE_URL}/firms/${firmId}`);
+      const res = await axios.get(`${apiUrl}/firms/${firmId}`);
       if (res.data) {
         setSelectedCompany(res.data.name);
       }
@@ -213,12 +216,9 @@ const performSteppedSync = async (company: any) => {
   console.log(company.id);
   
   try {
-    const result = await syncAllToLocal(backend_url, company.id, owner);
 
-    // Check if sync returned no results or failed
-    if (!result || result.status !== "completed") {
-      throw new Error("Sync failed or returned no results");
-    }
+
+ 
 
     // Step 1: Company Data
     updateSyncStep("company-data", "loading");
@@ -319,15 +319,17 @@ const handleCompanyChange = async (company: any) => {
   dispatch(setCurrentFirm(company));
   setSelectedCompany(company.name);
   setOpen(false);
- 
+
   try {
     if (company.isShared !== undefined) {
-      // Initialize full page loading for shared companies
+      dispatch(setSyncEnabled(true))
       setIsFullPageLoading(true);
       setSyncSteps(initializeSyncSteps());
       dispatch(updateRole(company.role));
       await performSteppedSync(company);
     } else {
+     
+      dispatch(setSyncEnabled(false))
       // Simple loading for non-shared companies
       dispatch(updateRole("admin"));
       

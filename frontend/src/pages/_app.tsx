@@ -7,7 +7,6 @@ import { makeStore, AppStore } from "@/redux/store";
 import { Toaster } from "react-hot-toast";
 import axios from "axios";
 import FirmCreationScreen from "@/components/FirmCreation";
-import { API_BASE_URL } from "@/redux/api/api.config";
 import { AppSidebar } from "@/components/SideBar/app-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Plus } from "lucide-react";
@@ -22,11 +21,13 @@ import Sync from "@/components/Sync";
 import Updater from "@/components/Updater";
 import { DeleteConfirmationProvider } from "@/lib/context/DeleteConfirmationContext";
 import { hasPermission } from "@/lib/role-permissions-mapping";
+import { useApiUrl } from "@/hooks/useApiUrl";
+
 // Subscription access control wrapper component
 const SubscriptionGuard = ({ children, router }) => {
   const userInfo = useAppSelector((state) => state.userinfo);
   const [showRouteBlocked, setShowRouteBlocked] = useState(false);
-
+const apiUrl = useApiUrl();
   // Define allowed routes that don't require subscription
   const publicRoutes = [
     "/login",
@@ -104,7 +105,7 @@ function MyApp({ Component, pageProps }: AppProps) {
   const storeRef = useRef<AppStore | null>(null);
   const [hasFirm, setHasFirm] = useState(false);
   const [loading, setLoading] = useState(true);
-
+const apiUrl = useApiUrl();
   const router = useRouter();
 
   if (!storeRef.current) {
@@ -118,7 +119,7 @@ function MyApp({ Component, pageProps }: AppProps) {
 
   useEffect(() => {
     axios
-      .get(`${API_BASE_URL}/init`)
+      .get(`${apiUrl}/init`)
       .then(() => console.log("Tables created successfully"))
       .catch((error) => console.error("Error creating tables:", error));
   }, []);

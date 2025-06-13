@@ -21,6 +21,7 @@ import { paymentApi } from "./api/paymentApi"; // ✅ Import payment API
 import paymentReducer from "./slices/paymentSlice"; // ✅ Import payment slice
 import userinfoReducer from "./slices/userinfoSlice";
 import firmReducer from "./slices/firmSlice";
+import syncReducer from './slices/sync'
 export function makeStore() {
   return configureStore({
     reducer: {
@@ -30,6 +31,7 @@ export function makeStore() {
       [bankingBaseApi.reducerPath]: bankingBaseApi.reducer, // ✅ Added banking reducer
       [documentsBaseApi.reducerPath]: documentsBaseApi.reducer,
       [paymentApi.reducerPath]: paymentApi.reducer,
+      sync:syncReducer,
       items: itemsReducer,
       categories: categoriesReducer,
       units: unitsReducer,

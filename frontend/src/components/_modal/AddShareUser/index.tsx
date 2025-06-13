@@ -12,9 +12,9 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "react-hot-toast";
-import { API_BASE_URL } from "@/redux/api/api.config";
+
 import axios from "axios";
-import { backend_url } from "@/backend.config";
+import { backend_url, cloud_url } from "@/backend.config";
 import { Loader2, User, UserCog, Eye } from "lucide-react";
 
 type Role =
@@ -99,13 +99,13 @@ const AddUserModal = ({ open, onClose, onShareSuccess }: AddUserModalProps) => {
 
     try {
       setLoading(true);
-      const res = await axios.post(`${backend_url}/share-firm/`, {
-        phone,
+      const res = await axios.post(`${cloud_url}/firm-share`, {
+        user_number:phone,
         firm_id: firmId,
         role,
       });
 
-      if (res.data.status === "success") {
+      if (res.data.id) {
         toast.success("Firm shared successfully");
         setPhone("");
         setRole("biller");

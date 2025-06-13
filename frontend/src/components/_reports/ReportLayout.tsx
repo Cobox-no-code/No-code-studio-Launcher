@@ -1,8 +1,10 @@
 'use client';
 import React, { useEffect } from 'react';
 import ReportSidebar from '@/components/_reports/ReportSidebar';
-import { useGetPurchaseInvoicesQuery, useGetSaleInvoicesQuery } from '@/redux/api/documentApi';
+import { useGetDocumentsQuery, useGetPurchaseInvoicesQuery, useGetSaleInvoicesQuery } from '@/redux/api/documentApi';
 import { useGetPaymentsQuery } from '@/redux/api/paymentApi';
+import { useGetPartiesQuery } from '@/redux/api/partiesApi';
+import { useGetItemsQuery } from '@/redux/api';
 
 export default function ReportLayout({ children }: { children: React.ReactNode }) {
   // Fetch sale invoices
@@ -12,6 +14,29 @@ export default function ReportLayout({ children }: { children: React.ReactNode }
     isError: isSalesError,
     refetch: refetchSales,
   } = useGetSaleInvoicesQuery({
+ 
+  });
+   const {
+    data: documents,
+ 
+    refetch: refetchDocuments,
+  } = useGetDocumentsQuery({
+ 
+  });
+  
+   const {
+    data: parties,
+ 
+    refetch: refetchPartis,
+  } = useGetPartiesQuery({
+ 
+  });
+  
+   const {
+    data: items,
+ 
+    refetch: refetchItems,
+  } = useGetItemsQuery({
  
   });
 
@@ -39,17 +64,23 @@ export default function ReportLayout({ children }: { children: React.ReactNode }
       refetchSales();
       refetchPurchases();
       refetchPayments();
+      refetchDocuments()
+      refetchItems()
+      refetchPartis()
   
       // Set up interval for periodic refetching (every 5 seconds)
       const intervalId = setInterval(() => {
-        refetchSales();
-        refetchPurchases();
-        refetchPayments();
-      }, 5000); // Adjust this time as needed
+             refetchSales();
+      refetchPurchases();
+      refetchPayments();
+      refetchDocuments()
+      refetchItems()
+      refetchPartis()
+      }, 2000); // Adjust this time as needed
   
       // Clean up interval on unmount
       return () => clearInterval(intervalId);
-    }, [refetchSales, refetchPurchases, refetchPayments]);
+    }, [refetchSales, refetchPurchases, refetchPayments,refetchDocuments,refetchItems,refetchPartis]);
   return (
     <div className="w-full flex bg-primary text-black">
       <ReportSidebar />

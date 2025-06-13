@@ -9,41 +9,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import html2canvas from "html2canvas";
-import { API_BASE_URL } from "@/redux/api/api.config";
+
 import { useGetBankAccountByIdQuery } from "@/redux/api/bankingApi";
 import { useGetDocumentByIdQuery } from "@/redux/api/documentApi";
 import axios from "axios";
 import {
   ArrowLeft,
-  Database,
   FileText,
   Loader2,
   Printer,
   Receipt,
-  Send,
-  Share2,
-  X,
+  Send
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useReactToPrint } from "react-to-print";
+import { Dialog, DialogContent } from "../ui/dialog";
 import InvoicePrinter from "./Regular";
 import ThermalInvoicePrinter from "./Thermal";
-import { Dialog, DialogContent } from "../ui/dialog";
-import { on } from "events";
+import { useApiUrl } from "@/hooks/useApiUrl";
+
 
 // QR Code Modal Component
 const QRLoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const [qrCode, setQrCode] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
-
+const apiUrl = useApiUrl();
   const fetchQRCode = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/qr`);
+      const response = await fetch(`${apiUrl}/qr`);
       const data = await response.json();
       if (data?.qr) {
         setQrCode(data.qr);
@@ -68,7 +65,7 @@ const QRLoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
     const interval = setInterval(async () => {
       attempts++;
       try {
-        const response = await fetch(`${API_BASE_URL}/qr`);
+        const response = await fetch(`${apiUrl}/qr`);
         const data = await response.json();
        if (data?.status === 'authenticated') {
           clearInterval(interval);
@@ -291,6 +288,7 @@ const DocumentViewerPage: React.FC = () => {
   const [invoiceTheme, setInvoiceTheme] = useState<"regular" | "thermal">(
     "regular"
   );
+  const apiUrl = useApiUrl();
   const [firm, setFirm] = useState<any>(null);
   const [isWhatsAppLoggedIn, setIsWhatsAppLoggedIn] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
@@ -331,7 +329,7 @@ const DocumentViewerPage: React.FC = () => {
 // Check WhatsApp login status
 const checkWhatsAppLoginStatus = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/qr`);
+    const response = await fetch(`${apiUrl}/qr`);
     const data = await response.json();
     console.log("WhatsApp login status:", data);
     
@@ -364,7 +362,7 @@ const handleLogin = async () => {
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/qr`);
+    const response = await fetch(`${apiUrl}/qr`);
     const data = await response.json();
     
     console.log("Login check response:", data);
@@ -463,7 +461,7 @@ useEffect(() => {
         html: element.outerHTML,
       };
 
-      const response = await axios.post(`${API_BASE_URL}/send-pdf`, formData);
+      const response = await axios.post(`${apiUrl}/send-pdf`, formData);
 
       if (response.status && response.status === 200) {
         const data = response.data;
@@ -500,7 +498,7 @@ useEffect(() => {
   useEffect(() => {
     if (firmId) {
       axios
-        .get(`${API_BASE_URL}/firms/${firmId}`)
+        .get(`${apiUrl}/firms/${firmId}`)
         .then((res) => {
           setFirm(res.data);
         })

@@ -1,9 +1,9 @@
 import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
-import { API_BASE_URL } from "../api/api.config";
 import { set } from "date-fns";
-import { backend_url } from "@/backend.config";
+import { backend_url, cloud_url } from "@/backend.config";
 import { ROLE_PERMISSIONS_MAPPING } from "@/lib/role-permissions-mapping";
+
 interface Company {
   id: string;
   name: string;
@@ -50,8 +50,8 @@ export const fetchFirms = createAsyncThunk(
       const { currentFirm, role: currentRole } = state.firm;
 
       const [ownedResult, sharedResult] = await Promise.allSettled([
-        axios.get<Company[]>(`${API_BASE_URL}/firms?phone=${phone}`),
-        axios.get(`${backend_url}/get-shared-firms?phone=${phone}`),
+        axios.get<Company[]>(`http://localhost:4000/api/firms?phone=${phone}`),
+        axios.get(`${cloud_url}/user/${phone}/firms`),
       ]);
 
       const ownedCompanies =
@@ -59,7 +59,7 @@ export const fetchFirms = createAsyncThunk(
 
       const sharedFirmsRaw =
         sharedResult.status === "fulfilled"
-          ? sharedResult.value.data?.shared_firms || []
+          ? sharedResult.value.data || []
           : [];
 
       const formattedSharedFirms = sharedFirmsRaw.map((firm: any) => ({
@@ -100,7 +100,7 @@ export const createFirm = createAsyncThunk(
       name,
       country,
       phone,
-      cloudurl,
+      apiUrl,
       address,
       owner,
       ownerName,
@@ -108,7 +108,7 @@ export const createFirm = createAsyncThunk(
       name: string;
       country?: string;
       phone?: string;
-      cloudurl: string;
+      apiUrl: string;
       address: string;
       owner: string;
       ownerName: string;
@@ -116,18 +116,18 @@ export const createFirm = createAsyncThunk(
     thunkAPI
   ) => {
     try {
-      const response = await axios.post<Firm>(`${API_BASE_URL}/firms`, {
+      const response = await axios.post<Firm>(`${apiUrl}/firms`, {
         name,
         country,
         phone,
-        cloudurl,
+       
         address,
         owner,
         ownerName,
       });
 
       // Optionally init firm default data
-      await axios.get(`${API_BASE_URL}/initData`, {
+      await axios.get(`${apiUrl}/initData`, {
         headers: { "x-firm-id": response.data.id },
       });
 

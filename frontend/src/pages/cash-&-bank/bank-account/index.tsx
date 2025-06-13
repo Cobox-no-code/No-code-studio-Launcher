@@ -314,7 +314,7 @@ const BankAccountPage = () => {
     // Set up interval for periodic refetching (every 5 seconds)
     const intervalId = setInterval(() => {
       refetch();
-    }, 5000);
+    }, 2000);
 
     // Clean up interval on unmount
     return () => clearInterval(intervalId);

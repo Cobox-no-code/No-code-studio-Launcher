@@ -1,4 +1,5 @@
-import { API_BASE_URL } from "@/redux/api/api.config";
+
+import { useApiUrl } from "@/hooks/useApiUrl";
 import { useAppSelector } from "@/redux/hooks";
 import axios from "axios";
 import {
@@ -328,14 +329,14 @@ const ReportCategory: React.FC<ReportCategoryProps> = ({
 const ReportSidebar = () => {
   // Get role from Redux store with fallback to 'admin'
   const role = (useAppSelector((state) => state.firm.role) as UserRole) || "admin";
-  
+    const apiUrl = useApiUrl()
   const [firmCountry, setFirmCountry] = useState("");
   const firmId = typeof window !== "undefined" ? localStorage.getItem("firmId") : null;
 
   useEffect(() => {
     const fetch = async () => {
       try {
-        const res = await axios.get(`${API_BASE_URL}/firms/${firmId}`);
+        const res = await axios.get(`${apiUrl}/firms/${firmId}`);
         if (res.data) {
           setFirmCountry(res.data.country);
         }

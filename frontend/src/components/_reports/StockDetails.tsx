@@ -128,6 +128,61 @@ const StockDetailsPage = () => {
       }, {} as Record<string, any>) || {}
     );
   }, [units]);
+   const getUnitInfo = (item: any) => {
+    if (!units) return { name: "—", shortName: "" };
+
+    // First try to get unit from unit_conversionId
+    if (item.unit_conversionId && unitConversions) {
+      const conversion = unitConversions.find(
+        (uc) => uc.id === item.unit_conversionId
+      );
+      if (conversion) {
+        const unit = units.find((u) => u.id === conversion.primaryUnitId);
+        return {
+          name: unit ? unit.fullname : "—",
+          shortName: unit ? unit.shortname : "",
+          secondaryUnitId: conversion.secondaryUnitId,
+          conversionRate: conversion.conversionRate || 1,
+        };
+      }
+    }
+
+    // Fallback to unitId for backward compatibility
+    if (item.unitId) {
+      const unit = units.find((u) => u.id === item.unitId);
+      return {
+        name: unit ? unit.fullname : "—",
+        shortName: unit ? unit.shortname : "",
+        conversionRate: 1,
+      };
+    }
+
+    return { name: "—", shortName: "", conversionRate: 1 };
+  };
+  // Calculate stock value considering both primary and secondary quantities
+  const calculateStockValue = (item: any) => {
+    if (!item || !item.purchasePrice) return 0;
+
+    let totalValue = 0;
+
+    // Add primary quantity value
+    if (item.primaryQuantity) {
+      totalValue += item.primaryQuantity * item.purchasePrice;
+    }
+
+    // Add secondary quantity value if exists
+    if (item.secondaryQuantity && item.unit_conversionId) {
+      const unitInfo = getUnitInfo(item);
+      if (unitInfo.conversionRate) {
+        // Convert secondary units to primary units for value calculation
+        const primaryEquivalent =
+          item.secondaryQuantity / unitInfo.conversionRate;
+        totalValue += primaryEquivalent * item.purchasePrice;
+      }
+    }
+
+    return totalValue > 0 ? totalValue : 0;
+  };
 
   const conversionMap = React.useMemo(() => {
     return (
@@ -150,7 +205,7 @@ const StockDetailsPage = () => {
 
     const totalStockValue = filteredItems.reduce((acc, item) => {
       if (isProduct(item)) {
-        return acc + (item.currentQuantity || 0) * (item.salePrice || 0);
+        return acc + calculateStockValue(item);
       }
       return acc;
     }, 0);
@@ -159,7 +214,7 @@ const StockDetailsPage = () => {
       return (
         isProduct(item) &&
         item.minStockLevel &&
-        item.currentQuantity < item.minStockLevel
+        item.primaryQuantity < item.minStockLevel || item.primaryQuantity <= 0
       );
     }).length;
 
@@ -480,11 +535,10 @@ const StockDetailsPage = () => {
                       if (!isProduct(item)) return null;
 
                       const unitInfo = getUnitNames(item);
-                      const stockValue =
-                        (item.primaryQuantity || 0) * (item.salePrice || item.pricePerUnit || item.purchasePrice || 0);
+                      const stockValue = calculateStockValue(item)
                       const isLowStock =
                         item.minStockLevel &&
-                        (item.primaryQuantity || 0) < item.minStockLevel;
+                        (item.primaryQuantity || 0) < item.minStockLevel || item.primaryQuantity <= 0;
                       const category = categories?.find(
                         (cat) => cat.id === item.categoryId
                       );

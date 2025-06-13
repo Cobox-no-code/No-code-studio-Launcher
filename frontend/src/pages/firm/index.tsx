@@ -40,7 +40,6 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { API_BASE_URL } from "@/redux/api/api.config";
 import Link from "next/link";
 import { backend_url } from "@/backend.config";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
@@ -50,6 +49,7 @@ import {
   setCurrentFirm,
 } from "@/redux/slices/firmSlice";
 import { Textarea } from "@/components/ui/textarea";
+import { useApiUrl } from "@/hooks/useApiUrl";
 // Type definitions
 interface Country {
   code: string;
@@ -75,7 +75,7 @@ const FirmCreationScreen = (): JSX.Element => {
   const { firms, currentFirm, loading, error } = useAppSelector(
     (state) => state.firm
   );
-
+const apiUrl = useApiUrl()
   const userinfo = useAppSelector((state) => state.userinfo);
   const [firmName, setFirmName] = useState<string>("");
   const [country, setCountry] = useState<string>("");
@@ -111,7 +111,7 @@ const FirmCreationScreen = (): JSX.Element => {
         name: firmName,
         country,
         phone,
-        cloudurl: backend_url,
+        apiUrl: apiUrl,
         address,
         owner,
         ownerName: userinfo.name,

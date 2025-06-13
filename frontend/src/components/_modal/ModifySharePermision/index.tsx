@@ -34,11 +34,11 @@ interface ManagePermissionModalProps {
   open: boolean;
   onClose: () => void;
   user: {
-    name: string;
-    phone: string;
+    id: string
+    user_number: string;
     role: Role;
   } | null;
-  onUpdateRole: (phone: string, role: any) => Promise<void>;
+  onUpdateRole: (id: string, role: any) => Promise<void>;
 }
 
 const ManagePermissionModal: React.FC<ManagePermissionModalProps> = ({
@@ -111,7 +111,7 @@ const ManagePermissionModal: React.FC<ManagePermissionModalProps> = ({
 
     try {
       setIsSubmitting(true);
-      await onUpdateRole(user.phone, selectedRole);
+      await onUpdateRole(user.id, selectedRole);
       onClose();
     } catch (error) {
       console.error("Error updating role:", error);
@@ -140,8 +140,8 @@ const ManagePermissionModal: React.FC<ManagePermissionModalProps> = ({
         <DialogHeader>
           <DialogTitle>Manage User Permissions</DialogTitle>
           <DialogDescription>
-            Update access permissions for {user?.name || "user"} (
-            {user?.phone || ""})
+            Update access permissions for  (
+            {user?.user_number || ""})
           </DialogDescription>
           {user && (
             <div className="mt-2">

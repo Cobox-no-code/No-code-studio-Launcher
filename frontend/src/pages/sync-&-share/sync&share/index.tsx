@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2 } from "lucide-react";
 
-import { backend_url } from "@/backend.config";
+import { backend_url, cloud_url } from "@/backend.config";
 import AddUserModal from "@/components/_modal/AddShareUser";
 import { Button } from "@/components/ui/button";
 import {
@@ -87,105 +87,78 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
 };
 
 import { toast } from "react-hot-toast";
-import { API_BASE_URL } from "@/redux/api/api.config";
 import ManagePermissionModal from "@/components/_modal/ModifySharePermision";
 import PermissionsDialog from "@/components/PermissionTable";
 import { set } from "date-fns";
+import { fetchFirm } from "@/lib/sync-enable";
+import { useApiUrl } from "@/hooks/useApiUrl";
+import SyncToggle from "@/components/Toogle";
+import { FaSync } from "react-icons/fa";
 
 type Role = "admin" | "editor" | "viewer";
 
 interface SyncedUser {
-  name: string;
-  phone: string;
+  user_number: string;
   role: any;
+  id: string;
 }
 
 const SyncShare = () => {
   const dispatch = useAppDispatch();
+  const apiUrl = useApiUrl();
   const userInfo = useAppSelector((state) => state.userinfo);
-  const { sync_enabled } = useAppSelector((state) => state.userinfo);
+  const [sync_enabled, setSyncEnabled] = useState(false);
+  const { isEnabled ,isLoading} = useAppSelector((state) => state.sync);
   const [syncedUsers, setSyncedUsers] = useState<SyncedUser[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [firmData, setFirmData] = useState<any>(null);
   const [isCurrentUserAdmin, setCurrentUserAdmin] = useState(false);
-   const [ openPermissionTable, setOpenPermissionTable ] = useState(false);
+  const [openPermissionTable, setOpenPermissionTable] = useState(false);
   // Permission management modal state
   const [permissionModalOpen, setPermissionModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<SyncedUser | null>(null);
-    const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   // Confirm removal modal state
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [userToRemove, setUserToRemove] = useState<SyncedUser | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
 
+
   useEffect(() => {
-    if (sync_enabled) {
+    if (isEnabled) {
       fetchSyncedUsers();
     }
-  }, [sync_enabled]);
+  }, [isEnabled]);
 
   const fetchSyncedUsers = async () => {
+    if (!isEnabled) {
+      return;
+    }
     const firm_id = localStorage.getItem("firmId");
     try {
-      setIsLoading(true);
-      const response = await axios.get(
-        `${backend_url}/get-firm-users?firmId=${firm_id}`
-      );
-      setSyncedUsers(response.data.synced_users || []);
+    
+      const response = await axios.get(`${apiUrl}/firm/${firm_id}/shares`);
+      console.log(response.data);
+      setSyncedUsers(response.data || []);
     } catch (error) {
       console.error("Error fetching synced users:", error);
       toast.error("Failed to load synced users");
     } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const handleToggleSync = async () => {
-    const firmId = localStorage.getItem("firmId");
-    const owner = userInfo.phone;
-    try {
-      setIsLoading(true);
-      const payload = {
-        owner: userInfo.phone,
-        firmId: firmId,
-      };
-
-      const response = await axios.post(`${backend_url}/toggle-sync/`, payload);
-
-      if (response.data.status === "success") {
-        const submitData = {
-          sync_enabled: !sync_enabled,
-        };
-
-        await axios.put(`${API_BASE_URL}/firms/${firmId}`, submitData);
-        dispatch(setUserInfo({ ...userInfo, sync_enabled: !sync_enabled }));
-        const result = await syncAllToCloud(backend_url, firmId, owner);
-
-        toast.success(
-          `Sync ${!sync_enabled ? "enabled" : "disabled"} successfully`
-        );
-      } else {
-        toast.error(response.data.message || "Failed to toggle sync");
-      }
-    } catch (error) {
-      console.error("Error toggling sync:", error);
-      toast.error("An error occurred while toggling sync");
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const handleRefreshSync = async () => {
     try {
-      setIsLoading(true);
+  
       await fetchSyncedUsers();
       toast.success("Sync data refreshed");
     } catch (error) {
       console.error("Error refreshing sync data:", error);
       toast.error("Failed to refresh sync data");
     } finally {
-      setIsLoading(false);
+    
     }
   };
 
@@ -198,21 +171,19 @@ const SyncShare = () => {
     setPermissionModalOpen(true);
   };
 
-  const handleUpdateRole = async (phone: string, role: Role) => {
+  const handleUpdateRole = async (id: string, role: Role) => {
     const firmId = localStorage.getItem("firmId");
-    if (!phone || !role || !firmId) {
+    if (!id || !role || !firmId) {
       toast.error("Missing required information");
       return;
     }
 
     try {
-      const res = await axios.post(`${backend_url}/change-role/`, {
-        phone,
-        firm_id: firmId,
+      const res = await axios.put(`${cloud_url}/firm-share/${id}`, {
         role,
       });
 
-      if (res.data.status === "success") {
+      if (res.data) {
         toast.success("Permissions updated successfully");
         await fetchSyncedUsers();
       } else {
@@ -240,12 +211,12 @@ const SyncShare = () => {
 
     try {
       setIsRemoving(true);
-      const res = await axios.post(`${backend_url}/remove-shared-firm/`, {
-        phone: userToRemove.phone,
-        firm_id: firmId,
-      });
+      const res = await axios.delete(
+        `${cloud_url}/firm-share/${userToRemove.id}`,
+        {}
+      );
 
-      if (res.data.status === "success") {
+      if (res.data) {
         toast.success("User removed successfully");
         await fetchSyncedUsers();
         setConfirmModalOpen(false);
@@ -287,7 +258,7 @@ const SyncShare = () => {
       <div className="flex items-center justify-between py-4 border-b bg-white px-4">
         <div className="flex items-center gap-4">
           <p className="font-semibold text-xl">Sync & Share</p>
-          {sync_enabled && (
+          {isEnabled && (
             <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
               <CheckCircle className="h-3 w-3 mr-1 text-gray-700" />
               Sync Enabled
@@ -295,7 +266,7 @@ const SyncShare = () => {
           )}
         </div>
         <div className="flex gap-2">
-          {sync_enabled && isCurrentUserAdmin && (
+          {isEnabled && isCurrentUserAdmin && (
             <Button
               className="p-1 hover:bg-gray-200 rounded-full"
               variant={"outline"}
@@ -333,112 +304,139 @@ const SyncShare = () => {
             </div>
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger>
-              <Button
-                className="p-1 hover:bg-gray-200 rounded-full px-4 bg-gray-100"
-                variant={"secondary"}
-              >
-                <EllipsisVertical className="text-gray-700" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={handleToggleSync}>
-                {sync_enabled ? "Disable Sync" : "Enable Sync"}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <SyncToggle />
         </div>
 
-        {syncedUsers.length > 0 ? (
-          <div className="bg-white rounded-xl p-4">
-            <h3 className="font-semibold mb-3">
-              Synced Users ({syncedUsers.length})
-            </h3>
-            <div className="space-y-2">
-              {syncedUsers.map((user, index) => (
-                <div
-                 onClick={() => {
-setOpenPermissionTable(true);
-setSelectedRole(user.role);
-                    }}
-                  key={index}
-                  className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="bg-gray-100 p-2 rounded-full">
-                      <User className="h-5 w-5 text-gray-700" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{user.name || "User"}</p>
-                        {user.role && (
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 text-xs font-medium ${getRoleBadgeColor(
-                              user.role
-                            )} rounded-full`}
-                          >
-                            {user.role.charAt(0).toUpperCase() +
-                              user.role.slice(1)}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-500">{user.phone}</p>
-                    </div>
-                  </div>
+     { isLoading ? (
+  <div className="flex flex-col items-center justify-center h-[60dvh] rounded-xl gap-6 bg-gradient-to-br from-blue-50 to-indigo-100 relative overflow-hidden">
+    {/* Background Animation */}
+    <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5 animate-pulse"></div>
+    
+    {/* Main Loading Content */}
+    <div className="relative z-10 flex flex-col items-center gap-6">
+      {/* Animated Icon */}
+      <div className="relative">
+        <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+          <svg className="animate-spin w-8 h-8 text-white" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+        <div className="absolute -inset-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full opacity-20 animate-ping"></div>
+      </div>
 
-                  {isCurrentUserAdmin && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger>
-                        <Button
-                          className="p-1 hover:bg-gray-200 rounded-full"
-                          variant={"ghost"}
-                        >
-                          <EllipsisVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem
-                          onClick={() => handleManagePermissions(user)}
-                        >
-                          <UserCog className="h-4 w-4 mr-2" />
-                          Manage Permissions
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-600"
-                          onClick={() => openRemoveConfirmation(user)}
-                        >
-                          <UserMinus className="h-4 w-4 mr-2" />
-                          Remove User
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </div>
-              ))}
+      {/* Loading Text */}
+      <div className="text-center space-y-2">
+        <h3 className="text-xl font-semibold text-gray-800">
+          Syncing Users...
+        </h3>
+        <p className="text-sm text-gray-600">
+          Please wait while we sync your team data
+        </p>
+      </div>
+
+      {/* Animated Progress Dots */}
+      <div className="flex gap-2">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"
+            style={{ animationDelay: `${i * 0.2}s` }}
+          />
+        ))}
+      </div>
+    </div>
+  </div>
+) : !isLoading && syncedUsers.length > 0 ? (
+  <div className="bg-white rounded-xl p-4">
+    <h3 className="font-semibold mb-3">
+      Synced Users ({syncedUsers.length})
+    </h3>
+    <div className="space-y-2">
+      {syncedUsers.map((user, index) => (
+        <div
+          onClick={() => {
+            setOpenPermissionTable(true);
+            setSelectedRole(user.role);
+          }}
+          key={index}
+          className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
+        >
+          <div className="flex items-center gap-3">
+            <div className="bg-gray-100 p-2 rounded-full">
+              <User className="h-5 w-5 text-gray-700" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-medium">
+                  {user.user_number || "User"}
+                </p>
+                {user.role && (
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 text-xs font-medium ${getRoleBadgeColor(
+                      user.role
+                    )} rounded-full`}
+                  >
+                    {user.role.charAt(0).toUpperCase() +
+                      user.role.slice(1)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-[60dvh] rounded-xl gap-3 bg-white">
-            <span className="items-center text-center">
-              <p className="text-md font-semibold">
-                You have not added any users till now.
-              </p>
-              <p className="text-xs text-gray-400">
-                Add users, assign roles and let your employees manage your
-                business
-              </p>
-            </span>
-            {sync_enabled && isCurrentUserAdmin && (
-              <Button
-                className="p-1  h-10 w-40 text-lg rounded-full bg-black text-white"
-                onClick={handleAddUser}
-              >
-                <Plus className="mr-1" /> Add User
-              </Button>
-            )}
-          </div>
-        )}
+
+          {isCurrentUserAdmin && (
+            <DropdownMenu>
+              <DropdownMenuTrigger>
+                <Button
+                  className="p-1 hover:bg-gray-200 rounded-full"
+                  variant={"ghost"}
+                >
+                  <EllipsisVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem
+                  onClick={() => handleManagePermissions(user)}
+                >
+                  <UserCog className="h-4 w-4 mr-2" />
+                  Manage Permissions
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-red-600"
+                  onClick={() => openRemoveConfirmation(user)}
+                >
+                  <UserMinus className="h-4 w-4 mr-2" />
+                  Remove User
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      ))}
+    </div>
+  </div>
+) : (
+  <div className="flex flex-col items-center justify-center h-[60dvh] rounded-xl gap-3 bg-white">
+    <span className="items-center text-center">
+      <p className="text-md font-semibold">
+        You have not added any users till now.
+      </p>
+      <p className="text-xs text-gray-400">
+        Add users, assign roles and let your employees manage your
+        business
+      </p>
+    </span>
+    {isEnabled && isCurrentUserAdmin && (
+      <Button
+        className="p-1  h-10 w-40 text-lg rounded-full bg-black text-white"
+        onClick={handleAddUser}
+      >
+        <Plus className="mr-1" /> Add User
+      </Button>
+    )}
+  </div>
+)}
       </section>
 
       {/* Add User Modal */}
@@ -468,15 +466,19 @@ setSelectedRole(user.role);
         }}
         title="Remove User"
         description={`Are you sure you want to remove ${
-          userToRemove?.name || "this user"
-        } (${
-          userToRemove?.phone || ""
-        })? They will no longer have access to this firm's data.`}
+          userToRemove?.user_number || "this user"
+        } )? They will no longer have access to this firm's data.`}
         actionLabel="Remove User"
         isLoading={isRemoving}
         onConfirm={handleRemoveUser}
       />
-      <PermissionsDialog isOpen={openPermissionTable && !permissionModalOpen && !confirmModalOpen} selectedRole={selectedRole} onOpenChange={()=>setOpenPermissionTable(false)}/>
+      <PermissionsDialog
+        isOpen={
+          openPermissionTable && !permissionModalOpen && !confirmModalOpen
+        }
+        selectedRole={selectedRole}
+        onOpenChange={() => setOpenPermissionTable(false)}
+      />
     </div>
   );
 };

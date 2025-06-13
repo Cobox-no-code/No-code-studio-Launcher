@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import axios from "axios";
 import { db } from "../lib/db";
+import { cloudUrl } from "../urls.config";
 
 const SYNC_TABLES = [
   "firms",
@@ -37,11 +38,12 @@ interface SyncResult {
   error?: string;
 }
 
+// 🔄 Sync Local ➝ Cloud
 export const syncToCloud = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { cloudUrl, firmId, owner }: SyncRequestBody = req.body;
+  const {  firmId }: SyncRequestBody = req.body;
 
   if (!cloudUrl || !firmId) {
     return res.status(400).json({ error: "cloudUrl and firmId are required." });
@@ -51,30 +53,20 @@ export const syncToCloud = async (
 
   for (const table of SYNC_TABLES) {
     try {
-      let records =
+      const records =
         table === "firms"
           ? await db(table).select()
           : await db(table, firmId).select();
 
-      if (records.length === 0) {
-        results.push({
-          table,
-          status: "skipped",
-          reason: "no records to sync",
-        });
-        continue;
-      }
-
-      const response = await axios.post(`${cloudUrl}/sync/`, {
-        table,
-        records,
-        owner,
+      // POST to /sync/push on cloud
+      const response = await axios.post(`${cloudUrl}/sync/push?firmId=${firmId}`, {
+        [table]: records,
       });
 
       results.push({
         table,
         status: "success",
-        created: response.data.created || 0,
+        created: response.data.created || records.length,
         updated: response.data.updated || 0,
       });
     } catch (error: any) {
@@ -93,11 +85,12 @@ export const syncToCloud = async (
   });
 };
 
+// 🔄 Sync Cloud ➝ Local
 export const syncToLocal = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const { cloudUrl, firmId, owner }: SyncRequestBody = req.body;
+  const { firmId }: SyncRequestBody = req.body;
 
   if (!cloudUrl || !firmId) {
     return res.status(400).json({ error: "cloudUrl and firmId are required." });
@@ -105,24 +98,14 @@ export const syncToLocal = async (
 
   const results: SyncResult[] = [];
 
-  for (const table of SYNC_TABLES) {
-    try {
-      const url = `${cloudUrl}/fetch/?table=${table}&owner=${owner}${
-        table !== "firms" ? `&firmId=${firmId}` : ""
-      }`;
-      const response = await axios.get(url);
-      const records = response.data.records;
-      if (table === "parties") {
-        console.log(records);
-        console.log(response);
-      }
+  try {
+    const response = await axios.post(`${cloudUrl}/sync/pull?firmId=${firmId}`);
+    const pulledData = response.data;
 
+    for (const table of SYNC_TABLES) {
+      const records = pulledData[table];
       if (!records || records.length === 0) {
-        results.push({
-          table,
-          status: "skipped",
-          reason: "no records fetched",
-        });
+        results.push({ table, status: "skipped", reason: "no records fetched" });
         continue;
       }
 
@@ -135,23 +118,14 @@ export const syncToLocal = async (
         }
       }
 
-      results.push({
-        table,
-        status: "success",
-        created: records.length,
-      });
-    } catch (error: any) {
-      results.push({
-        table,
-        status: "failed",
-        error: error || "Unknown error",
-      });
+      results.push({ table, status: "success", created: records.length });
     }
-  }
 
-  return res.json({
-    status: "completed",
-    firmId,
-    results,
-  });
+    return res.json({ status: "completed", firmId, results });
+  } catch (err: any) {
+    return res.status(500).json({
+      error: "Sync failed",
+      message: err?.message || err,
+    });
+  }
 };

@@ -55,11 +55,7 @@ export const createFirm = async (req: Request, res: Response): Promise<any> => {
     };
 
     await db("firms").insert(newFirm);
-    await axios.post(`${body.cloudurl}/sync/`, {
-      table: "firms",
-      records: [newFirm],
-      owner: body.owner,
-    });
+  
     await initializeDatabase();
 
     res.status(201).json(newFirm);
@@ -141,11 +137,9 @@ export const deleteFirm = async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({ success: false, error: "Firm not found" });
     }
 
-    console.log(`✅ Firm found:`, firm);
-
     // Perform deletion
     await db("firms").where("id", id).delete();
-    console.log(`🗑️ Firm deleted: ${id}`);
+  
 
     // Fetch updated firms list
     const updatedFirms = await db("firms").select();

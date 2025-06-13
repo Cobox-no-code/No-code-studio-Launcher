@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { format } from "date-fns";
 import { useGetPaymentsQuery } from "@/redux/api/paymentApi";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,6 +25,7 @@ const CashInHandPage = () => {
     data: payments,
     isLoading: isLoadingPayments,
     isError: isPaymentsError,
+    refetch:refetchPayments
   } = useGetPaymentsQuery({});
   const {
     data: saleInvoices,
@@ -89,7 +90,22 @@ const CashInHandPage = () => {
       .format(amount)
       .replace("₹", "₹ ");
   };
+ useEffect(() => {
+    // Immediately refetch data when component mounts
+    refetchPurchases();
+     refetchSales();
+     refetchPayments()
+     
+    // Set up interval f or periodic refetching (every 5 seconds)
+    const intervalId = setInterval(() => {
+      refetchPurchases();
+      refetchSales()
+      refetchPayments()
+    }, 2000);
 
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, [refetchPurchases,refetchSales,refetchPayments]);
   // Combine and sort transactions for "All" tab
   const allTransactions = [
     // Cash-only Sales invoices

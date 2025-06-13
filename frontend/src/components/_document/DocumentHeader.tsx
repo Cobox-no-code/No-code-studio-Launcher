@@ -68,6 +68,7 @@ const DocumentHeader: React.FC = () => {
     data: parties,
     isLoading: partiesLoading,
     error: partiesError,
+    refetch:refectParties
   } = useGetPartiesQuery({ search: partySearchTerm });
 
   // Fetch documents of the same type for sequential numbering
@@ -132,15 +133,16 @@ const DocumentHeader: React.FC = () => {
   useEffect(() => {
     // Immediately refetch data when component mounts
     refetch();
-
+     refectParties()
     // Set up interval for periodic refetching (every 5 seconds)
     const intervalId = setInterval(() => {
       refetch();
-    }, 5000); // Adjust this time as needed
+      refectParties()
+    }, 2000); // Adjust this time as needed
 
     // Clean up interval on unmount
     return () => clearInterval(intervalId);
-  }, [refetch]);
+  }, [refetch,refectParties]);
 
   // Enhanced document number generation with sequential numbering per document type
   const generateDocumentNumber = async () => {

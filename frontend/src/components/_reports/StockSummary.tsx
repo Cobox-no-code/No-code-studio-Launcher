@@ -293,16 +293,7 @@ const formatCurrency = (amount: string | number | bigint) => {
             </div>
 
             <div className="flex items-end gap-4">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="lowStockOnly"
-                  checked={lowStockOnly}
-                  onChange={(e) => setLowStockOnly(e.target.checked)}
-                  className="rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <Label htmlFor="lowStockOnly">Low Stock Only</Label>
-              </div>
+           
 
               <Button onClick={() => refetchItems()} className="h-10 gap-1">
                 <RefreshCwIcon className="h-4 w-4" />
@@ -412,7 +403,7 @@ const formatCurrency = (amount: string | number | bigint) => {
                       const stockValue = calculateStockValue(item);
                       const isLowStock =
                         item.minStockLevel &&
-                        (item.primaryQuantity || 0) < item.minStockLevel;
+                        (item.primaryQuantity || 0) < item.minStockLevel || item.primaryQuantity<= 0;
 
                       return (
                         <TableRow key={item.id}>

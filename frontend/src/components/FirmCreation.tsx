@@ -14,8 +14,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
-import { API_BASE_URL } from '@/redux/api/api.config'
+
 import { backend_url } from '@/backend.config'
+import { useApiUrl } from '@/hooks/useApiUrl'
 
 // Type definitions
 interface Country {
@@ -42,6 +43,7 @@ const FirmCreationScreen = (): JSX.Element => {
   const [firmName, setFirmName] = useState<string>('')
   const [country, setCountry] = useState<string>('')
   const [phone, setPhone] = useState<string>('')
+  const apiUrl = useApiUrl();
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string>('')
   const [existingFirms, setExistingFirms] = useState<Firm[]>([])
@@ -84,7 +86,7 @@ const FirmCreationScreen = (): JSX.Element => {
   const fetchFirms = async (): Promise<void> => {
     try {
       setFetchingFirms(true)
-      const response = await axios.get<Firm[]>(API_BASE_URL+'/firms')
+      const response = await axios.get<Firm[]>(apiUrl+'/firms')
       setExistingFirms(response.data)
     } catch (err) {
       console.error('Error fetching firms:', err)
@@ -106,13 +108,13 @@ const FirmCreationScreen = (): JSX.Element => {
       setLoading(true)
       setError('')
       
-      const response = await axios.post(API_BASE_URL+'/firms', {
+      const response = await axios.post(apiUrl+'/firms', {
         name: firmName,
         country,
         phone,
         backend_url:backend_url
       })
-        await axios.get(API_BASE_URL+`/initData`, {
+        await axios.get(apiUrl+`/initData`, {
           headers: { 'x-firm-id': response.data.id }
         })
         .then(() => {

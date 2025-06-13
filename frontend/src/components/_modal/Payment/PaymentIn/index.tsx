@@ -160,7 +160,7 @@ const PaymentInForm: React.FC = () => {
       // Set up interval for periodic refetching (every 5 seconds)
       const intervalId = setInterval(() => {
         refetch();
-      }, 5000); // Adjust this time as needed
+      }, 2000); // Adjust this time as needed
   
       // Clean up interval on unmount
       return () => clearInterval(intervalId);

@@ -28,11 +28,12 @@ import {
 } from "@/components/ui/dialog";
 
 import { Camera, Upload, X, Building2, FileText, Trash2 } from "lucide-react";
-import { API_BASE_URL } from "@/redux/api/api.config";
 
 import { backend_url } from "@/backend.config";
 import { useAppSelector } from "@/redux/hooks";
 import { Textarea } from "@/components/ui/textarea";
+import { useApiUrl } from "@/hooks/useApiUrl";
+
 
 // Type definitions
 interface Country {
@@ -42,6 +43,7 @@ interface Country {
 
 export default function EditFirmPage(): JSX.Element {
   const router = useRouter();
+  const apiUrl = useApiUrl();
   const userinfo = useAppSelector((state) => state.userinfo);
   const firmId =
     typeof window !== "undefined" ? localStorage.getItem("firmId") : null;
@@ -86,7 +88,7 @@ export default function EditFirmPage(): JSX.Element {
     setLoading(true);
     if (firmId) {
       axios
-        .get(`${API_BASE_URL}/firms/${firmId}`)
+        .get(`${apiUrl}/firms/${firmId}`)
         .then((res) => {
           const data = res.data;
           // Convert customFields from object to array format
@@ -266,7 +268,7 @@ export default function EditFirmPage(): JSX.Element {
         customFields: customFieldsObject,
       };
 
-      await axios.put(`${API_BASE_URL}/firms/${firmId}`, submitData);
+      await axios.put(`${apiUrl}/firms/${firmId}`, submitData);
       setSuccess(true);
       router.push("/");
     } catch (err: any) {
@@ -282,12 +284,9 @@ export default function EditFirmPage(): JSX.Element {
     setLoading(true);
 
     try {
-      await axios.post(`${backend_url}/delete-with-shared/`, {
-        firmId,
-        owner,
-      });
+  
       await axios.delete(
-        `${API_BASE_URL}/firms/${firmId}?cloudurl=${encodeURIComponent(
+        `${apiUrl}/firms/${firmId}?cloudurl=${encodeURIComponent(
           backend_url
         )}&owner=${owner}`
       );

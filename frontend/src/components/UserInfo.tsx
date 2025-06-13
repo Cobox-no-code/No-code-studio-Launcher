@@ -1,6 +1,5 @@
 "use client";
 import { backend_url } from "@/backend.config";
-import { API_BASE_URL } from "@/redux/api/api.config";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { fetchFirms } from "@/redux/slices/firmSlice";
 import { setUserInfo, updateIsExpired } from "@/redux/slices/userinfoSlice";
@@ -72,11 +71,7 @@ export default function UserInfo() {
       try {
         // Check if we're offline
         if (isOffline) {
-          const firmId = localStorage.getItem("firmId");
-          let firm;
-          if (firmId) {
-            firm = await axios.get(`${API_BASE_URL}/firms/${firmId}`);
-          }
+         
 
           // If offline, try to load from cache
           const cachedData = loadCachedUserData();
@@ -87,10 +82,6 @@ export default function UserInfo() {
               setUserInfo({
                 ...cachedData,
                 isExpired,
-                sync_enabled:
-                  firm && firm?.data?.sync_enabled == 0
-                    ? false
-                    : true,
               })
             );
             console.log("Using cached user info (offline)");
@@ -162,28 +153,21 @@ export default function UserInfo() {
       const fetchUserInfo = async () => {
         try {
           const phone = localStorage.getItem("phone");
-          const firmId = localStorage.getItem("firmId");
-          let firm;
+        
           const machine_id = localStorage.getItem("machine_id");
           if (!phone) return;
 
           const response = await axios.get(
             `${backend_url}/user-info?phone=${phone}&machine_id=${machine_id}`
           );
-          if (firmId) {
-            firm = await axios.get(`${API_BASE_URL}/firms/${firmId}`);
-          }
-
-          if (response.data || firm.data) {
+        
+          if (response.data ) {
             const isExpired = checkSubscriptionExpiration(response.data);
             dispatch(
               setUserInfo({
                 ...response.data,
                 isExpired,
-                sync_enabled:
-                  firm && firm?.data?.sync_enabled === 0
-                    ? false
-                    : true,
+      
               })
             );
             cacheUserData(response.data);

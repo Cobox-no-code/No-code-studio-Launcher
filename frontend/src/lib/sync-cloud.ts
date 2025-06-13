@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "@/redux/api/api.config";
+import { getApiBaseUrl() } from "@/redux/api/api.config";
 import axios from "axios";
 
 interface SyncResponse {
@@ -26,7 +26,7 @@ export async function syncAllToCloud(
 
   try {
     const response = await axios.post<SyncResponse>(
-      `${API_BASE_URL}/sync-cloud/all`,
+      `${getApiBaseUrl()}/sync-cloud/all`,
       {
         cloudUrl,
         firmId,
@@ -68,7 +68,7 @@ export async function syncAllToLocal(
 
   try {
     const response = await axios.post<SyncResponse>(
-      `${API_BASE_URL}/sync-local/all`,
+      `${getApiBaseUrl()}/sync-local/all`,
       {
         cloudUrl,
         firmId,
