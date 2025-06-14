@@ -1,9 +1,9 @@
+import { spawn } from "child_process";
 import { app } from "electron";
 import { createWriteStream } from "fs";
-import { join } from "path";
-import https from "https";
 import http from "http";
-import { spawn } from "child_process";
+import https from "https";
+import { join } from "path";
 
 const UPDATE_URL = "http://34.228.195.218/api/subscription/download-exe";
 const FILE_NAME = "latest_app.exe";

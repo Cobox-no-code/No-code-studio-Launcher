@@ -420,17 +420,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   // Filter navigation items based on user role
   const filteredNavItems = React.useMemo(() => {
     return filterNavItems([...data.navMain], role);
-  }, [role]);
-
-  // Debug: Log current role and filtered items (remove in production)
-  console.log("Current role:", role);
-  console.log(
-    "Filtered nav items:",
+  }, [role])
     filteredNavItems.map((item) => ({
       title: item.title,
       subItems: item.items?.map((sub: any) => sub.title),
     }))
-  );
+  
+
 
   return (
     <Sidebar collapsible="icon" {...props}>

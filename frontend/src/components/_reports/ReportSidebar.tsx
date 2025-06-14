@@ -3,17 +3,16 @@ import { useApiUrl } from "@/hooks/useApiUrl";
 import { useAppSelector } from "@/redux/hooks";
 import axios from "axios";
 import {
-  BarChart3,
-  ChevronDown,
-  ChevronRight,
-  FileText,
-  Package,
-  ReceiptText,
-  Users
+    BarChart3,
+    ChevronDown,
+    ChevronRight,
+    FileText,
+    Package,
+    ReceiptText,
+    Users
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 // Define role types (same as in AppSidebar)
 type UserRole =
@@ -468,11 +467,11 @@ const ReportSidebar = () => {
 };
 
 // Export role access functions for use in other components
-export { 
-  canAccessReportCategory, 
-  canAccessReportItem, 
-  ROLE_REPORT_ACCESS, 
-  ROLE_REPORT_SUB_ACCESS 
+export {
+    canAccessReportCategory,
+    canAccessReportItem,
+    ROLE_REPORT_ACCESS,
+    ROLE_REPORT_SUB_ACCESS
 };
 
 export default ReportSidebar;

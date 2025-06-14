@@ -1,23 +1,23 @@
 import { backend_url } from "@/backend.config";
-import axios from "axios";
-import React, { useEffect, useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import axios from "axios";
 import {
-  Download,
-  RefreshCw,
-  CheckCircle,
   AlertTriangle,
+  CheckCircle,
+  Download,
   Loader2,
+  RefreshCw,
   Shield,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 
 interface LatestVersionResponse {

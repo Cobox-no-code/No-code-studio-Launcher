@@ -3,23 +3,24 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 
+import { useApiUrl } from "@/hooks/useApiUrl";
 import { useGetBankAccountByIdQuery } from "@/redux/api/bankingApi";
 import { useGetDocumentByIdQuery } from "@/redux/api/documentApi";
 import axios from "axios";
 import {
-  ArrowLeft,
-  FileText,
-  Loader2,
-  Printer,
-  Receipt,
-  Send
+    ArrowLeft,
+    FileText,
+    Loader2,
+    Printer,
+    Receipt,
+    Send
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -28,7 +29,6 @@ import { useReactToPrint } from "react-to-print";
 import { Dialog, DialogContent } from "../ui/dialog";
 import InvoicePrinter from "./Regular";
 import ThermalInvoicePrinter from "./Thermal";
-import { useApiUrl } from "@/hooks/useApiUrl";
 
 
 // QR Code Modal Component

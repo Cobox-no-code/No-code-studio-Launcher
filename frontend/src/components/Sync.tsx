@@ -46,14 +46,15 @@ export default function Sync() {
 
   // Fetch sync status from server
   useEffect(() => {
+    if(user.login){
     // Fetch immediately on mount
     fetchFirm();
-
+    }
     // Set interval to run every 3 seconds
     const intervalId = setInterval(() => {
       fetchFirm();
     }, 3000);
-
+  
     // Cleanup on unmount
     return () => clearInterval(intervalId);
   }, []);

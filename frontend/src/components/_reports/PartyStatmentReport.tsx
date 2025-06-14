@@ -1,47 +1,46 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { useReactToPrint } from "react-to-print";
-import { format } from "date-fns";
-import { useGetSaleInvoicesQuery } from "@/redux/api/documentApi";
-import { useGetPurchaseInvoicesQuery } from "@/redux/api/documentApi";
-import { useGetPartiesQuery } from "@/redux/api/partiesApi";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Download as DownloadIcon,
-  FileText as FileTextIcon,
-  Printer as PrinterIcon,
-  AlertCircle as AlertCircleIcon,
-  User as UserIcon,
-  Search as SearchIcon,
-  RefreshCw as RefreshCwIcon,
-  ArrowUpCircle,
-  ArrowDownCircle,
-  CreditCard,
-} from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
-import { useGetPaymentsQuery } from "@/redux/api/paymentApi";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PaymentDirection } from "@/models/payment/payment.model";
+import { useGetPurchaseInvoicesQuery, useGetSaleInvoicesQuery } from "@/redux/api/documentApi";
+import { useGetPartiesQuery } from "@/redux/api/partiesApi";
+import { useGetPaymentsQuery } from "@/redux/api/paymentApi";
+import { format } from "date-fns";
+import {
+    AlertCircle as AlertCircleIcon,
+    ArrowDownCircle,
+    ArrowUpCircle,
+    CreditCard,
+    Download as DownloadIcon,
+    FileText as FileTextIcon,
+    Printer as PrinterIcon,
+    RefreshCw as RefreshCwIcon,
+    Search as SearchIcon,
+    User as UserIcon,
+} from "lucide-react";
+import { useRef, useState } from "react";
+import { useReactToPrint } from "react-to-print";
 import { DownloadButton } from "../Xl";
 
 // Transaction type for unified display

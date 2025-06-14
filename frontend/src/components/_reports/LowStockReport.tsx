@@ -7,54 +7,52 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { isProduct } from "@/models/item/item.model";
-import { useGetUnitsQuery ,useGetItemsQuery} from "@/redux/api";
+import { useGetItemsQuery, useGetUnitsQuery } from "@/redux/api";
 import { useGetCategoriesQuery } from "@/redux/api/categoriesApi";
 import { format } from "date-fns";
 import {
-  AlertCircle as AlertCircleIcon,
-  Bell,
-  BellRing,
-  FileText as FileTextIcon,
-  Mail,
-  Package,
-  Printer as PrinterIcon,
-  RefreshCw as RefreshCwIcon,
-  Search as SearchIcon,
-  ShoppingBag,
+    AlertCircle as AlertCircleIcon,
+    Bell,
+    BellRing,
+    Package,
+    Printer as PrinterIcon,
+    RefreshCw as RefreshCwIcon,
+    Search as SearchIcon,
+    ShoppingBag
 } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 
 // Bar chart component using recharts
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Pie,
-  PieChart as RechartsPieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
+    Bar,
+    BarChart,
+    CartesianGrid,
+    Cell,
+    Legend,
+    Pie,
+    PieChart as RechartsPieChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis,
 } from "recharts";
 import { DownloadButton } from "../Xl";
 

@@ -1,8 +1,7 @@
 import { Request, Response } from "express";
-import { db, initializeDatabase } from "./../lib/db";
 import { v4 as uuidv4 } from "uuid";
 import { FirmDTO } from "../models/firm/firm.mode.";
-import axios from "axios";
+import { db, initializeDatabase } from "./../lib/db";
 
 // GET /firms - List all firms
 export const getAllFirms = async (

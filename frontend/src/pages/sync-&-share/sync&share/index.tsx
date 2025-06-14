@@ -1,43 +1,38 @@
 "use client";
 
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Loader2 } from "lucide-react";
 
-import { backend_url, cloud_url } from "@/backend.config";
+import { cloud_url } from "@/backend.config";
 import AddUserModal from "@/components/_modal/AddShareUser";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAppSelector, useAppDispatch } from "@/redux/hooks";
-import { setUserInfo } from "@/redux/slices/userinfoSlice";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import axios from "axios";
 import {
-  EllipsisVertical,
-  Info,
-  Plus,
-  RefreshCcw,
-  RotateCcw,
-  CheckCircle,
-  XCircle,
-  User,
-  Shield,
-  UserMinus,
-  UserCog,
+    CheckCircle,
+    EllipsisVertical,
+    Plus,
+    RefreshCcw,
+    User,
+    UserCog,
+    UserMinus
 } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 interface ConfirmModalProps {
   open: boolean;
   onClose: () => void;
@@ -85,14 +80,11 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   );
 };
 
-import { toast } from "react-hot-toast";
 import ManagePermissionModal from "@/components/_modal/ModifySharePermision";
 import PermissionsDialog from "@/components/PermissionTable";
-import { set } from "date-fns";
-import { fetchFirm } from "@/lib/sync-enable";
-import { useApiUrl } from "@/hooks/useApiUrl";
 import SyncToggle from "@/components/Toogle";
-import { FaSync } from "react-icons/fa";
+import { useApiUrl } from "@/hooks/useApiUrl";
+import { toast } from "react-hot-toast";
 
 type Role = "admin" | "editor" | "viewer";
 

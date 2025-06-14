@@ -4,19 +4,18 @@ import { Button } from '@/components/ui/button'
 // import DateRangeInput from '@/components/DateRangeSelector'
 import FloatingInput from '@/components/ui/floating-input'
 import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow
 } from '@/components/ui/table'
 // import { formatDate, formatCurrencyINR } from '@/hooks/hook'
 // import { fetchInvoicesOnType } from '@/lib/invoiceAction'
 // import { useQuery } from '@tanstack/react-query'
-import { EllipsisVertical, Equal, Plus, Printer, Share } from 'lucide-react'
-import React, { useState } from 'react'
+import { EllipsisVertical, Plus, Printer, Share } from 'lucide-react'
+import { useState } from 'react'
 
 const Page = () => {
   const [selectedDates, setSelectedDates] = useState<{

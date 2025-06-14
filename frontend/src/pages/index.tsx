@@ -1,14 +1,6 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
-import {
-  ArrowDown,
-  ArrowUp,
-  ReceiptIndianRupee,
-  ShoppingCart,
-  Wallet,
-  TrendingUp,
-  AlertCircle,
-} from "lucide-react";
+import DateRangeSelect from "@/components/DateRangeSelect";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -16,36 +8,42 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatCurrencyINR } from "@/hooks/utils";
+import { format } from "date-fns";
 import {
-  LineChart,
-  Line,
-  AreaChart,
+  AlertCircle,
+  ArrowDown,
+  ReceiptIndianRupee,
+  ShoppingCart,
+  TrendingUp
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
   Area,
-  BarChart,
+  AreaChart,
   Bar,
+  BarChart,
   CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
 } from "recharts";
-import DateRangeSelect from "@/components/DateRangeSelect";
-import { format, subDays, isWithinInterval } from "date-fns";
-import { formatCurrencyINR } from "@/hooks/utils";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 
-import { useGetItemsQuery } from "@/redux/api/itemsApi";
-import { useGetBankAccountsQuery } from "@/redux/api/bankingApi";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useGetBankAccountsQuery } from "@/redux/api/bankingApi";
 import {
-  useGetSaleInvoicesQuery,
   useGetPurchaseInvoicesQuery,
+  useGetSaleInvoicesQuery,
 } from "@/redux/api/documentApi";
-import { useGetUnitsQuery } from "@/redux/api/unitsApi";
+import { useGetItemsQuery } from "@/redux/api/itemsApi";
 import { useGetUnitConversionsQuery } from "@/redux/api/unitConversionsApi";
+import { useGetUnitsQuery } from "@/redux/api/unitsApi";
 const HomePage = () => {
   const [salesRange, setSalesRange] = useState("week");
   const [chartView, setChartView] = useState("line");
@@ -272,10 +270,7 @@ const HomePage = () => {
     }
 
     console.log("Date map keys:", Array.from(dateMap.keys()));
-    console.log(
-      "Sales invoices dates:",
-      salesInvoices.map((s) => s.documentDate)
-    );
+
 
     // Add sales data
     if (salesInvoices && salesInvoices.length > 0) {

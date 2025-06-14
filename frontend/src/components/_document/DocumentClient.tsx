@@ -1,41 +1,39 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { X, Plus, FileText, Edit, Copy, Save, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { FileText, Loader2, Plus, Save, X } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { v4 as uuidv4 } from "uuid";
 // Import your existing DocumentPage components
-import { DocumentProvider, useDocument } from './Context';
-import DocumentFooter from './DocumentFoooter';
-import DocumentHeader from './DocumentHeader';
-import DocumentItemsTable from './DocumentItemsTable';
 import { DocumentType } from '@/models/document/document.model';
+import { ItemType } from '@/models/item/item.model';
 import { useCreateItemMutation, useGetCategoriesQuery, useGetItemsQuery, useGetUnitConversionsQuery, useGetUnitsQuery, useUpdateItemMutation } from '@/redux/api';
 import { useCreateDocumentMutation, useDeleteDocumentMutation, useGetDocumentByIdQuery, useUpdateDocumentMutation } from '@/redux/api/documentApi';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import toast from 'react-hot-toast';
-import { ItemType } from '@/models/item/item.model';
+import { DocumentProvider, useDocument } from './Context';
+import DocumentFooter from './DocumentFoooter';
+import DocumentHeader from './DocumentHeader';
+import DocumentItemsTable from './DocumentItemsTable';
 
 // Types
 interface DocumentTab {

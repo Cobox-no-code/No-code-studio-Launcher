@@ -1,7 +1,6 @@
 // lib/db-helpers.ts
-import { Document } from "../../models/document/document.model";
-import { db } from "./../../lib/db";
 import { v4 as uuidv4 } from "uuid";
+import { db } from "./../../lib/db";
 
 /**
  * Safely inserts a document into the database

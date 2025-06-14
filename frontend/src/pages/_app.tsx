@@ -1,27 +1,26 @@
 "use client";
-import "@/styles/globals.css";
-import { useEffect, useRef, useState } from "react";
-import { Provider } from "react-redux";
-import { AppProps } from "next/app";
-import { makeStore, AppStore } from "@/redux/store";
-import { Toaster } from "react-hot-toast";
-import axios from "axios";
-import FirmCreationScreen from "@/components/FirmCreation";
-import { AppSidebar } from "@/components/SideBar/app-sidebar";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { Plus } from "lucide-react";
-import ModalManager from "@/components/_modal/modalManager";
-import Link from "next/link";
-import { useRouter } from "next/router";
 import RazorpayScriptLoader from "@/components/RazorpayScriptLoader";
-import UserInfo from "@/components/UserInfo";
-import SubscriptionExpiredModal from "@/components/_modal/SubscriptionExpireModal";
-import { useAppSelector } from "@/redux/hooks";
+import { AppSidebar } from "@/components/SideBar/app-sidebar";
 import Sync from "@/components/Sync";
 import Updater from "@/components/Updater";
+import UserInfo from "@/components/UserInfo";
+import SubscriptionExpiredModal from "@/components/_modal/SubscriptionExpireModal";
+import ModalManager from "@/components/_modal/modalManager";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { useApiUrl } from "@/hooks/useApiUrl";
 import { DeleteConfirmationProvider } from "@/lib/context/DeleteConfirmationContext";
 import { hasPermission } from "@/lib/role-permissions-mapping";
-import { useApiUrl } from "@/hooks/useApiUrl";
+import { useAppSelector } from "@/redux/hooks";
+import { AppStore, makeStore } from "@/redux/store";
+import "@/styles/globals.css";
+import axios from "axios";
+import { Plus } from "lucide-react";
+import { AppProps } from "next/app";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import { useEffect, useRef, useState } from "react";
+import { Toaster } from "react-hot-toast";
+import { Provider } from "react-redux";
 
 // Subscription access control wrapper component
 const SubscriptionGuard = ({ children, router }) => {
@@ -169,7 +168,7 @@ const apiUrl = useApiUrl();
     useEffect(() => {
       const userId = localStorage.getItem("customer_id");
       const onLoginPage = router.pathname === "/login";
-
+      console.log(login)
       if (!userId && !onLoginPage && !login) {
         router.push("/login");
       }

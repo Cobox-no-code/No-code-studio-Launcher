@@ -1,38 +1,37 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
-import { useReactToPrint } from 'react-to-print'
-import { format } from 'date-fns'
-import { useGetDocumentsQuery, useGetSaleInvoicesQuery } from '@/redux/api/documentApi'
-import { useGetPurchaseInvoicesQuery } from '@/redux/api/documentApi'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table"
 import {
-  DownloadIcon,
-  FileTextIcon,
-  PrinterIcon,
-  AlertCircleIcon,
-  CalendarIcon,
-  RefreshCwIcon,
-  ArrowUpIcon,
-  ArrowDownIcon
-} from 'lucide-react'
-import { DownloadButton } from '../Xl'
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow
+} from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PaymentDirection } from '@/models/payment/payment.model'
+import { useGetDocumentsQuery, useGetPurchaseInvoicesQuery, useGetSaleInvoicesQuery } from '@/redux/api/documentApi'
 import { useGetPaymentsQuery } from '@/redux/api/paymentApi'
+import { format } from 'date-fns'
+import {
+    AlertCircleIcon,
+    ArrowDownIcon,
+    ArrowUpIcon,
+    CalendarIcon,
+    DownloadIcon,
+    FileTextIcon,
+    PrinterIcon,
+    RefreshCwIcon
+} from 'lucide-react'
+import { useRef, useState } from 'react'
+import { useReactToPrint } from 'react-to-print'
+import { DownloadButton } from '../Xl'
 
 const DayBookReport = () => {
   // Get current date in YYYY-MM-DD format

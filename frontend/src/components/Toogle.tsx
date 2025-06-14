@@ -1,13 +1,12 @@
 "use client";
 
-import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { setSyncEnabled, setSyncLoading } from "@/redux/slices/sync";
-import { useState } from "react";
-import { useApiUrl } from "@/hooks/useApiUrl";
-import axios from "axios";
 import { cloud_url } from "@/backend.config";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { setSyncEnabled, setSyncLoading } from "@/redux/slices/sync";
+import axios from "axios";
+import { useState } from "react";
 
 export default function SyncToggle() {
   const dispatch = useAppDispatch();

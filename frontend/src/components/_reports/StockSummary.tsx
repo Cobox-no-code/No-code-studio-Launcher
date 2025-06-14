@@ -1,43 +1,43 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { useReactToPrint } from "react-to-print";
-import { useGetItemsQuery } from "@/redux/api/itemsApi";
-import { useGetCategoriesQuery } from "@/redux/api/categoriesApi";
-import { useGetUnitConversionsQuery, useGetUnitsQuery } from "@/redux/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Download as DownloadIcon,
-  FileText as FileTextIcon,
-  Printer as PrinterIcon,
-  AlertCircle as AlertCircleIcon,
-  Search as SearchIcon,
-  RefreshCw as RefreshCwIcon,
-  FileSpreadsheet,
-  Package,
-  Boxes,
-} from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { useGetUnitConversionsQuery, useGetUnitsQuery } from "@/redux/api";
+import { useGetCategoriesQuery } from "@/redux/api/categoriesApi";
+import { useGetItemsQuery } from "@/redux/api/itemsApi";
+import {
+    AlertCircle as AlertCircleIcon,
+    Boxes,
+    Download as DownloadIcon,
+    FileSpreadsheet,
+    FileText as FileTextIcon,
+    Package,
+    Printer as PrinterIcon,
+    RefreshCw as RefreshCwIcon,
+    Search as SearchIcon,
+} from "lucide-react";
+import { useRef, useState } from "react";
+import { useReactToPrint } from "react-to-print";
 import { DownloadButton } from "../Xl";
 
 const StockSummaryReport = () => {

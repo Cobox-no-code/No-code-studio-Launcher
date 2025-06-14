@@ -1,40 +1,39 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
-import { useReactToPrint } from 'react-to-print'
-import { format } from 'date-fns'
-import { useGetSaleInvoicesQuery } from '@/redux/api/documentApi'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table"
 import {
-  DownloadIcon,
-  FileTextIcon,
-  PrinterIcon,
-  SearchIcon,
-  AlertCircleIcon,
-  CalendarIcon,
-  FilterIcon,
-  RefreshCwIcon
-} from 'lucide-react'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow
+} from "@/components/ui/table"
+import { useGetSaleInvoicesQuery } from '@/redux/api/documentApi'
+import { format } from 'date-fns'
+import {
+    AlertCircleIcon,
+    CalendarIcon,
+    DownloadIcon,
+    FileTextIcon,
+    FilterIcon,
+    PrinterIcon,
+    RefreshCwIcon
+} from 'lucide-react'
+import { useRef, useState } from 'react'
+import { useReactToPrint } from 'react-to-print'
 import { DownloadButton } from '../Xl'
 
 const SalesReport = () => {

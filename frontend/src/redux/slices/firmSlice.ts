@@ -1,8 +1,7 @@
-import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
-import { set } from "date-fns";
-import { backend_url, cloud_url } from "@/backend.config";
+import { cloud_url } from "@/backend.config";
 import { ROLE_PERMISSIONS_MAPPING } from "@/lib/role-permissions-mapping";
+import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
+import axios from "axios";
 
 interface Company {
   id: string;
@@ -49,18 +48,26 @@ export const fetchFirms = createAsyncThunk(
       const { phone } = state.userinfo;
       const { currentFirm, role: currentRole } = state.firm;
 
-      const [ownedResult, sharedResult] = await Promise.allSettled([
+      const [ownedResult, sharedResult,cloudResults] = await Promise.allSettled([
         axios.get<Company[]>(`http://localhost:4000/api/firms?phone=${phone}`),
         axios.get(`${cloud_url}/user/${phone}/firms`),
+         axios.get(`${cloud_url}/firms?phone=${phone}`),
       ]);
 
-      const ownedCompanies =
+      let ownedCompanies =
         ownedResult.status === "fulfilled" ? ownedResult.value.data : [];
 
       const sharedFirmsRaw =
         sharedResult.status === "fulfilled"
           ? sharedResult.value.data || []
           : [];
+
+      let cloudFirms =  cloudResults.status === "fulfilled"
+          ? cloudResults.value.data || []
+          : [];
+      if(cloudFirms.length >0 && ownedCompanies.length<=0){
+       ownedCompanies = [...cloudFirms]
+      }
 
       const formattedSharedFirms = sharedFirmsRaw.map((firm: any) => ({
         id: firm.firm_id,

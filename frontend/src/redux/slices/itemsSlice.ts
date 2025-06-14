@@ -1,10 +1,10 @@
 // store/slices/itemsFormSlice.ts
 import {
-  BaseItem,
-  Item,
-  ItemType,
-  Product,
-  Service,
+    BaseItem,
+    Item,
+    ItemType,
+    Product,
+    Service,
 } from "@/models/item/item.model";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 

@@ -1,88 +1,71 @@
 "use client";
-import React, { ChangeEvent, useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
-import { AppDispatch } from "@/redux/store";
 import {
-  useGetItemsQuery,
-  useGetCategoriesQuery,
-  useGetUnitsQuery,
-  useGetUnitConversionsQuery,
-  useDeleteItemMutation,
+    useDeleteItemMutation,
+    useGetCategoriesQuery,
+    useGetItemsQuery,
+    useGetUnitConversionsQuery,
+    useGetUnitsQuery,
 } from "@/redux/api";
+import { AppDispatch } from "@/redux/store";
+import { ChangeEvent, useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
 
 
 // UI Components
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow
+} from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRouter } from "next/navigation";
 // Icons
 import {
-  EllipsisVertical,
-  AlertCircle,
-  Plus,
-  SlidersVertical,
-  Search,
-  Package2,
-  ArrowUpDown,
-  Calendar,
-  CreditCard,
-  Tag,
-  BarChart3,
-  History,
-  Loader2,
-  X,
-  FileText,
-  TrendingUp,
-  ShoppingCart,
-  ArrowDownRight,
-  ArrowUpRight,
-  Printer,
-  Edit,
-} from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { openCreateForm, openEditForm } from "@/redux/slices/itemsSlice";
-import toast from "react-hot-toast";
-import {
-  useDeleteDocumentMutation,
-  useGetDocumentsQuery,
-} from "@/redux/api/documentApi";
-import { useDeleteActions } from "@/hooks/useDeleteAction";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { DocumentType } from "@/models/document/document.model";
+import { useDeleteActions } from "@/hooks/useDeleteAction";
 import { hasPermission } from "@/lib/role-permissions-mapping";
-import { ref } from "node:process";
+import { DocumentType } from "@/models/document/document.model";
+import {
+    useDeleteDocumentMutation,
+    useGetDocumentsQuery,
+} from "@/redux/api/documentApi";
+import { useAppSelector } from "@/redux/hooks";
+import { openCreateForm, openEditForm } from "@/redux/slices/itemsSlice";
+import {
+    AlertCircle,
+    ArrowDownRight,
+    ArrowUpRight,
+    BarChart3,
+    Edit,
+    EllipsisVertical,
+    FileText,
+    History,
+    Package2,
+    Plus,
+    Printer,
+    Search,
+    ShoppingCart,
+    Tag,
+    X
+} from "lucide-react";
 // Helper to format currency
 const formatCurrency = (amount: string | number | bigint) => {
   const numericAmount =

@@ -1,55 +1,31 @@
 "use client";
-import { useState, useEffect, FormEvent, ChangeEvent, JSX } from "react";
-import { useRouter } from "next/navigation";
-import axios, { AxiosError } from "axios";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  AlertCircle,
-  Building,
-  Check,
-  ChevronDown,
-  ChevronsUpDown,
-  Link as Link1,
-  Search,
-  ChevronsLeft,
+    AlertCircle,
+    Check,
+    ChevronsLeft
 } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useRouter } from "next/navigation";
+import { ChangeEvent, FormEvent, JSX, useState } from "react";
 
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
-import { Skeleton } from "@/components/ui/skeleton";
-import Link from "next/link";
-import { backend_url } from "@/backend.config";
-import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import {
-  createFirm,
-  fetchFirms,
-  setCurrentFirm,
-} from "@/redux/slices/firmSlice";
 import { Textarea } from "@/components/ui/textarea";
 import { useApiUrl } from "@/hooks/useApiUrl";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import {
+    createFirm,
+    setCurrentFirm
+} from "@/redux/slices/firmSlice";
+import Link from "next/link";
 // Type definitions
 interface Country {
   code: string;

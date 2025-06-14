@@ -66,7 +66,6 @@ import {
   useGetUnitsQuery,
   useUpdateItemMutation,
 } from "@/redux/api";
-import { min } from "date-fns";
 
 const AddItems = () => {
   // Redux state from our new slice
@@ -188,10 +187,7 @@ const AddItems = () => {
       console.log("Unit conversion created:", conversionResponse);
 
       // Update the form data with the new unit conversion ID
-      console.log(
-        "Updating form with unit conversion ID:",
-        conversionResponse.id
-      );
+  
       dispatch(
         updateFormField({
           field: "unit_conversionId",

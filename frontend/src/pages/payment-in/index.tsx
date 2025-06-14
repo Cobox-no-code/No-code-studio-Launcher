@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  openCreatePaymentInForm,
-  openEditForm as openPaymentsEditForm,
+    openCreatePaymentInForm,
+    openEditForm as openPaymentsEditForm,
 } from "@/redux/slices/paymentSlice";
 
 import { AppDispatch } from "@/redux/store";
@@ -16,51 +16,48 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from "@/components/ui/table";
 
 // API Hooks
 import { useGetPartiesQuery } from "@/redux/api/partiesApi";
 import {
-  useDeletePaymentMutation,
-  useGetPaymentInsQuery,
+    useDeletePaymentMutation,
+    useGetPaymentInsQuery,
 } from "@/redux/api/paymentApi";
 
 // Icons
 import {
-  ArrowDownLeft,
-  Banknote,
-  Calendar,
-  CreditCard,
-  EllipsisVertical,
-  FileText,
-  Plus,
-  Receipt,
-  Search,
-  Users,
-  X,
-} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PaymentType } from "@/models/document/document.model";
-import { PaymentDirection } from "@/models/payment/payment.model";
 import { useDeleteActions } from "@/hooks/useDeleteAction";
+import { PaymentType } from "@/models/document/document.model";
+import {
+    ArrowDownLeft,
+    Banknote,
+    Calendar,
+    CreditCard,
+    EllipsisVertical,
+    FileText,
+    Plus,
+    Receipt,
+    Users
+} from "lucide-react";
 
 // Utility function to format currency
 const formatCurrency = (amount: number | null) => {

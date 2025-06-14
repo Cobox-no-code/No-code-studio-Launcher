@@ -1,7 +1,4 @@
-import React, { useRef } from "react";
-import { Printer } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useReactToPrint } from "react-to-print";
+import React from "react";
 
 interface DocumentPrinterProps {
   document: any; // Using any to accommodate different document types

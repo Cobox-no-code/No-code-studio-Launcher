@@ -1,7 +1,7 @@
 // lib/db.ts
-import sqlite3 from "sqlite3";
-import path from "path";
 import { app } from "electron";
+import path from "path";
+import sqlite3 from "sqlite3";
 
 let resolvedDbPath: string;
 

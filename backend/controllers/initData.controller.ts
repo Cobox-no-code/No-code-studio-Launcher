@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { db, initializeDatabase, initializFirm } from './../lib/db';
+import { db } from './../lib/db';
 
 export const initializeDefaultData = async (firmId: string) => {
   try {

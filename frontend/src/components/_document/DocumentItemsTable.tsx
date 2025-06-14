@@ -3,31 +3,30 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  AlertCircle,
-  ArrowDownUp,
-  Calculator,
-  Hash,
-  Info,
-  Loader2,
-  PackageOpen,
-  Plus,
-  Search,
-  Trash2,
-  Package,
-  DollarSign,
+    AlertCircle,
+    ArrowDownUp,
+    Calculator,
+    Hash,
+    Info,
+    Loader2,
+    Package,
+    PackageOpen,
+    Plus,
+    Search,
+    Trash2
 } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
@@ -43,19 +42,16 @@ import { useCreateItemMutation, useGetItemsQuery } from "@/redux/api/itemsApi";
 import { useGetUnitConversionsQuery } from "@/redux/api/unitConversionsApi";
 
 // Document item model
+import { DocumentItem } from "@/models/document/document.model";
+import {
+    isProduct,
+    Item,
+    Product,
+    UnitConversion
+} from "@/models/item/item.model";
 import { useAppDispatch } from "@/redux/hooks";
 import { openCreateForm as openCreateItem } from "@/redux/slices/itemsSlice";
 import { openCreateForm } from "@/redux/slices/unitConversionSlice";
-import { DocumentItem } from "@/models/document/document.model";
-import {
-  isProduct,
-  Item,
-  ItemType,
-  Product,
-  UnitConversion,
-} from "@/models/item/item.model";
-import { AnyARecord } from "node:dns";
-import { parse } from "node:path";
 
 interface TaxRate {
   value: string;

@@ -1,36 +1,34 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
-import { useReactToPrint } from 'react-to-print'
-import { format } from 'date-fns'
-import { useGetSaleInvoicesQuery } from '@/redux/api/documentApi'
-import { useGetPurchaseInvoicesQuery } from '@/redux/api/documentApi'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table"
 import {
-  Download as DownloadIcon,
-  FileText as FileTextIcon,
-  Printer as PrinterIcon,
-  AlertCircle as AlertCircleIcon,
-  CalendarIcon,
-  RefreshCw as RefreshCwIcon,
-  FileSpreadsheet,
-  ArrowUpRight,
-  ArrowDownLeft
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow
+} from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useGetPurchaseInvoicesQuery, useGetSaleInvoicesQuery } from '@/redux/api/documentApi'
+import { format } from 'date-fns'
+import {
+    AlertCircle as AlertCircleIcon,
+    ArrowDownLeft,
+    ArrowUpRight,
+    CalendarIcon,
+    Download as DownloadIcon,
+    FileText as FileTextIcon,
+    Printer as PrinterIcon,
+    RefreshCw as RefreshCwIcon
 } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { useReactToPrint } from 'react-to-print'
 import { DownloadButton } from '../Xl'
 
 const GSTReport = () => {

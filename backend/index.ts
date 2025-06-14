@@ -1,11 +1,11 @@
+import { exec } from "child_process";
 import { app, BrowserWindow, ipcMain, shell } from "electron";
-import { join } from "node:path";
-import { spawn, exec } from "child_process";
 import { promises as fs } from "fs";
+import { join } from "node:path";
 import * as os from "os";
-import { initLogs, isDev, prepareNext } from "./utils";
 import backendProcess from "./app";
 import { downloadAndUpdate } from "./downloadAndUpdate";
+import { initLogs, isDev, prepareNext } from "./utils";
 
 function createWindow(): void {
   const win = new BrowserWindow({

@@ -1,11 +1,10 @@
 'use client'
 import Category from '@/components/ItemPageComponent/Category'
 import Product from '@/components/ItemPageComponent/Product'
-import Service from '@/components/ItemPageComponent/Service'
 import Unit from '@/components/ItemPageComponent/Unit'
 
-import { useAppDispatch, useAppSelector } from '@/redux/hooks'
-import React, { useEffect, useState } from 'react'
+import { useAppDispatch } from '@/redux/hooks'
+import { useState } from 'react'
 
 const ItemPage = () => {
   const [activeState, setActiveState] = useState('product')

@@ -1,7 +1,7 @@
 // lib/db.ts
 
-import sqlite3 from 'sqlite3';
 import path from 'path';
+import sqlite3 from 'sqlite3';
 
 const dbPath = path.join('C:\\ProgramData', 'vypaar.db');
 

@@ -1,42 +1,42 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { useReactToPrint } from "react-to-print";
-import { useGetPartiesQuery, useGetGroupsQuery } from "@/redux/api/partiesApi";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Download as DownloadIcon,
-  Users as UsersIcon,
-  Printer as PrinterIcon,
-  AlertCircle as AlertCircleIcon,
-  Search as SearchIcon,
-  RefreshCw as RefreshCwIcon,
-  SlidersHorizontal as SlidersHorizontalIcon,
-  Phone as PhoneIcon,
-  Mail as MailIcon,
-  MapPin as MapPinIcon,
-} from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { useGetGroupsQuery, useGetPartiesQuery } from "@/redux/api/partiesApi";
+import {
+    AlertCircle as AlertCircleIcon,
+    Download as DownloadIcon,
+    Mail as MailIcon,
+    MapPin as MapPinIcon,
+    Phone as PhoneIcon,
+    Printer as PrinterIcon,
+    RefreshCw as RefreshCwIcon,
+    Search as SearchIcon,
+    SlidersHorizontal as SlidersHorizontalIcon,
+    Users as UsersIcon,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useReactToPrint } from "react-to-print";
 import { DownloadButton } from "../Xl";
 
 const AllPartiesReport = () => {

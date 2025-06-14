@@ -363,13 +363,9 @@
 //     </div>
 //   )
 // }
-import { useState, useRef, useEffect } from 'react'
-import FloatingInput from '../ui/floating-input'
-import { parse, format, isValid, isAfter, isBefore } from 'date-fns'
-import { Button } from '../ui/button'
-import DateRangeSelect from '../DateRangeSelect'
 import { getDateRange } from '@/hooks/utils'
-import { Calendar } from '../ui/calendar'
+import { useState } from 'react'
+import DateRangeSelect from '../DateRangeSelect'
 
 type Props = {
   onDateChange: (date1: string, date2: string) => void

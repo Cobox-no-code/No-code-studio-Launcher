@@ -39,11 +39,7 @@ const AddCategory = () => {
   )
   const { data: editCategory } = useGetCategoryByIdQuery(
     currentCategoryId ?? ''
-  )
-  console.log(
-    '🚀 ~ AddCategory ~ editCategory:',
-    editCategory,
-    currentCategoryId
+  
   )
 
   // mode === edit then set data in the fields

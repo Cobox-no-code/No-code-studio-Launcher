@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
-import { db } from "./../lib/db";
 import { v4 as uuidv4 } from "uuid";
 import {
-  CreateBankAccountDTO,
-  UpdateBankAccountDTO,
+    CreateBankAccountDTO,
+    UpdateBankAccountDTO,
 } from "../models/banking/banking.model";
+import { db } from "./../lib/db";
 
 // GET /accounts
 export const getAllBankAccounts = async (
