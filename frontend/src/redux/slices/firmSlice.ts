@@ -1,7 +1,8 @@
-import { cloud_url } from "@/backend.config";
-import { ROLE_PERMISSIONS_MAPPING } from "@/lib/role-permissions-mapping";
-import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { set } from "date-fns";
+import { backend_url, cloud_url } from "@/backend.config";
+import { ROLE_PERMISSIONS_MAPPING } from "@/lib/role-permissions-mapping";
 
 interface Company {
   id: string;
@@ -51,7 +52,7 @@ export const fetchFirms = createAsyncThunk(
       const [ownedResult, sharedResult,cloudResults] = await Promise.allSettled([
         axios.get<Company[]>(`http://localhost:4000/api/firms?phone=${phone}`),
         axios.get(`${cloud_url}/user/${phone}/firms`),
-         axios.get(`${cloud_url}/firms?phone=${phone}`),
+        axios.get(`${cloud_url}/firms?phone=${phone}`),
       ]);
 
       let ownedCompanies =
@@ -61,14 +62,10 @@ export const fetchFirms = createAsyncThunk(
         sharedResult.status === "fulfilled"
           ? sharedResult.value.data || []
           : [];
-
-      let cloudFirms =  cloudResults.status === "fulfilled"
-          ? cloudResults.value.data || []
-          : [];
-      if(cloudFirms.length >0 && ownedCompanies.length<=0){
-       ownedCompanies = [...cloudFirms]
-      }
-
+      const cloudCompanies = cloudResults.status==="fulfilled" ? cloudResults.value.data ||[]:[]
+if(ownedCompanies.length ===0 && cloudCompanies.length >0){
+ ownedCompanies = cloudCompanies
+}
       const formattedSharedFirms = sharedFirmsRaw.map((firm: any) => ({
         id: firm.firm_id,
         name: firm.firm_name,
@@ -151,6 +148,21 @@ const firmSlice = createSlice({
   name: "firm",
   initialState,
   reducers: {
+    addRestoredFirm(state, action: PayloadAction<any>) {
+  const restoredFirm = action.payload;
+
+    state.firms.push(restoredFirm);
+    console.log(action.payload)
+  
+},
+
+setCloudEnabled(state, action: PayloadAction<{ firmId: string; enabled: boolean }>) {
+  const { firmId, enabled } = action.payload;
+  const firm = state.firms.find(f => f.id === firmId);
+  if (firm) {
+    (firm as any).cloud = enabled;
+  }
+},
     setCurrentFirm(state, action: PayloadAction<Firm>) {
       state.currentFirm = action.payload;
       localStorage.setItem("firmId", action.payload.id);
@@ -199,5 +211,5 @@ const firmSlice = createSlice({
   },
 });
 
-export const { setCurrentFirm, clearFirmError, updateRole } = firmSlice.actions;
+export const { setCurrentFirm, clearFirmError, updateRole ,addRestoredFirm,setCloudEnabled} = firmSlice.actions;
 export default firmSlice.reducer;

@@ -22,6 +22,7 @@ import paymentReducer from "./slices/paymentSlice"; // ✅ Import payment slice
 import userinfoReducer from "./slices/userinfoSlice";
 import firmReducer from "./slices/firmSlice";
 import syncReducer from './slices/sync'
+import syncRestorereducer from './slices/syncRestoreSlice'
 export function makeStore() {
   return configureStore({
     reducer: {
@@ -44,6 +45,7 @@ export function makeStore() {
       paymentForm: paymentReducer, // ✅ Added payment reducer
       userinfo: userinfoReducer,
       firm: firmReducer,
+      syncRestore:syncRestorereducer,
     },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware()

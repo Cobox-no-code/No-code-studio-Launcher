@@ -1,4 +1,5 @@
 "use client";
+import AppInitializer from "@/components/AppIntializer";
 import RazorpayScriptLoader from "@/components/RazorpayScriptLoader";
 import { AppSidebar } from "@/components/SideBar/app-sidebar";
 import Sync from "@/components/Sync";
@@ -198,12 +199,15 @@ const apiUrl = useApiUrl();
 
   return (
     <Provider store={storeRef.current}>
+      <AppInitializer>
       <Toaster />
       <ModalManager />
       <RazorpayScriptLoader />
       <DeleteConfirmationProvider>
+
         <AppWrapper />
       </DeleteConfirmationProvider>
+      </AppInitializer>
     </Provider>
   );
 }

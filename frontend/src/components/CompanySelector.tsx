@@ -123,7 +123,25 @@ const CompanySelector = ({
       fetch();
     }
   }, [firmId]);
+useEffect(() => {
+  const handleRestoredFirms = async () => {
+    if (companies.length > 0 && !selectedCompany) {
+      // If we have companies but no selected company, 
+      // it might be after a restore - select the first one
+      const firstCompany = companies[0];
+      if (firstCompany) {
+        setSelectedCompany(firstCompany.name);
+        dispatch(setCurrentFirm(firstCompany));
+        
+        if (firstCompany.isShared || firstCompany.cloud) {
+          dispatch(setSyncEnabled(true));
+        }
+      }
+    }
+  };
 
+  handleRestoredFirms();
+}, [companies.length, selectedCompany]);
   // Initialize sync steps
   const initializeSyncSteps = (): SyncStep[] => [
     {
@@ -328,7 +346,9 @@ const handleCompanyChange = async (company: any) => {
       dispatch(updateRole(company.role));
       await performSteppedSync(company);
     } else {
-     
+      if(company?.cloud ){
+        dispatch(setSyncEnabled(true))
+      }
       dispatch(setSyncEnabled(false))
       // Simple loading for non-shared companies
       dispatch(updateRole("admin"));
@@ -351,7 +371,7 @@ const handleCompanyChange = async (company: any) => {
 };
   useEffect(() => {
     // Fetch all companies
-    if (user.phone) {
+    if (user.phone ) {
      dispatch(fetchFirms());
     }
   }, [user]);

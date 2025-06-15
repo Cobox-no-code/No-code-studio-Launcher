@@ -1,6 +1,7 @@
 import cors from "cors";
 import express from "express";
 import router from "./route";
+import { initializeDatabase, initializFirm } from "./lib/db";
 // import { initClient } from "./controllers/whatsapp/whatsapp.service";
 
 
@@ -18,6 +19,16 @@ app.use(express.json());
 // API routes
 app.use("/api", router);
 
+(async () => {
+  try {
+     await  initializFirm();  
+    await initializeDatabase();        // Create tables if not exists
+      // Seed default data if not already present
+  } catch (err) {
+    console.error("❌ DB Initialization failed:", err);
+    process.exit(1); // Exit on failure
+  }
+})();
 // 404 handler
 app.use((req, res) => {
   console.warn(`⚠️ 404 Not Found: ${req.method} ${req.url}`);
