@@ -102,7 +102,7 @@ const RestoreDataModal: React.FC<RestoreDataModalProps> = ({
               Restoring Your Data
             </h2>
             <p className="text-gray-600 text-base leading-relaxed mb-8">
-              We're restoring your business data from the cloud. This may take a few moments.
+              We are restoring your business data from the cloud. This may take a few moments.
             </p>
 
             <div className="space-y-4">
@@ -188,7 +188,7 @@ const RestoreDataModal: React.FC<RestoreDataModalProps> = ({
             Restore Your Data
           </DialogTitle>
           <DialogDescription>
-            We found your business data in the cloud. Select which companies you'd like to restore to this device.
+            We found your business data in the cloud. Select which companies you did like to restore to this device.
           </DialogDescription>
         </DialogHeader>
 
