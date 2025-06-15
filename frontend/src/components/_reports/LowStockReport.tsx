@@ -132,7 +132,7 @@ const calculateSeverity = (item: any) => {
     return "notice";
   }
 
-  return null; // Stock is sufficient
+  return null; 
 };
 
 // 2. Update the calculateDaysToReorder function

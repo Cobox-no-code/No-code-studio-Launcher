@@ -10,7 +10,7 @@ interface AppInitializerProps {
 }
 
 const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
-  const { phone } = useAppSelector(state => state.userinfo);
+  const { phone, login } = useAppSelector(state => state.userinfo);
   const {
     showRestoreModal,
     cloudFirms,
@@ -19,8 +19,8 @@ const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     handleSkipRestore
   } = useAutoSyncCheck();
 
-  // Show loading screen while checking sync status
-  if (phone && isCheckingSync) {
+  // Show loading screen while checking sync for authenticated users
+  if (phone && login && isCheckingSync) {
     return (
       <LoadingScreen 
         title="Checking Your Account"

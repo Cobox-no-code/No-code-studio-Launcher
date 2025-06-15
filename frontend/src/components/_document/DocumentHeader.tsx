@@ -95,8 +95,9 @@ const DocumentHeader: React.FC = () => {
     if (!partyExists && partySearchTerm.trim()) {
       try {
         // Create basic party with the entered name
-        const newPartyData = {
+        const newPartyData :any= {
           name: partySearchTerm.trim(),
+          openingBalanceType :'to_pay',
           gstType: "Unregistered",
         };
 

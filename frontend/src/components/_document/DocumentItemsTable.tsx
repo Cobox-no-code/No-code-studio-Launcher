@@ -586,7 +586,19 @@ const handleItemChange = (
         }
       }
     }
-
+    let pricePer = 0;
+    if(state.document.documentType.includes("sale")){
+      pricePer= item.salePrice|| item.pricePerUnit
+    }
+    else if(state.document.documentType.includes("purchase")){
+         pricePer= item.purchasePrice|| item.pricePerUnit
+    }
+    else if(state.document.documentType.includes('challan')){
+            pricePer= item.salePrice|| item.pricePerUnit
+    }
+    else{
+         pricePer= item.pricePerUnit
+    }
     const updatedItem: any = {
       ...(currentItems[index] ?? {}),
       itemId: item.id,
@@ -602,9 +614,7 @@ const handleItemChange = (
       wholesaleQuantity: isProduct(item)
         ? (item as Product).wholesaleQuantity || 0
         : 0,
-      pricePerUnit: state.document.documentType.includes("sale")
-        ? item.salePrice || item.pricePerUnit
-        : item.purchasePrice || item.pricePerUnit,
+      pricePerUnit:pricePer,
       taxType: item.taxRate || "",
       taxRate: Number(item.taxRate || 0),
       hsnCode: item.hsnCode || "",
@@ -1326,24 +1336,7 @@ const handleItemChange = (
                             <div className="text-xs text-gray-500 text-center truncate">
                               {getConversionRateText(row, selectedItem)}
                             </div>
-                            {/* <Button
-                              variant="ghost"
-                              size="sm"
-                              className="w-full text-xs h-6 flex items-center justify-center text-gray-500"
-                              onClick={() => {
-                                const updatedItem = { ...getItems()[index] };
-                                updatedItem.secondaryUnitId = "";
-                                updatedItem.secondaryUnitName = "";
-                                updatedItem.secondaryQuantity = 0;
-                                updatedItem.conversionRate = 1; // Reset conversion rate
-                                dispatch({
-                                  type: "UPDATE_ITEM",
-                                  payload: { index, item: updatedItem },
-                                });
-                              }}
-                            >
-                              Change
-                            </Button> */}
+                          
                           </div>
                         )}
                       </td>
