@@ -87,7 +87,7 @@ const apiUrl = useApiUrl()
         name: firmName,
         country,
         phone,
-        apiUrl: apiUrl,
+        apiUrl: 'http://localhost:4000/api',
         address,
         owner,
         ownerName: userinfo.name,

@@ -49,23 +49,21 @@ export const fetchFirms = createAsyncThunk(
       const { phone } = state.userinfo;
       const { currentFirm, role: currentRole } = state.firm;
 
-      const [ownedResult, sharedResult,cloudResults] = await Promise.allSettled([
+      const [ownedResult, sharedResult, cloudResults] = await Promise.allSettled([
         axios.get<Company[]>(`http://localhost:4000/api/firms?phone=${phone}`),
         axios.get(`${cloud_url}/user/${phone}/firms`),
         axios.get(`${cloud_url}/firms?phone=${phone}`),
       ]);
 
-      let ownedCompanies =
+      const ownedCompanies =
         ownedResult.status === "fulfilled" ? ownedResult.value.data : [];
 
       const sharedFirmsRaw =
-        sharedResult.status === "fulfilled"
-          ? sharedResult.value.data || []
-          : [];
-      const cloudCompanies = cloudResults.status==="fulfilled" ? cloudResults.value.data ||[]:[]
-if(ownedCompanies.length ===0 && cloudCompanies.length >0){
- ownedCompanies = cloudCompanies
-}
+        sharedResult.status === "fulfilled" ? sharedResult.value.data || [] : [];
+
+      const cloudCompanies =
+        cloudResults.status === "fulfilled" ? cloudResults.value.data || [] : [];
+
       const formattedSharedFirms = sharedFirmsRaw.map((firm: any) => ({
         id: firm.firm_id,
         name: firm.firm_name,
@@ -73,14 +71,21 @@ if(ownedCompanies.length ===0 && cloudCompanies.length >0){
         role: firm.role,
       }));
 
-      const allCompanies = [...ownedCompanies, ...formattedSharedFirms];
+      // 🟢 Merge all companies uniquely by ID
+      const uniqueFirmsMap = new Map<string | number, any>();
+
+      // Insert in order: owned, shared, then cloud — so earlier entries are not overwritten
+      [...ownedCompanies, ...formattedSharedFirms, ...cloudCompanies].forEach((firm) => {
+        if (!uniqueFirmsMap.has(firm.id)) {
+          uniqueFirmsMap.set(firm.id, firm);
+        }
+      });
+
+      const allCompanies = Array.from(uniqueFirmsMap.values());
 
       // 🟡 Check if the role of the current firm has changed
       if (currentFirm) {
-        const currentFirmData = allCompanies.find(
-          (f) => f.id === currentFirm.id
-        );
-
+        const currentFirmData = allCompanies.find((f) => f.id === currentFirm.id);
         if (currentFirmData && currentFirmData.role && currentFirmData.role !== currentRole) {
           thunkAPI.dispatch(updateRole(currentFirmData.role));
           window.location.href = "/"; // Redirect to firms page to refresh state
@@ -94,6 +99,7 @@ if(ownedCompanies.length ===0 && cloudCompanies.length >0){
     }
   }
 );
+
 
 
 // Async thunk to create a firm

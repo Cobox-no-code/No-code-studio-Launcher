@@ -84,6 +84,8 @@ const CompanySelector = ({
   const [loadingCompanyId, setLoadingCompanyId] = useState<string | null>(null);
   const dispatch = useAppDispatch();
 
+// 1. ADD this state variable after other useState declarations
+const [hasInitialized, setHasInitialized] = useState<boolean>(false);
   // Fetch data using RTK Query
   const {
     data: salesInvoices = [],
@@ -112,36 +114,37 @@ const CompanySelector = ({
   const firmId =
     typeof window !== "undefined" ? localStorage.getItem("firmId") : null;
   
-  useEffect(() => {
-    const fetch = async () => {
-      const res = await axios.get(`${apiUrl}/firms/${firmId}`);
-      if (res.data) {
-        setSelectedCompany(res.data.name);
-      }
-    };
-    if (firmId) {
-      fetch();
+useEffect(() => {
+  const fetch = async () => {
+    const res = await axios.get(`${apiUrl}/firms/${firmId}`);
+    if (res.data) {
+      setSelectedCompany(res.data.name);
+      setHasInitialized(true); // Mark as initialized when we load from localStorage
     }
-  }, [firmId]);
+  };
+  if (firmId) {
+    fetch();
+  } else {
+    setHasInitialized(true); // Mark as initialized even if no firmId
+  }
+}, [firmId, apiUrl]);
+
+// 3. REPLACE the existing handleRestoredFirms useEffect with this:
 useEffect(() => {
   const handleRestoredFirms = async () => {
-    if (companies.length > 0 && !selectedCompany) {
-      // If we have companies but no selected company, 
-      // it might be after a restore - select the first one
-      const firstCompany = companies[0];
-      if (firstCompany) {
-        setSelectedCompany(firstCompany.name);
-        dispatch(setCurrentFirm(firstCompany));
-        
-        if (firstCompany.isShared || firstCompany.cloud) {
-          dispatch(setSyncEnabled(true));
-        }
-      }
+    // Only auto-select if we haven't initialized and no company is selected
+    if (companies.length > 0 && !selectedCompany && !firmId && hasInitialized) {
+      console.log("No stored firm found, but companies available");
+      // Don't auto-select - let user choose
+      // Optionally, you could redirect to a company selection page here
+      // router.push("/select-company");
     }
   };
 
-  handleRestoredFirms();
-}, [companies.length, selectedCompany]);
+  if (hasInitialized) {
+    handleRestoredFirms();
+  }
+}, [companies.length, selectedCompany, firmId, hasInitialized]);
   // Initialize sync steps
   const initializeSyncSteps = (): SyncStep[] => [
     {
@@ -313,6 +316,8 @@ const performSteppedSync = async (company: any) => {
 };
 
 // 3. Add check in useEffect to handle case when current firm becomes unavailable
+
+// 4. MODIFY the checkCurrentFirm useEffect to prevent auto-selection:
 useEffect(() => {
   const checkCurrentFirm = async () => {
     if (firmId && companies.length > 0) {
@@ -321,15 +326,23 @@ useEffect(() => {
       // If current firm is not found in available companies
       if (!currentFirm) {
         console.log("Current firm not found in available companies");
-        handleFallbackFirmSelection();
+        // Clear the invalid firmId
+        localStorage.removeItem("firmId");
+        setSelectedCompany("");
+        
+        // Show a message to user instead of auto-selecting
+        toast.error("Your selected company is no longer available. Please select a company.");
+        
+        // Optionally redirect to company selection or show the dropdown
+        // Don't auto-select a fallback company
       }
     }
   };
   
-  if (companies.length > 0 && !loading) {
+  if (companies.length > 0 && !loading && hasInitialized) {
     checkCurrentFirm();
   }
-}, [companies, firmId, loading]);
+}, [companies, firmId, loading, hasInitialized]);
 
 // 4. Enhanced handleCompanyChange with better error handling
 const handleCompanyChange = async (company: any) => {
@@ -346,10 +359,13 @@ const handleCompanyChange = async (company: any) => {
       dispatch(updateRole(company.role));
       await performSteppedSync(company);
     } else {
-      if(company?.cloud ){
-        dispatch(setSyncEnabled(true))
+      if(company.sync_enabled ===1){
+dispatch(setSyncEnabled(true))
       }
-      dispatch(setSyncEnabled(false))
+      else{
+        dispatch(setSyncEnabled(false))
+      }
+      
       // Simple loading for non-shared companies
       dispatch(updateRole("admin"));
       
