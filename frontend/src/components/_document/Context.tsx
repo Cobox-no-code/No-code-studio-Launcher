@@ -351,13 +351,9 @@ const calculateTotals = (): DocumentTotals => {
     return total + (isNaN(discount) ? 0 : discount);
   }, 0) || 0;
 
-  // Global discount (optional)
-  const globalDiscount = typeof state.document.discountAmount === 'string'
-    ? parseFloat(state.document.discountAmount || '0')
-    : (state.document.discountAmount || 0);
 
   // Add both global + item discounts
-  const discountAmount = itemDiscountTotal + globalDiscount;
+  const discountAmount = itemDiscountTotal ;
 
   // Other additions
   const shipping = typeof state.document.shipping === 'string'
@@ -372,7 +368,7 @@ const calculateTotals = (): DocumentTotals => {
     ? parseFloat(state.document.adjustment || '0')
     : (state.document.adjustment || 0);
 
-  const subtotal = itemsTotal + chargesTotal - discountAmount + shipping + packaging + adjustment;
+  const subtotal = itemsTotal + chargesTotal  + shipping + packaging + adjustment;
 
   // Round off
   const roundOff = typeof state.document.roundOff === 'string'
@@ -388,7 +384,14 @@ const calculateTotals = (): DocumentTotals => {
   const balanceAmount = total - paidAmount;
 
   
-
+console.log( 
+  itemsTotal,
+    subtotal,
+    total,
+    balanceAmount,
+    taxAmount,
+    discountAmount,
+    paidAmount,)
   return {
     itemsTotal,
     subtotal,
