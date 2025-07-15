@@ -9,8 +9,7 @@ import os from "os";
 import { spawn } from "node:child_process";
 import extract from "extract-zip";
 import { autoUpdater } from "electron-updater";
-const GAME_ID = "cyber-adventure";
-
+import log from "electron-log";
 function createWindow(): BrowserWindow {
   const preloadPath = join(__dirname, "preload.js");
   console.log("Preload script path:", preloadPath);
@@ -54,9 +53,6 @@ function createWindow(): BrowserWindow {
     }
   );
 
-  // Auto-update
-  autoUpdater.checkForUpdatesAndNotify();
-
   return win;
 }
 
@@ -64,7 +60,7 @@ app.whenReady().then(async () => {
   await prepareNext("./frontend", 3000);
   await initLogs();
   createWindow();
-
+  autoUpdater.checkForUpdates();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -73,7 +69,35 @@ app.whenReady().then(async () => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
+autoUpdater.logger = log;
+(autoUpdater.logger as any).transports.file.level = "info";
 
+// Listen for update events
+autoUpdater.on("checking-for-update", () => {
+  log.info("Checking for update...");
+});
+
+autoUpdater.on("update-available", (info) => {
+  log.info("Update available:", info);
+});
+
+autoUpdater.on("update-not-available", (info) => {
+  log.info("No updates available:", info);
+});
+
+autoUpdater.on("error", (err) => {
+  log.error("Error in auto-updater:", err);
+});
+
+autoUpdater.on("download-progress", (progressObj) => {
+  log.info(`Download speed: ${progressObj.bytesPerSecond}`);
+  log.info(`Downloaded ${progressObj.percent}%`);
+});
+
+autoUpdater.on("update-downloaded", () => {
+  log.info("Update downloaded. Will install silently on quit.");
+  autoUpdater.quitAndInstall(); // 🔇 Silently installs update now
+});
 app.on(
   "certificate-error",
   (event, webContents, url, error, certificate, callback) => {
