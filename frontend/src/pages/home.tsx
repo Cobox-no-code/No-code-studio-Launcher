@@ -101,7 +101,7 @@ export default function Home() {
   const getButtonText = () => {
     if (isDownloading) return "Installing...";
     if (gameStatus.installed) return "Launch Game";
-    return "Install Game";
+    return "Download Game";
   };
 
   return (
