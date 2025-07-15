@@ -1,227 +1,290 @@
-import { exec } from "child_process";
-import { app, BrowserWindow, ipcMain, shell } from "electron";
-import { promises as fs } from "fs";
+// main.ts
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import https from "https";
+import fs from "fs";
 import { join } from "node:path";
-import * as os from "os";
-import backendProcess from "./app";
-import { downloadAndUpdate } from "./downloadAndUpdate";
 import { initLogs, isDev, prepareNext } from "./utils";
+import path from "path";
+import os from "os";
+import { spawn } from "node:child_process";
+import extract from "extract-zip";
+import { autoUpdater } from "electron-updater";
+const GAME_ID = "cyber-adventure";
 
-function createWindow(): void {
+function createWindow(): BrowserWindow {
+  const preloadPath = join(__dirname, "preload.js");
+  console.log("Preload script path:", preloadPath);
+  console.log("Preload script exists:", fs.existsSync(preloadPath));
+
   const win = new BrowserWindow({
-    width: 900,
-    height: 700,
+    width: 1250,
+    height: 750,
+    resizable: false,
+    fullscreen: false,
+    fullscreenable: false,
+    maximizable: false,
+    frame: true,
+    titleBarStyle: "default",
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: join(__dirname, "preload.js"),
+      preload: preloadPath,
+      webSecurity: !isDev, // Only disable in dev mode
     },
   });
 
   if (isDev) {
-    win.loadURL("http://localhost:4444/");
-    win.webContents.openDevTools();
+    win.loadURL("http://localhost:3000/");
     win.maximize();
+    win.setMenu(null);
+    win.webContents.openDevTools();
   } else {
     win.loadFile(join(__dirname, "..", "frontend", "out", "index.html"));
     win.setMenu(null);
   }
-}
 
-function startBackendServer() {
-  const backendJS = backendProcess;
-
-  console.log("🟡 Launching backend with: node", backendJS);
-
-  backendJS.on("error", (err) => {
-    console.error("❌ Backend server failed to start:", err);
+  win.webContents.on("did-finish-load", () => {
+    console.log("Page finished loading");
   });
 
-  backendJS.on("exit", (code) => {
-    console.error("❌ Backend server exited with code:", code);
-  });
+  win.webContents.on(
+    "console-message",
+    (event, level, message, line, sourceId) => {
+      console.log(`Renderer console [${level}]: ${message}`);
+    }
+  );
+
+  // Auto-update
+  autoUpdater.checkForUpdatesAndNotify();
+
+  return win;
 }
 
-// IPC handler for installing update
-ipcMain.handle("install-update", async (event, fileName: string) => {
-  try {
-    console.log("📦 Installing update:", fileName);
-
-    // Get the downloads path
-    const downloadsPath = join(os.homedir(), "Downloads");
-    const installerPath = join(downloadsPath, fileName);
-
-    // Check if file exists
-    try {
-      await fs.access(installerPath);
-      console.log("✅ Installer file found:", installerPath);
-    } catch (error) {
-      console.error("❌ Installer file not found:", installerPath);
-      throw new Error(`Installer file not found: ${fileName}`);
-    }
-
-    // Method 1: Run installer with elevated privileges (Windows)
-    if (process.platform === "win32") {
-      return new Promise((resolve, reject) => {
-        // Use PowerShell to run with admin privileges
-        const command = `powershell -Command "Start-Process '${installerPath}' -Verb RunAs -Wait"`;
-
-        exec(command, (error, stdout, stderr) => {
-          if (error) {
-            console.error("❌ Installation failed:", error);
-            reject(new Error(`Installation failed: ${error.message}`));
-            return;
-          }
-
-          console.log("✅ Installation completed successfully");
-          console.log("stdout:", stdout);
-
-          // After installation, quit the current app
-          setTimeout(() => {
-            app.quit();
-          }, 2000);
-
-          resolve({
-            success: true,
-            message: "Installation completed successfully",
-          });
-        });
-      });
-    }
-
-    // Method 2: For other platforms or fallback
-    else {
-      // Use shell.openPath to open the installer
-      const result = await shell.openPath(installerPath);
-
-      if (result) {
-        throw new Error(`Failed to open installer: ${result}`);
-      }
-
-      return { success: true, message: "Installer opened successfully" };
-    }
-  } catch (error: any) {
-    console.error("❌ Install update error:", error);
-    throw new Error(`Installation failed: ${error.message}`);
-  }
-});
-
-// IPC handler for silent installation
-ipcMain.handle("install-update-silent", async (event, fileName: string) => {
-  try {
-    console.log("📦 Silent installing update:", fileName);
-
-    const downloadsPath = join(os.homedir(), "Downloads");
-    const installerPath = join(downloadsPath, fileName);
-
-    // Check if file exists
-    await fs.access(installerPath);
-
-    if (process.platform === "win32") {
-      return new Promise((resolve, reject) => {
-        // Silent installation for Windows
-        const command = `"${installerPath}" /S /D="${process.execPath.replace(
-          /[^\\]+$/,
-          ""
-        )}"`;
-
-        exec(command, (error, stdout, stderr) => {
-          if (error) {
-            console.error("❌ Silent installation failed:", error);
-            reject(new Error(`Silent installation failed: ${error.message}`));
-            return;
-          }
-
-          console.log("✅ Silent installation completed");
-
-          // Restart the application
-          app.relaunch();
-          app.quit();
-
-          resolve({ success: true, message: "Silent installation completed" });
-        });
-      });
-    } else {
-      throw new Error("Silent installation not supported on this platform");
-    }
-  } catch (error: any) {
-    console.error("❌ Silent install error:", error);
-    throw new Error(`Silent installation failed: ${error.message}`);
-  }
-});
-
-// IPC handler to quit app
-ipcMain.handle("quit-app", () => {
-  console.log("🚪 Quitting application...");
-  app.quit();
-});
-
-// IPC handler to restart app
-ipcMain.handle("restart-app", () => {
-  console.log("🔄 Restarting application...");
-  app.relaunch();
-  app.quit();
-});
-
-// IPC handler to get app version
-ipcMain.handle("get-app-version", () => {
-  return app.getVersion();
-});
-
-// IPC handler to check if file exists
-ipcMain.handle("check-file-exists", async (event, fileName: string) => {
-  try {
-    const downloadsPath = join(os.homedir(), "Downloads");
-    const filePath = join(downloadsPath, fileName);
-
-    await fs.access(filePath);
-    return { exists: true, path: filePath };
-  } catch (error) {
-    return { exists: false, path: null };
-  }
-});
-
-/**
- * When the application is ready, this function is called.
- *
- * It creates a BrowserWindow instance and loads the main application.
- * It also sets up the logging and database connections.
- *
- * @returns {Promise<void>} A Promise that resolves when all the setup is done.
- */
 app.whenReady().then(async () => {
-  await prepareNext("./frontend", 4444);
-
+  await prepareNext("./frontend", 3000);
   await initLogs();
-
-  startBackendServer();
-
   createWindow();
-  downloadAndUpdate();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-/* ++++++++++ events ++++++++++ */
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-// Handle certificate errors (optional)
 app.on(
   "certificate-error",
   (event, webContents, url, error, certificate, callback) => {
     if (isDev) {
-      // In development, ignore certificate errors
       event.preventDefault();
       callback(true);
     } else {
-      // In production, use default behavior
       callback(false);
     }
   }
 );
+
+// Helper function to ensure directory exists
+function ensureDirectoryExists(dirPath: string): void {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+}
+
+// Helper function to validate file paths
+function isValidPath(filePath: string): boolean {
+  try {
+    const normalizedPath = path.normalize(filePath);
+    return !normalizedPath.includes("..");
+  } catch {
+    return false;
+  }
+}
+
+// IPC Handlers
+ipcMain.handle("choose-install-path", async () => {
+  try {
+    const result = await dialog.showOpenDialog({
+      properties: ["openDirectory"],
+      title: "Choose Installation Directory",
+    });
+    return result.filePaths?.[0] || null;
+  } catch (error) {
+    console.error("Error choosing install path:", error);
+    return null;
+  }
+});
+
+ipcMain.handle("download-game", async (event, params) => {
+  console.log("download-game called with params:", params);
+  console.log("params type:", typeof params);
+  console.log("params keys:", params ? Object.keys(params) : "null");
+
+  // Handle both object and separate parameter formats
+  let url, targetDir;
+
+  if (params && typeof params === "object" && !Array.isArray(params)) {
+    url = params.url;
+    targetDir = params.targetDir;
+  } else if (typeof params === "string") {
+  }
+
+  console.log("Extracted - url:", url, "targetDir:", targetDir);
+
+  // Validate inputs
+  if (!url || !targetDir) {
+    console.error("Missing parameters - url:", url, "targetDir:", targetDir);
+    throw new Error("URL and target directory are required");
+  }
+
+  if (!isValidPath(targetDir)) {
+    throw new Error("Invalid target directory path");
+  }
+
+  const zipPath = path.join(targetDir, "Archive.zip");
+  const extractPath = path.join(targetDir, "ARCHIVE");
+
+  try {
+    // Ensure target directory exists
+    ensureDirectoryExists(targetDir);
+
+    return new Promise((resolve, reject) => {
+      const file = fs.createWriteStream(zipPath);
+
+      const request = https.get(url, (res) => {
+        // Check if response is successful
+        if (res.statusCode !== 200) {
+          reject(new Error(`Download failed with status: ${res.statusCode}`));
+          return;
+        }
+
+        const totalSize = parseInt(res.headers["content-length"] || "0", 10);
+        let downloadedSize = 0;
+
+        res.on("data", (chunk) => {
+          downloadedSize += chunk.length;
+          const progress =
+            totalSize > 0 ? (downloadedSize / totalSize) * 100 : 0;
+          // You can emit progress events here if needed
+        });
+
+        res.pipe(file);
+
+        file.on("finish", async () => {
+          file.close();
+          try {
+            console.log("Extracting archive...");
+            await extract(zipPath, { dir: extractPath });
+
+            // Clean up zip file
+            if (fs.existsSync(zipPath)) {
+              fs.unlinkSync(zipPath);
+            }
+
+            resolve(extractPath);
+          } catch (extractError) {
+            console.error("Extraction error:", extractError);
+            reject(extractError);
+          }
+        });
+      });
+
+      request.on("error", (err) => {
+        console.error("Download error:", err);
+        // Clean up partial download
+        if (fs.existsSync(zipPath)) {
+          fs.unlink(zipPath, () => {});
+        }
+        reject(err);
+      });
+
+      // Set timeout for download
+      request.setTimeout(30000, () => {
+        request.destroy();
+        reject(new Error("Download timeout"));
+      });
+    });
+  } catch (error) {
+    console.error("Download game error:", error);
+    throw error;
+  }
+});
+
+ipcMain.handle("launch-game", async (_, exePath) => {
+  try {
+    if (!exePath || !isValidPath(exePath)) {
+      throw new Error("Invalid executable path");
+    }
+
+    const executable = path.join(exePath, "NoCodeStudio.exe");
+
+    // Check if executable exists
+    if (!fs.existsSync(executable)) {
+      throw new Error(`Executable not found at: ${executable}`);
+    }
+
+    console.log("Launching game:", executable);
+    const child = spawn(executable, [], {
+      detached: true,
+      stdio: "ignore",
+      cwd: exePath, // Set working directory to game folder
+    });
+
+    child.unref();
+    return { success: true };
+  } catch (error) {
+    console.error("Launch game error:", error);
+    throw error;
+  }
+});
+
+// Add the open-external IPC handler
+ipcMain.handle("open-external", async (_, url) => {
+  console.log("Main process: opening external URL:", url);
+  try {
+    // Basic URL validation
+    if (!url || typeof url !== "string") {
+      throw new Error("Invalid URL provided");
+    }
+
+    // Only allow http/https URLs
+    const urlObj = new URL(url);
+    if (!["http:", "https:"].includes(urlObj.protocol)) {
+      throw new Error("Only HTTP/HTTPS URLs are allowed");
+    }
+
+    await shell.openExternal(url);
+    console.log("Successfully opened external URL");
+    return { success: true };
+  } catch (error) {
+    console.error("Error opening external URL:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Add handler to check if game is installed
+ipcMain.handle("check-game-installation", async (_, gamePath) => {
+  try {
+    if (!gamePath || !isValidPath(gamePath)) {
+      return { installed: false };
+    }
+
+    const executable = path.join(gamePath, "NoCodeStudio.exe");
+    const exists = fs.existsSync(executable);
+
+    return { installed: exists, path: gamePath };
+  } catch (error) {
+    console.error("Error checking game installation:", error);
+    return { installed: false };
+  }
+});
+
+// Add handler to get default install path
+ipcMain.handle("get-default-install-path", async () => {
+  const defaultPath = path.join(os.homedir(), "GameLauncher", "CyberAdventure");
+  return defaultPath;
+});
 
 export { createWindow };

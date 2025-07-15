@@ -1,78 +1,44 @@
 {
-  "name": "paperbill",
-  "displayName": "Electronjs with Nextjs",
+  "name": "cobox",
+  "displayName": "Cobox Launcher",
   "version": "10.0.2",
-  "description": "Electronjs with Nextjs",
+  "description": "A modern game launcher for Cobox games",
   "private": false,
   "license": "MIT",
   "main": "dist/index.js",
-  "author": {
-    "name": "Paperbill",
-    "email": "paperbillpvt@gmail.com"
-  },
   "scripts": {
-    "dev": "next dev frontend",
+    "dev": "concurrently \"npm:dev:frontend\" \"npm:dev:electron\"",
+    "dev:frontend": "cd frontend && next dev",
+    "dev:electron": "npm run build:backend && electron . --dev",
     "prebuild": "rimraf out && rimraf dist && rimraf frontend/.next && rimraf frontend/out",
     "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "next build frontend && copyfiles -u 1 \"frontend/public/**/*\" frontend/out/",
     "build:backend": "tsc -p backend",
     "postinstall": "electron-builder install-app-deps",
     "dist": "npm run build && npx electron-builder",
+    "dist:win": "npm run build && npx electron-builder --win",
+    "dist:mac": "npm run build && npx electron-builder --mac",
+    "dist:linux": "npm run build && npx electron-builder --linux",
     "update:readme": "tsx scripts/update-readme.js"
   },
   "dependencies": {
-    "@radix-ui/react-accordion": "^1.2.4",
-    "@radix-ui/react-alert-dialog": "^1.1.6",
-    "@radix-ui/react-avatar": "^1.1.3",
-    "@radix-ui/react-checkbox": "^1.1.5",
-    "@radix-ui/react-collapsible": "^1.1.3",
-    "@radix-ui/react-dialog": "^1.1.10",
-    "@radix-ui/react-dropdown-menu": "^2.1.6",
-    "@radix-ui/react-label": "^2.1.3",
-    "@radix-ui/react-popover": "^1.1.7",
-    "@radix-ui/react-progress": "^1.1.3",
-    "@radix-ui/react-radio-group": "^1.2.4",
-    "@radix-ui/react-scroll-area": "^1.2.4",
-    "@radix-ui/react-select": "^2.1.7",
-    "@radix-ui/react-separator": "^1.1.2",
-    "@radix-ui/react-slot": "^1.2.0",
-    "@radix-ui/react-switch": "^1.1.4",
-    "@radix-ui/react-tabs": "^1.1.4",
-    "@radix-ui/react-tooltip": "^1.1.8",
-    "@reduxjs/toolkit": "^2.6.1",
-    "@tauri-apps/tauricon": "^1.0.3",
     "app-root-path": "^3.1.0",
-    "axios": "^1.8.4",
+    "axios": "^1.10.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "cors": "^2.8.5",
-    "date-fns": "^4.1.0",
     "electron-is-dev": "^3.0.1",
     "electron-log": "^5.4.0",
     "electron-serve": "^2.1.1",
-    "express": "^5.1.0",
-    "file-saver": "^2.0.5",
-    "jspdf": "^3.0.1",
-    "jspdf-autotable": "^5.0.2",
-    "knex": "^3.1.0",
+    "electron-updater": "^6.6.2",
+    "extract-zip": "^2.0.1",
     "lucide-react": "^0.485.0",
     "next": "15.2.4",
-    "node-machine-id": "^1.1.12",
-    "papaparse": "^5.5.2",
-    "qrcode": "^1.5.4",
-    "qrcode-terminal": "^0.12.0",
     "react": "^19.0.0",
     "react-day-picker": "^8.10.1",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.5.2",
     "react-icons": "^5.5.0",
-    "react-redux": "^9.2.0",
-    "react-to-print": "^3.0.6",
-    "recharts": "^2.15.3",
-    "sequelize": "^6.37.7",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7",
     "tailwind-merge": "^3.0.2",
     "tw-animate-css": "^1.2.5",
     "uuid": "^11.1.0",
@@ -81,15 +47,13 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4.0.8",
-    "@types/cors": "^2.8.18",
     "@types/eslint__eslintrc": "^2.1.2",
-    "@types/express": "^5.0.3",
-    "@types/multer": "^1.4.13",
     "@types/node": "^22.13.5",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
+    "concurrently": "^9.1.2",
     "copyfiles": "^2.4.1",
-    "electron": "^34.2.0",
+    "electron": "^34.5.8",
     "electron-builder": "^25.1.8",
     "eslint": "^9",
     "eslint-config-next": "15.1.7",
@@ -101,5 +65,56 @@
     "tailwindcss": "^4.0.8",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3"
+  },
+  "build": {
+    "productName": "cobox",
+    "appId": "com.cobox.coboxlauncher",
+    "electronVersion": "34.2.0",
+    "asar": true,
+    "compression": "normal",
+    "extraMetadata": {
+      "main": "dist/index.js"
+    },
+    "files": [
+      "dist",
+      "frontend/out"
+    ],
+    "directories": {
+      "output": "out"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Cobox-no-code",
+        "repo": "CoboxLauncher"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "./public/icon.png",
+      "artifactName": "${name}-${version}-windows-${arch}.${ext}"
+    },
+    "nsis": {
+      "artifactName": "${name}-${version}-windows-${arch}-nsis-installer.${ext}",
+      "allowToChangeInstallationDirectory": true,
+      "oneClick": false,
+      "perMachine": true
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "./public/icon.png",
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "darkModeSupport": true
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "./public/icon.png",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    }
   }
 }

@@ -269,3 +269,33 @@ input[type="time"]::-webkit-clear-button,
 input[type="time"]::-webkit-inner-spin-button {
   display: none;
 }
+
+
+.clip-reveal {
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.clip-reveal img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+
+  /* Diagonal Clip Shape */
+  clip-path: polygon(0 0, 60% 0, 100% 100%, 0% 100%);
+  
+  animation: revealClip 2s ease-out forwards;
+}
+
+@keyframes revealClip {
+  from {
+    clip-path: polygon(0 0, 0 0, 0 100%, 0% 100%);
+  }
+  to {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%);
+  }
+}
+
+

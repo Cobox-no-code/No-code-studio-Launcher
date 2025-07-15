@@ -10,6 +10,7 @@ export default function Document() {
           href="https://fonts.googleapis.com/css2?family=Geist&display=swap"
           rel="stylesheet"
         />
+           <base href="./" />
       </Head>
       <body>
         <Main />
