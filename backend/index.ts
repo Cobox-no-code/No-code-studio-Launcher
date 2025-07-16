@@ -10,6 +10,9 @@ import { spawn } from "node:child_process";
 import extract from "extract-zip";
 import { autoUpdater } from "electron-updater";
 import log from "electron-log";
+
+let mainWindow: BrowserWindow | null = null;
+
 function createWindow(): BrowserWindow {
   const preloadPath = join(__dirname, "preload.js");
   console.log("Preload script path:", preloadPath);
@@ -32,6 +35,9 @@ function createWindow(): BrowserWindow {
     },
   });
 
+  // Store reference to main window
+  mainWindow = win;
+
   if (isDev) {
     win.loadURL("http://localhost:3000/");
     win.maximize();
@@ -53,6 +59,10 @@ function createWindow(): BrowserWindow {
     }
   );
 
+  win.on("closed", () => {
+    mainWindow = null;
+  });
+
   return win;
 }
 
@@ -60,7 +70,10 @@ app.whenReady().then(async () => {
   await prepareNext("./frontend", 3000);
   await initLogs();
   createWindow();
-  autoUpdater.checkForUpdates();
+
+  // Don't auto-check for updates on startup - let user trigger it
+  // autoUpdater.checkForUpdates();
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -69,35 +82,50 @@ app.whenReady().then(async () => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
+
+// Configure auto-updater logging
 autoUpdater.logger = log;
 (autoUpdater.logger as any).transports.file.level = "info";
 
-// Listen for update events
+// Helper function to send update events to renderer
+function sendUpdateEvent(channel: string, data?: any) {
+  if (mainWindow && mainWindow.webContents) {
+    mainWindow.webContents.send(channel, data);
+  }
+}
+
+// Listen for update events and forward them to renderer
 autoUpdater.on("checking-for-update", () => {
   log.info("Checking for update...");
+  sendUpdateEvent("checking-for-update");
 });
 
 autoUpdater.on("update-available", (info) => {
   log.info("Update available:", info);
+  sendUpdateEvent("update-available", info);
 });
 
 autoUpdater.on("update-not-available", (info) => {
   log.info("No updates available:", info);
+  sendUpdateEvent("update-not-available", info);
 });
 
 autoUpdater.on("error", (err) => {
   log.error("Error in auto-updater:", err);
+  sendUpdateEvent("update-error", { message: err.message });
 });
 
 autoUpdater.on("download-progress", (progressObj) => {
   log.info(`Download speed: ${progressObj.bytesPerSecond}`);
   log.info(`Downloaded ${progressObj.percent}%`);
+  sendUpdateEvent("download-progress", progressObj);
 });
 
 autoUpdater.on("update-downloaded", () => {
-  log.info("Update downloaded. Will install silently on quit.");
-  autoUpdater.quitAndInstall(); // 🔇 Silently installs update now
+  log.info("Update downloaded. Ready to install.");
+  sendUpdateEvent("update-downloaded");
 });
+
 app.on(
   "certificate-error",
   (event, webContents, url, error, certificate, callback) => {
@@ -127,7 +155,8 @@ function isValidPath(filePath: string): boolean {
   }
 }
 
-// IPC Handlers
+// ==================== EXISTING IPC HANDLERS ====================
+
 ipcMain.handle("choose-install-path", async () => {
   try {
     const result = await dialog.showOpenDialog({
@@ -153,6 +182,7 @@ ipcMain.handle("download-game", async (event, params) => {
     url = params.url;
     targetDir = params.targetDir;
   } else if (typeof params === "string") {
+    // Handle legacy format if needed
   }
 
   console.log("Extracted - url:", url, "targetDir:", targetDir);
@@ -264,7 +294,6 @@ ipcMain.handle("launch-game", async (_, exePath) => {
   }
 });
 
-// Add the open-external IPC handler
 ipcMain.handle("open-external", async (_, url) => {
   console.log("Main process: opening external URL:", url);
   try {
@@ -288,7 +317,6 @@ ipcMain.handle("open-external", async (_, url) => {
   }
 });
 
-// Add handler to check if game is installed
 ipcMain.handle("check-game-installation", async (_, gamePath) => {
   try {
     if (!gamePath || !isValidPath(gamePath)) {
@@ -305,10 +333,47 @@ ipcMain.handle("check-game-installation", async (_, gamePath) => {
   }
 });
 
-// Add handler to get default install path
 ipcMain.handle("get-default-install-path", async () => {
   const defaultPath = path.join(os.homedir(), "GameLauncher", "CyberAdventure");
   return defaultPath;
+});
+
+// ==================== NEW UPDATE IPC HANDLERS ====================
+
+ipcMain.handle("check-for-updates", async () => {
+  try {
+    log.info("Manual update check triggered");
+    const result = await autoUpdater.checkForUpdates();
+
+    // Extract only serializable data
+    return {
+      success: true,
+      updateInfo: {
+        version: result?.updateInfo?.version,
+        releaseName: result?.updateInfo?.releaseName,
+        releaseNotes: result?.updateInfo?.releaseNotes,
+        files: result?.updateInfo?.files,
+      },
+    };
+  } catch (error) {
+    log.error("Error checking for updates:", error);
+    sendUpdateEvent("update-error", { message: error.message });
+    return {
+      success: false,
+      message: error.message,
+    };
+  }
+});
+
+ipcMain.handle("install-update", async () => {
+  try {
+    log.info("Manual update installation triggered");
+    autoUpdater.quitAndInstall();
+    return { success: true };
+  } catch (error) {
+    log.error("Error installing update:", error);
+    throw error;
+  }
 });
 
 export { createWindow };

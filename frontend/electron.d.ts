@@ -7,6 +7,14 @@ interface ElectronAPI {
     gamePath: string
   ) => Promise<{ installed: boolean; path?: string }>;
   getDefaultInstallPath: () => Promise<string>;
+  checkForUpdates: () => Promise<void>;
+  installUpdate: () => Promise<void>;
+  onUpdateEvent: (callback: (event: string, data: any) => void) => void;
+  removeUpdateListener: () => void;
+  _updateListeners: Map<
+    string,
+    (event: IpcRendererEvent, ...args: any[]) => void
+  >;
 }
 
 declare global {

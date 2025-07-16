@@ -19,6 +19,7 @@ export const api = {
 };
 
 const electronAPI = {
+  // Existing game-related methods
   chooseInstallPath: () => ipcRenderer.invoke("choose-install-path"),
   downloadGame: (params) => {
     console.log("Preload: downloadGame called with:", params);
@@ -31,6 +32,54 @@ const electronAPI = {
   checkGameInstallation: (gamePath) =>
     ipcRenderer.invoke("check-game-installation", gamePath),
   getDefaultInstallPath: () => ipcRenderer.invoke("get-default-install-path"),
+
+  // Update-related methods
+  checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
+  installUpdate: () => ipcRenderer.invoke("install-update"),
+
+  // Update event listeners
+  // Store listeners so they can be removed later
+  _updateListeners: new Map<
+    string,
+    (event: IpcRendererEvent, ...args: any[]) => void
+  >(),
+
+  onUpdateEvent: (callback: (event: string, data: any) => void) => {
+    const channels = [
+      "checking-for-update",
+      "update-available",
+      "update-not-available",
+      "download-progress",
+      "update-downloaded",
+      "update-error",
+    ];
+
+    channels.forEach((channel) => {
+      const listener = (_: IpcRendererEvent, data: any) =>
+        callback(channel, data);
+      ipcRenderer.on(channel, listener);
+      electronAPI._updateListeners.set(channel, listener);
+    });
+  },
+
+  removeUpdateListener: () => {
+    const channels = [
+      "checking-for-update",
+      "update-available",
+      "update-not-available",
+      "download-progress",
+      "update-downloaded",
+      "update-error",
+    ];
+
+    channels.forEach((channel) => {
+      const listener = electronAPI._updateListeners.get(channel);
+      if (listener) {
+        ipcRenderer.removeListener(channel, listener);
+        electronAPI._updateListeners.delete(channel);
+      }
+    });
+  },
 };
 
 try {

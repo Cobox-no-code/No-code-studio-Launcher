@@ -1,3 +1,4 @@
+import UpdateModal from "@/components/UpdateModal";
 import { useEffect, useState } from "react";
 
 const GAME_KEY = "cyber-game-path";
@@ -8,6 +9,27 @@ interface GameStatus {
   installed: boolean;
   path?: string;
 }
+interface ElectronAPI {
+  chooseInstallPath: () => Promise<string | null>;
+  downloadGame: (params: { url: string; targetDir: string }) => Promise<string>;
+  launchGame: (exePath: string) => Promise<{ success: boolean }>;
+  openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
+  checkGameInstallation: (
+    gamePath: string
+  ) => Promise<{ installed: boolean; path?: string }>;
+  getDefaultInstallPath: () => Promise<string>;
+  checkForUpdates: () => Promise<any>;
+  installUpdate: () => Promise<void>;
+  onUpdateEvent: (callback: (event: string, data: any) => void) => void;
+  removeUpdateListener: () => void;
+  _updateListeners: Map<string, (event: any, ...args: any[]) => void>;
+}
+
+declare global {
+  interface Window {
+    electronAPI: ElectronAPI;
+  }
+}
 
 export default function Home() {
   const [gamePath, setGamePath] = useState<string | null>(null);
@@ -17,9 +39,11 @@ export default function Home() {
   const [gameStatus, setGameStatus] = useState<GameStatus>({
     installed: false,
   });
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   useEffect(() => {
     checkGameInstallation();
+    checkForUpdate(); // ✅ Auto-check for updates on load
   }, []);
 
   const checkGameInstallation = async () => {
@@ -33,7 +57,6 @@ export default function Home() {
         if (status.installed) {
           setGamePath(storedPath);
         } else {
-          // Remove invalid path from localStorage
           localStorage.removeItem(GAME_KEY);
         }
       }
@@ -43,9 +66,20 @@ export default function Home() {
     }
   };
 
+  // ✅ Auto check for updates
+  const checkForUpdate = async () => {
+    try {
+      const result = await window.electronAPI.checkForUpdates();
+      if (result?.success && result.updateInfo?.version) {
+        setShowUpdateModal(true);
+      }
+    } catch (error) {
+      console.error("Update check failed:", error);
+    }
+  };
+
   const handleDownloadOrPlay = async () => {
     if (gamePath && gameStatus.installed) {
-      // Game already downloaded, launch it
       try {
         setError(null);
         await window.electronAPI.launchGame(gamePath);
@@ -56,20 +90,15 @@ export default function Home() {
       return;
     }
 
-    // Download game
     setIsDownloading(true);
     setError(null);
     setDownloadProgress(0);
 
     try {
       let installPath = await window.electronAPI.chooseInstallPath();
-
       if (!installPath) {
         installPath = await window.electronAPI.getDefaultInstallPath();
       }
-
-      console.log("Installing to:", installPath);
-      console.log("Download URL:", DOWNLOAD_URL);
 
       const exePath = await window.electronAPI.downloadGame({
         url: DOWNLOAD_URL,
@@ -80,8 +109,6 @@ export default function Home() {
       setGamePath(exePath);
       setGameStatus({ installed: true, path: exePath });
       setDownloadProgress(100);
-
-      console.log("Game installed successfully!");
     } catch (error) {
       console.error("Download/install error:", error);
       setError("Failed to download or install game. Please try again.");
@@ -127,7 +154,6 @@ export default function Home() {
               <span>{getButtonText()}</span>
             </div>
 
-            {/* Progress bar overlay */}
             {isDownloading && (
               <div
                 className="absolute bottom-0 left-0 h-1 bg-[#3A14A3] transition-all duration-300 ease-out rounded-b-sm"
@@ -137,6 +163,20 @@ export default function Home() {
           </button>
         </div>
       </div>
+
+      {/* ❌ Removed "Check Update" button */}
+
+      {/* ✅ Auto-triggered modal */}
+      <UpdateModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+      />
+
+      {error && (
+        <div className="absolute bottom-4 left-16 z-20 bg-red-600 text-white px-4 py-2 rounded">
+          {error}
+        </div>
+      )}
     </div>
   );
 }
