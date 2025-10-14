@@ -7,14 +7,17 @@ export default function ImageFrameAnimationLoader() {
   const router = useRouter();
 
   const handleVideoEnd = () => {
+    const auth = localStorage.getItem('token')
     if (currentVideo === 1) {
       // Pause 2 seconds before showing second video
       setCurrentVideo(null); // Hide video for gap
       setTimeout(() => {
         setCurrentVideo(2); // Show second video
       }, 1000); // 2 seconds gap
+    }else if(auth){
+   router.push('/home')
     } else {
-      router.push("/home"); // After second video ends
+      router.push("/login"); // After second video ends
     }
   };
 

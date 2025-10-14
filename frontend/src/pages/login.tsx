@@ -1,7 +1,7 @@
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
-import { v4 as uuidv4 } from "uuid";
 import axios from "axios";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { v4 as uuidv4 } from "uuid";
 
 export default function Login() {
   const [showButton, setShowButton] = useState(false);
@@ -18,16 +18,16 @@ export default function Login() {
     if (typeof window !== "undefined" && window.electronAPI?.openExternal) {
       try {
         await window.electronAPI.openExternal(
-          `https://cobox.co/login/?tokenId=${tokenId}`
+          `https://login.cobox.co/?tokenId=${tokenId}`
         );
       } catch (error) {
         console.error("Error with electronAPI.openExternal:", error);
         // Fallback to window.open
-        window.open(`https://cobox.co/login/?tokenId=${tokenId}`, "_blank");
+        window.open(`https://login.cobox.co/?tokenId=${tokenId}`, "_blank");
       }
     } else {
       // fallback if not in electron
-      window.open(`https://cobox.co/login/?tokenId=${tokenId}`, "_blank");
+      window.open(`https://login.cobox.co/?tokenId=${tokenId}`, "_blank");
     }
 
     // Start verification after a delay
@@ -47,12 +47,16 @@ export default function Login() {
             token: tokenId,
           }
         );
+        console.log("Token verification response:", response.data);
 
         if (response.data) {
-          localStorage.setItem("email", response.data.email);
-          localStorage.setItem("idtoken", response.data.idToken);
+          localStorage.setItem("userData", response.data.userData);
+          localStorage.setItem("token", response.data.customToken);
+
           setIsLoading(false);
-          router.push("/home");
+          setTimeout(() => {
+            router.push("/home");
+          }, 3000);
         } else {
           console.error("Token verification failed:", response.data.message);
         }

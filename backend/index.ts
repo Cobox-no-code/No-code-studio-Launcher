@@ -1,15 +1,15 @@
 // main.ts
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
-import https from "https";
-import fs from "fs";
-import { join } from "node:path";
-import { initLogs, isDev, prepareNext } from "./utils";
-import path from "path";
-import os from "os";
-import { spawn } from "node:child_process";
-import extract from "extract-zip";
-import { autoUpdater } from "electron-updater";
 import log from "electron-log";
+import { autoUpdater } from "electron-updater";
+import extract from "extract-zip";
+import fs from "fs";
+import https from "https";
+import { spawn } from "node:child_process";
+import { join } from "node:path";
+import os from "os";
+import path from "path";
+import { initLogs, isDev, prepareNext } from "./utils";
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -42,7 +42,6 @@ function createWindow(): BrowserWindow {
     win.loadURL("http://localhost:3000/");
     win.maximize();
     win.setMenu(null);
-    win.webContents.openDevTools();
   } else {
     win.loadFile(join(__dirname, "..", "frontend", "out", "index.html"));
     win.setMenu(null);
@@ -169,102 +168,115 @@ ipcMain.handle("choose-install-path", async () => {
     return null;
   }
 });
-
+// ==================== DOWNLOAD GAME ====================
 ipcMain.handle("download-game", async (event, params) => {
-  console.log("download-game called with params:", params);
-  console.log("params type:", typeof params);
-  console.log("params keys:", params ? Object.keys(params) : "null");
+  const url = params?.url;
+  const targetDir = params?.targetDir;
 
-  // Handle both object and separate parameter formats
-  let url, targetDir;
-
-  if (params && typeof params === "object" && !Array.isArray(params)) {
-    url = params.url;
-    targetDir = params.targetDir;
-  } else if (typeof params === "string") {
-    // Handle legacy format if needed
-  }
-
-  console.log("Extracted - url:", url, "targetDir:", targetDir);
-
-  // Validate inputs
-  if (!url || !targetDir) {
-    console.error("Missing parameters - url:", url, "targetDir:", targetDir);
-    throw new Error("URL and target directory are required");
-  }
-
-  if (!isValidPath(targetDir)) {
-    throw new Error("Invalid target directory path");
+  if (!url || !targetDir || !isValidPath(targetDir)) {
+    throw new Error("Invalid download URL or target directory");
   }
 
   const zipPath = path.join(targetDir, "Archive.zip");
   const extractPath = path.join(targetDir, "ARCHIVE");
 
-  try {
-    // Ensure target directory exists
-    ensureDirectoryExists(targetDir);
+  ensureDirectoryExists(targetDir);
 
-    return new Promise((resolve, reject) => {
-      const file = fs.createWriteStream(zipPath);
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(zipPath);
 
-      const request = https.get(url, (res) => {
-        // Check if response is successful
-        if (res.statusCode !== 200) {
-          reject(new Error(`Download failed with status: ${res.statusCode}`));
-          return;
-        }
+    const request = https.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        reject(new Error(`Download failed with status: ${res.statusCode}`));
+        return;
+      }
 
-        const totalSize = parseInt(res.headers["content-length"] || "0", 10);
-        let downloadedSize = 0;
+      const totalSize = parseInt(res.headers["content-length"] || "0", 10);
+      let downloadedSize = 0;
 
-        res.on("data", (chunk) => {
-          downloadedSize += chunk.length;
-          const progress =
-            totalSize > 0 ? (downloadedSize / totalSize) * 100 : 0;
-          // You can emit progress events here if needed
-        });
+      res.on("data", (chunk) => {
+        downloadedSize += chunk.length;
+        const progress = totalSize > 0 ? (downloadedSize / totalSize) * 100 : 0;
+        event.sender.send("download-progress", progress);
+      });
 
-        res.pipe(file);
+      res.pipe(file);
 
-        file.on("finish", async () => {
-          file.close();
-          try {
-            console.log("Extracting archive...");
-            await extract(zipPath, { dir: extractPath });
+      file.on("finish", async () => {
+        file.close();
+        try {
+          // Extract zip
+          await extract(zipPath, { dir: extractPath });
+          fs.unlinkSync(zipPath);
 
-            // Clean up zip file
-            if (fs.existsSync(zipPath)) {
-              fs.unlinkSync(zipPath);
-            }
-
-            resolve(extractPath);
-          } catch (extractError) {
-            console.error("Extraction error:", extractError);
-            reject(extractError);
+          // Find NoCodeStudio.exe
+          const exePath = path.join(extractPath, "NoCodeStudio.exe");
+          if (!fs.existsSync(exePath)) {
+            throw new Error("NoCodeStudio.exe not found after extraction");
           }
-        });
-      });
 
-      request.on("error", (err) => {
-        console.error("Download error:", err);
-        // Clean up partial download
-        if (fs.existsSync(zipPath)) {
-          fs.unlink(zipPath, () => {});
+          // Create default secret.json
+          const secretFilePath = path.join(
+            path.dirname(exePath),
+            "secret.json"
+          );
+          const defaultData = {
+            mode: "create", // default mode
+            type: "creategame", // default type
+          };
+          fs.writeFileSync(
+            secretFilePath,
+            JSON.stringify(defaultData, null, 2)
+          );
+
+          resolve(extractPath);
+        } catch (err) {
+          reject(err);
         }
-        reject(err);
-      });
-
-      // Set timeout for download
-      request.setTimeout(30000, () => {
-        request.destroy();
-        reject(new Error("Download timeout"));
       });
     });
-  } catch (error) {
-    console.error("Download game error:", error);
-    throw error;
-  }
+
+    request.on("error", (err) => {
+      if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+      reject(err);
+    });
+
+    request.setTimeout(30000, () => {
+      request.destroy();
+      reject(new Error("Download timeout"));
+    });
+  });
 });
+
+// ==================== UPDATE SECRET ====================
+ipcMain.handle(
+  "update-secret",
+  async (_, data: { path: string; updates: Record<string, any> }) => {
+    try {
+      if (!data.path || !isValidPath(data.path)) {
+        throw new Error("Invalid path for secret.json");
+      }
+
+      const secretFile = path.join(data.path, "secret.json");
+
+      let currentData = {};
+      if (fs.existsSync(secretFile)) {
+        try {
+          currentData = JSON.parse(fs.readFileSync(secretFile, "utf-8"));
+        } catch (err) {
+          console.warn("Failed to parse existing secret.json, overwriting");
+        }
+      }
+
+      const newData = { ...currentData, ...data.updates };
+      fs.writeFileSync(secretFile, JSON.stringify(newData, null, 2));
+
+      return { success: true, filePath: secretFile };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+);
 
 ipcMain.handle("launch-game", async (_, exePath) => {
   try {

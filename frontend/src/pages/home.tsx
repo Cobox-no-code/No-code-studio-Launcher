@@ -1,4 +1,11 @@
 import UpdateModal from "@/components/UpdateModal";
+import { useDarkMode } from "@/context/DarkModeContext";
+import {
+  CreateButtons,
+  CreateButtonsPlaceholder,
+  ToggleDarkMode,
+  ToggleMode,
+} from "@/utils/icons";
 import { useEffect, useState } from "react";
 
 const GAME_KEY = "cyber-game-path";
@@ -18,10 +25,15 @@ interface ElectronAPI {
     gamePath: string
   ) => Promise<{ installed: boolean; path?: string }>;
   getDefaultInstallPath: () => Promise<string>;
+  onDownloadProgress: (callback: (progress: number) => void) => void;
   checkForUpdates: () => Promise<any>;
   installUpdate: () => Promise<void>;
   onUpdateEvent: (callback: (event: string, data: any) => void) => void;
   removeUpdateListener: () => void;
+  updateSecret: (data: {
+    path: string;
+    updates: Record<string, any>;
+  }) => Promise<any>;
   _updateListeners: Map<string, (event: any, ...args: any[]) => void>;
 }
 
@@ -32,6 +44,9 @@ declare global {
 }
 
 export default function Home() {
+  const { isDarkMode, toggleDarkMode } = useDarkMode();
+  const [mode, setMode] = useState<"play" | "create">("create");
+  const [activeGameTabs, setActiveGameTabs] = useState(false);
   const [gamePath, setGamePath] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -44,7 +59,22 @@ export default function Home() {
   useEffect(() => {
     checkGameInstallation();
     checkForUpdate(); // ✅ Auto-check for updates on load
+
+    // Listen for download progress updates
+    window.electronAPI.onDownloadProgress((progress) => {
+      setDownloadProgress(progress);
+    });
   }, []);
+  useEffect(() => {
+    // Whenever mode changes, update secret.json
+    if (gamePath && gameStatus.installed) {
+      const dir = gamePath; // path to NoCodeStudio.exe folder
+      window.electronAPI.updateSecret({
+        path: dir,
+        updates: { mode },
+      });
+    }
+  }, [mode]);
 
   const checkGameInstallation = async () => {
     try {
@@ -92,7 +122,6 @@ export default function Home() {
 
     setIsDownloading(true);
     setError(null);
-    setDownloadProgress(0);
 
     try {
       let installPath = await window.electronAPI.chooseInstallPath();
@@ -108,7 +137,6 @@ export default function Home() {
       localStorage.setItem(GAME_KEY, exePath);
       setGamePath(exePath);
       setGameStatus({ installed: true, path: exePath });
-      setDownloadProgress(100);
     } catch (error) {
       console.error("Download/install error:", error);
       setError("Failed to download or install game. Please try again.");
@@ -130,53 +158,96 @@ export default function Home() {
     if (gameStatus.installed) return "Launch Game";
     return "Download Game";
   };
+  const handleGameTabsToggle = () => {
+    if (gamePath && gameStatus.installed) {
+      // If the game is installed, toggle the create/environment buttons
+      setActiveGameTabs(!activeGameTabs);
+    } else {
+      // If the game is not installed, start the download process
+      handleDownloadOrPlay();
+    }
+  };
+
+  const launchWithSecret = async (
+    type: "creategame" | "createenv" | "playgame"
+  ) => {
+    if (!gamePath) return;
+    try {
+      await window.electronAPI.updateSecret({
+        path: gamePath,
+        updates: { mode, type },
+      });
+
+      // Delay 2 seconds before launching
+      setTimeout(async () => {
+        await window.electronAPI.launchGame(gamePath);
+      }, 2000);
+    } catch (error) {
+      console.error("Failed to launch with secret.json:", error);
+      setError("Failed to launch game");
+    }
+  };
+
+  const createGame = () => launchWithSecret("creategame");
+  const createEnvironment = () => launchWithSecret("createenv");
+  const playGame = () => launchWithSecret("playgame");
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      <div className="absolute bottom-16 left-16 z-20">
-        <div className="relative">
-          <button
-            onClick={handleDownloadOrPlay}
-            disabled={isDownloading}
-            className={`
-              relative px-8 py-3 font-semibold rounded-sm transition-all duration-200
-              ${
-                isDownloading
-                  ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                  : "bg-white text-[#3A14A3] hover:bg-gray-100 cursor-pointer"
-              }
-            `}
-          >
-            <div className="flex items-center justify-center space-x-2">
-              {isDownloading && (
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent"></div>
-              )}
-              <span>{getButtonText()}</span>
-            </div>
+    <div className="  w-full h-full">
+      <img className=" absolute inset-0 z-50 " src="/home.png" alt="" />
 
-            {isDownloading && (
-              <div
-                className="absolute bottom-0 left-0 h-1 bg-[#3A14A3] transition-all duration-300 ease-out rounded-b-sm"
-                style={{ width: `${downloadProgress}%` }}
-              ></div>
-            )}
-          </button>
+      <CreateButtonsPlaceholder
+        mode={mode}
+        playGame={playGame}
+        isDarkMode={isDarkMode}
+        setActiveGameTabs={handleGameTabsToggle}
+        activeGameTabs={activeGameTabs}
+      />
+      {isDownloading && (
+        <div className="absolute bottom-[1vh] left-1/2 -translate-x-1/2 w-80 flex flex-col items-center gap-2 z-50">
+          {/* Progress bar container */}
+          <div className="relative w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            {/* Smooth animated bar */}
+            <div
+              className="h-full rounded-full transition-[width] duration-500 ease-out animate-pulse"
+              style={{
+                width: `${downloadProgress}%`,
+                background: !isDarkMode
+                  ? "linear-gradient(90deg, #6A4BC9, #4D349C)"
+                  : "linear-gradient(90deg, #000000, #444444)",
+              }}
+            ></div>
+          </div>
+
+          {/* Animated text showing progress percentage */}
+          <div className="text-xs font-medium text-center text-gray-800 dark:text-gray-200 animate-fade-in">
+            {downloadProgress < 100
+              ? `Downloading... ${downloadProgress.toFixed(1)}%`
+              : "Finalizing installation..."}
+          </div>
         </div>
-      </div>
+      )}
+      {activeGameTabs && (
+        <>
+          <CreateButtons
+            isDarkMode={isDarkMode}
+            createGame={createGame}
+            createEnvironment={createEnvironment}
+          />
+        </>
+      )}
 
-      {/* ❌ Removed "Check Update" button */}
+      {/* Dark/Light Mode Toggle */}
+      <ToggleDarkMode isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
+
+      {/* Play/Create Mode Toggle */}
+      <ToggleMode isDarkMode={isDarkMode} mode={mode} setMode={setMode} />
 
       {/* ✅ Auto-triggered modal */}
       <UpdateModal
         isOpen={showUpdateModal}
         onClose={() => setShowUpdateModal(false)}
       />
-
-      {error && (
-        <div className="absolute bottom-4 left-16 z-20 bg-red-600 text-white px-4 py-2 rounded">
-          {error}
-        </div>
-      )}
     </div>
   );
 }

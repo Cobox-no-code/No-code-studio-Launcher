@@ -27,6 +27,12 @@ const electronAPI = {
     console.log("Preload: params keys:", params ? Object.keys(params) : "null");
     return ipcRenderer.invoke("download-game", params);
   },
+  onDownloadProgress: (callback: (progress: number) => void) => {
+    ipcRenderer.on("download-progress", (_event, progress) => {
+      callback(progress);
+    });
+  },
+  updateSecret: (data) => ipcRenderer.invoke("update-secret", data),
   launchGame: (exePath) => ipcRenderer.invoke("launch-game", exePath),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
   checkGameInstallation: (gamePath) =>
@@ -52,6 +58,7 @@ const electronAPI = {
       "download-progress",
       "update-downloaded",
       "update-error",
+      "update-secret",
     ];
 
     channels.forEach((channel) => {
@@ -70,6 +77,7 @@ const electronAPI = {
       "download-progress",
       "update-downloaded",
       "update-error",
+      "update-secret",
     ];
 
     channels.forEach((channel) => {
