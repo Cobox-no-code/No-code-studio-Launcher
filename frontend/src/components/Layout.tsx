@@ -1,5 +1,6 @@
 "use client";
 import { useDarkMode } from "@/context/DarkModeContext";
+import { useUser } from "@/context/UserContext";
 import { items } from "@/utils/navbar";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -9,11 +10,27 @@ type LayoutProps = {
 };
 const Layout = ({ children }: LayoutProps) => {
   const path = usePathname();
+  const { user, setUser } = useUser(); // Get user and setter from context
   const { isDarkMode, toggleDarkMode } = useDarkMode();
   const [searchValue, setSearchValue] = useState("");
   const [activeGameTabs, setActiveGameTabs] = useState(false);
   const [menu, setMenu] = useState(false);
-
+  const UserIcon = () => (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className="w-12 h-12 text-gray-400"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+      />
+    </svg>
+  );
   // Apply dark mode class to document
   useEffect(() => {
     if (isDarkMode) {
@@ -26,7 +43,7 @@ const Layout = ({ children }: LayoutProps) => {
   return (
     <>
       <div
-        className={`min-h-screen transition-colors duration-300  ${
+        className={`min-h-screen transition-colors duration-300 overflow-hidden  ${
           isDarkMode ? " bg-[#0E052A]" : " bg-white"
         }`}
       >
@@ -61,12 +78,17 @@ const Layout = ({ children }: LayoutProps) => {
                 />
               </div>
 
-              <Link
-                href={"/settings"}
-                className={`w-8 h-8 rounded-full  ${
-                  isDarkMode ? " bg-[#696969]" : "bg-[#696969]"
-                }`}
-              ></Link>
+              <Link href={"/settings"}>
+                {user && user?.profilePicture ? (
+                  <img
+                    src={user?.profilePicture}
+                    className=" h-8 w-8 rounded-full object-cover"
+                    alt=""
+                  />
+                ) : (
+                  <UserIcon />
+                )}
+              </Link>
             </div>
           </div>
         </header>

@@ -1,97 +1,96 @@
-import axios from "axios";
+// Your existing Login page file
+import { useUser } from "@/context/UserContext"; // Import the useUser hook
+import { BACKEND_URL } from "@/utils/config";
+import axios from "axios"; // Still use axios for the initial verification
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
 export default function Login() {
   const [showButton, setShowButton] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
   const [startVerification, setStartVerification] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const videoRef = useRef(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const router = useRouter();
+  const { setUser, setToken } = useUser(); // Get setters from the context
 
   const handleLogin = async () => {
     const tokenId = uuidv4();
-    localStorage.setItem("tokenId", tokenId);
+    localStorage.setItem("verification-token", tokenId);
+    const loginUrl = `https://login.cobox.co/?tokenId=${tokenId}`;
 
-    if (typeof window !== "undefined" && window.electronAPI?.openExternal) {
-      try {
-        await window.electronAPI.openExternal(
-          `https://login.cobox.co/?tokenId=${tokenId}`
-        );
-      } catch (error) {
-        console.error("Error with electronAPI.openExternal:", error);
-        // Fallback to window.open
-        window.open(`https://login.cobox.co/?tokenId=${tokenId}`, "_blank");
-      }
+    if (window.electronAPI?.openExternal) {
+      await window.electronAPI.openExternal(loginUrl);
     } else {
-      // fallback if not in electron
-      window.open(`https://login.cobox.co/?tokenId=${tokenId}`, "_blank");
+      window.open(loginUrl, "_blank");
     }
 
-    // Start verification after a delay
     setTimeout(() => {
       setStartVerification(true);
       setIsLoading(true);
     }, 2000);
   };
 
-  const verifyToken = async () => {
-    const tokenId = localStorage.getItem("tokenId");
-    if (tokenId) {
+  // This useEffect now handles the polling logic and stops upon success
+  useEffect(() => {
+    if (!startVerification) return;
+
+    let intervalId: NodeJS.Timeout;
+
+    const verifyToken = async () => {
+      const tokenId = localStorage.getItem("verification-token");
+      if (!tokenId) return;
+
       try {
         const response = await axios.post(
-          "https://us-central1-nocodestudio-6a434.cloudfunctions.net/verifyToken",
-          {
-            token: tokenId,
-          }
+          `${BACKEND_URL}/users/verify-launcher`,
+          { verificationToken: tokenId }
         );
-        console.log("Token verification response:", response.data);
 
         if (response.data) {
-          localStorage.setItem("userData", response.data.userData);
-          localStorage.setItem("token", response.data.customToken);
+          // On successful verification, stop polling
+          clearInterval(intervalId);
 
+          const { user, tokens } = response.data;
+          const { accessToken, refreshToken } = tokens;
+
+          // 1. Create the secret file with initial tokens
+          await window.electronAPI?.createSecret({
+            authToken: accessToken,
+            refreshToken: refreshToken,
+            user: user,
+          });
+
+          // 2. Update localStorage (correctly stringify the user object)
+          localStorage.setItem("userData", JSON.stringify(user));
+          localStorage.setItem("auth_token", accessToken);
+          localStorage.setItem("refresh_token", refreshToken);
+
+          // 3. Update the global context state
+          setUser(user);
+          setToken(accessToken);
+
+          // 4. Navigate to the home page
           setIsLoading(false);
-          setTimeout(() => {
-            router.push("/home");
-          }, 3000);
-        } else {
-          console.error("Token verification failed:", response.data.message);
+          router.push("/home");
         }
       } catch (error) {
-        console.error("Error during token verification:", error);
-      }
-    } else {
-      console.error("Token ID not found in local storage.");
-    }
-  };
-
-  useEffect(() => {
-    let intervalId;
-
-    if (startVerification) {
-      // Call immediately
-      verifyToken();
-
-      // Then call every 3 seconds
-      intervalId = setInterval(() => {
-        verifyToken();
-      }, 3000);
-    }
-
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
+        // Log error but continue polling
+        console.error("Polling for token... Error:", error.message);
       }
     };
-  }, [startVerification, router]);
+
+    // Start polling
+    verifyToken(); // Initial check
+    intervalId = setInterval(verifyToken, 3000);
+
+    // Cleanup function to stop polling when the component unmounts
+    return () => clearInterval(intervalId);
+  }, [startVerification, router, setUser, setToken]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setTimeout(() => {
-        setImageLoaded(true);
         setTimeout(() => {
           setShowButton(true);
         }, 800);
@@ -100,6 +99,7 @@ export default function Login() {
     return () => clearTimeout(timer);
   }, []);
 
+  // ... rest of your JSX remains the same
   return (
     <div className=" h-screen w-screen">
       <div className="relative w-full h-full ">
@@ -110,16 +110,9 @@ export default function Login() {
           muted
           preload="auto"
           className=" w-full h-full object-cover"
-          onLoadedData={() => {
-            // Ensure video stays loaded and doesn't reload
-            if (videoRef.current) {
-              videoRef.current.currentTime = 0;
-            }
-          }}
         />
       </div>
 
-      {/* Custom SVG Shape Card with Sign In Button */}
       {showButton && (
         <div className="absolute inset-0 flex items-center justify-center z-10">
           <div
@@ -136,7 +129,6 @@ export default function Login() {
               filter: "drop-shadow(0 25px 50px rgba(0, 0, 0, 0.5))",
             }}
           >
-            {/* Custom SVG Shape */}
             <svg
               className="absolute inset-0 w-full h-full"
               viewBox="0 0 847 445"
@@ -149,13 +141,9 @@ export default function Login() {
                 fillOpacity="0.95"
               />
             </svg>
-
-            {/* Content inside the custom shape */}
             <div className="absolute inset-0 flex flex-col justify-between items-center p-6">
-              {/* Spacer to push center content */}
               <div className="flex-1 flex items-center justify-center">
                 {!isLoading ? (
-                  /* Custom SVG Sign In Button */
                   <button
                     onClick={handleLogin}
                     className="
@@ -167,7 +155,6 @@ export default function Login() {
                       filter: "drop-shadow(0 6px 12px rgba(91, 27, 238, 0.4))",
                     }}
                   >
-                    {/* Button SVG Shape */}
                     <svg
                       className="absolute inset-0 w-full h-full"
                       viewBox="0 0 202 50"
@@ -181,33 +168,29 @@ export default function Login() {
                       />
                     </svg>
 
-                    {/* Button Text */}
                     <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-xl z-10">
                       Sign In
                     </span>
                   </button>
                 ) : (
-                  /* Loading State */
                   <div className="flex flex-col items-center justify-center">
-                    {/* Loading Spinner */}
                     <div className="w-8 h-8 border-2 border-gray-300 border-t-white rounded-full animate-spin mb-3"></div>
-                    {/* Loading Text */}
                     <div className="text-white font-medium text-lg">
                       Please wait...
                     </div>
                   </div>
                 )}
               </div>
-
-              {/* Bottom Sign Up Text - Hidden when loading */}
               {!isLoading && (
                 <div className="text-center text-sm mt-8">
                   <div className="flex gap-1 text-white">
-                    <button className="font-bold cursor-pointer  hover:underline">
+                    <button
+                      onClick={handleLogin}
+                      className="font-bold cursor-pointer  hover:underline"
+                    >
                       Sign Up
                     </button>
                     <span className="text-gray-400 font-medium">
-                      {" "}
                       ,if you want to be amazed
                     </span>
                   </div>

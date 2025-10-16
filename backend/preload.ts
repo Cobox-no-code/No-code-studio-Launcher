@@ -32,7 +32,9 @@ const electronAPI = {
       callback(progress);
     });
   },
+  createSecret: (data) => ipcRenderer.invoke("create-secret", data),
   updateSecret: (data) => ipcRenderer.invoke("update-secret", data),
+  updateWorker: (data) => ipcRenderer.invoke("update-worker", data),
   launchGame: (exePath) => ipcRenderer.invoke("launch-game", exePath),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
   checkGameInstallation: (gamePath) =>
@@ -58,7 +60,9 @@ const electronAPI = {
       "download-progress",
       "update-downloaded",
       "update-error",
+      "update-worker",
       "update-secret",
+      "create-secret",
     ];
 
     channels.forEach((channel) => {
@@ -77,7 +81,9 @@ const electronAPI = {
       "download-progress",
       "update-downloaded",
       "update-error",
+      "update-worker",
       "update-secret",
+      "create-secret",
     ];
 
     channels.forEach((channel) => {

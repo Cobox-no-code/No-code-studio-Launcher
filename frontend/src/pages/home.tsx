@@ -1,17 +1,21 @@
+import GamesModal from "@/components/GamesModal";
 import UpdateModal from "@/components/UpdateModal";
 import { useDarkMode } from "@/context/DarkModeContext";
+import { useDownload } from "@/context/ProgressContext"; // ✅ 1. Import the custom hook
 import {
   CreateButtons,
   CreateButtonsPlaceholder,
   ToggleDarkMode,
   ToggleMode,
 } from "@/utils/icons";
+import { Gamepad2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const GAME_KEY = "cyber-game-path";
 const DOWNLOAD_URL =
-  "https://cobox-game-data.s3.us-east-1.amazonaws.com/Archive.zip";
+  "https://cobox-game-data.s3-accelerate.amazonaws.com/Archive.zip";
 
+// ... (Keep your interfaces and declare global) ...
 interface GameStatus {
   installed: boolean;
   path?: string;
@@ -30,10 +34,12 @@ interface ElectronAPI {
   installUpdate: () => Promise<void>;
   onUpdateEvent: (callback: (event: string, data: any) => void) => void;
   removeUpdateListener: () => void;
-  updateSecret: (data: {
+  updateWorker: (data: {
     path: string;
     updates: Record<string, any>;
   }) => Promise<any>;
+  createSecret: (data: Record<string, any>) => Promise<any>;
+  updateSecret: (data: Record<string, any>) => Promise<any>;
   _updateListeners: Map<string, (event: any, ...args: any[]) => void>;
 }
 
@@ -45,11 +51,17 @@ declare global {
 
 export default function Home() {
   const { isDarkMode, toggleDarkMode } = useDarkMode();
+  const [gameModal, setGameModal] = useState(false);
+  // ✅ 2. Use the global download state
+  const { isDownloading, downloadProgress, startDownload, finishDownload } =
+    useDownload();
+
   const [mode, setMode] = useState<"play" | "create">("create");
   const [activeGameTabs, setActiveGameTabs] = useState(false);
   const [gamePath, setGamePath] = useState<string | null>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
+  // ❌ 3. Remove the local state for downloading
+  // const [isDownloading, setIsDownloading] = useState(false);
+  // const [downloadProgress, setDownloadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [gameStatus, setGameStatus] = useState<GameStatus>({
     installed: false,
@@ -58,18 +70,18 @@ export default function Home() {
 
   useEffect(() => {
     checkGameInstallation();
-    checkForUpdate(); // ✅ Auto-check for updates on load
+    checkForUpdate();
 
-    // Listen for download progress updates
-    window.electronAPI.onDownloadProgress((progress) => {
-      setDownloadProgress(progress);
-    });
+    // ❌ 4. Remove the progress listener setup from here, it's now global
+    // window.electronAPI.onDownloadProgress((progress) => {
+    //   setDownloadProgress(progress);
+    // });
   }, []);
+
   useEffect(() => {
-    // Whenever mode changes, update secret.json
     if (gamePath && gameStatus.installed) {
-      const dir = gamePath; // path to NoCodeStudio.exe folder
-      window.electronAPI.updateSecret({
+      const dir = gamePath;
+      window.electronAPI.updateWorker({
         path: dir,
         updates: { mode },
       });
@@ -77,6 +89,7 @@ export default function Home() {
   }, [mode]);
 
   const checkGameInstallation = async () => {
+    // ... (no changes in this function)
     try {
       const storedPath = localStorage.getItem(GAME_KEY);
       if (storedPath) {
@@ -96,8 +109,8 @@ export default function Home() {
     }
   };
 
-  // ✅ Auto check for updates
   const checkForUpdate = async () => {
+    // ... (no changes in this function)
     try {
       const result = await window.electronAPI.checkForUpdates();
       if (result?.success && result.updateInfo?.version) {
@@ -110,17 +123,10 @@ export default function Home() {
 
   const handleDownloadOrPlay = async () => {
     if (gamePath && gameStatus.installed) {
-      try {
-        setError(null);
-        await window.electronAPI.launchGame(gamePath);
-      } catch (error) {
-        setError("Failed to launch game. Please try reinstalling.");
-        console.error("Launch error:", error);
-      }
       return;
     }
 
-    setIsDownloading(true);
+    startDownload(); // ✅ 5. Use the global function to start
     setError(null);
 
     try {
@@ -142,10 +148,12 @@ export default function Home() {
       setError("Failed to download or install game. Please try again.");
       localStorage.removeItem(GAME_KEY);
     } finally {
-      setIsDownloading(false);
+      // The context will handle resetting the state, but you can also call it here if needed
+      // finishDownload(); // The listener in the context now handles this automatically
     }
   };
 
+  // ... (no changes needed for handleReinstall, getButtonText, handleGameTabsToggle, launchWithSecret, etc.)
   const handleReinstall = () => {
     localStorage.removeItem(GAME_KEY);
     setGamePath(null);
@@ -159,6 +167,7 @@ export default function Home() {
     return "Download Game";
   };
   const handleGameTabsToggle = () => {
+    if (isDownloading) return; // Prevent toggling while downloading
     if (gamePath && gameStatus.installed) {
       // If the game is installed, toggle the create/environment buttons
       setActiveGameTabs(!activeGameTabs);
@@ -173,7 +182,7 @@ export default function Home() {
   ) => {
     if (!gamePath) return;
     try {
-      await window.electronAPI.updateSecret({
+      await window.electronAPI.updateWorker({
         path: gamePath,
         updates: { mode, type },
       });
@@ -183,7 +192,7 @@ export default function Home() {
         await window.electronAPI.launchGame(gamePath);
       }, 2000);
     } catch (error) {
-      console.error("Failed to launch with secret.json:", error);
+      console.error("Failed to launch with worker.json:", error);
       setError("Failed to launch game");
     }
   };
@@ -192,10 +201,23 @@ export default function Home() {
   const createEnvironment = () => launchWithSecret("createenv");
   const playGame = () => launchWithSecret("playgame");
 
+  // The rest of your return statement can remain exactly the same!
+  // It will now read `isDownloading` and `downloadProgress` from the global context.
   return (
-    <div className="  w-full h-full">
+    <div className="w-full h-full overflow-hidden">
+      {/* ... (All your JSX remains the same) ... */}
+      {/* ... */}
       <img className=" absolute inset-0 z-50 " src="/home.png" alt="" />
-
+      <GamesModal active={gameModal} setActive={setGameModal} />
+      {mode === "play" && (
+        <button
+          onClick={() => setGameModal(true)}
+          className="flex   gap-2 z-60 absolute top-[2rem] left-8  translate-x-0 p-2 rounded-lg cursor-pointer items-center justify-between bg-white text-sm font-medium text-black hover:bg-gray-100 shadow-md "
+        >
+          {" "}
+          <Gamepad2Icon /> Explore
+        </button>
+      )}
       <CreateButtonsPlaceholder
         mode={mode}
         playGame={playGame}
@@ -212,9 +234,7 @@ export default function Home() {
               className="h-full rounded-full transition-[width] duration-500 ease-out animate-pulse"
               style={{
                 width: `${downloadProgress}%`,
-                background: !isDarkMode
-                  ? "linear-gradient(90deg, #6A4BC9, #4D349C)"
-                  : "linear-gradient(90deg, #000000, #444444)",
+                background: !isDarkMode ? "#000000" : "#4D349C",
               }}
             ></div>
           </div>
@@ -230,6 +250,7 @@ export default function Home() {
       {activeGameTabs && (
         <>
           <CreateButtons
+            mode={mode}
             isDarkMode={isDarkMode}
             createGame={createGame}
             createEnvironment={createEnvironment}

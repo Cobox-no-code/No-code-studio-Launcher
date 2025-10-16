@@ -1,3 +1,5 @@
+import toast from "react-hot-toast";
+import { GameNotification } from "./GameNotification";
 export const ToggleDarkMode = ({ isDarkMode, toggleDarkMode }) => {
   return (
     <>
@@ -46,7 +48,21 @@ export const ToggleMode = ({ isDarkMode, mode, setMode }) => {
 
   return (
     <svg
-      onClick={() => setMode(isPlayMode ? "create" : "play")}
+      onClick={() => {
+        setMode(isPlayMode ? "create" : "play");
+
+        toast.custom(
+          (t) => (
+            <GameNotification
+              t={t}
+              icon="🎮"
+              title="Mode Switched"
+              message={`You are now in ${isPlayMode ? "Create" : "Play"} Mode`}
+            />
+          ),
+          { id: "error-toast" }
+        );
+      }}
       className="absolute cursor-pointer bottom-[5vh] left-[5vh] w-10 h-10 transition-all"
       width="34"
       height="18"
@@ -63,7 +79,9 @@ export const CreateButtons = ({
   isDarkMode,
   createGame,
   createEnvironment,
+  mode,
 }) => {
+  if (mode !== "create") return null;
   return (
     <>
       {isDarkMode ? (
@@ -122,7 +140,7 @@ export const CreateButtons = ({
             </svg>
 
             <button
-              onClick={createGame}
+              onClick={createEnvironment}
               className=" absolute bottom-15  left-[4%] cursor-pointer"
             >
               <svg
@@ -139,7 +157,7 @@ export const CreateButtons = ({
               </svg>
             </button>
             <button
-              onClick={createEnvironment}
+              onClick={createGame}
               className=" absolute bottom-15   right-[6%] cursor-pointer"
             >
               <svg
@@ -213,7 +231,7 @@ export const CreateButtons = ({
           </svg>
 
           <button
-            onClick={createGame}
+            onClick={createEnvironment}
             className=" absolute bottom-15  left-[4%] cursor-pointer"
           >
             <svg
@@ -230,7 +248,7 @@ export const CreateButtons = ({
             </svg>
           </button>
           <button
-            onClick={createEnvironment}
+            onClick={createGame}
             className=" absolute bottom-15   right-[6%] cursor-pointer"
           >
             <svg

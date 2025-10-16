@@ -1,5 +1,6 @@
 "use client";
 import { useDarkMode } from "@/context/DarkModeContext";
+import { useUser } from "@/context/UserContext"; // Adjust this path to your UserContext file
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -102,14 +103,36 @@ export default function Settings() {
   );
 }
 
+// --- SVG Icon for default profile picture ---
+const UserIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className="w-12 h-12 text-gray-400"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+    />
+  </svg>
+);
+
 // --- Component for Profile Tab ---
 const Profile = ({ isDarkMode }) => {
+  const { user, setUser } = useUser(); // Get user and setter from context
+  const fileInputRef = useRef(null); // Ref for the hidden file input
+
+  // --- Style classes ---
   const inputBaseClass =
-    "w-full px-4 py-3 rounded-lg outline-none transition-colors duration-300";
+    "w-full px-4 py-3 rounded-lg outline-none transition-colors duration-300 cursor-not-allowed";
   const inputDarkClass =
-    "bg-[#1C1041] text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-[#4A3F78]";
+    "bg-[#1C1041] text-gray-200 placeholder-gray-500 border border-transparent";
   const inputLightClass =
-    "bg-[#EEEEEE] text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-[#BDBDBD]";
+    "bg-[#EEEEEE] text-gray-800 placeholder-gray-400 border border-transparent";
   const inputClass = `${inputBaseClass} ${
     isDarkMode ? inputDarkClass : inputLightClass
   }`;
@@ -117,18 +140,67 @@ const Profile = ({ isDarkMode }) => {
     isDarkMode ? "text-gray-400" : "text-gray-600"
   }`;
 
+  // --- Handle Photo Upload and Save to localStorage ---
+  const handlePhotoUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File is too large! Please upload an image under 5MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file); // Convert image to Base64 string
+    reader.onload = () => {
+      const base64Image = reader.result;
+      const updatedUser = { ...user, profilePicture: base64Image };
+
+      // Update the global context state
+      setUser(updatedUser);
+      // Update localStorage to persist the change
+      localStorage.setItem("userData", JSON.stringify(updatedUser));
+    };
+    reader.onerror = (error) => {
+      console.error("Error reading file:", error);
+    };
+  };
+
+  if (!user) {
+    return <div>Loading...</div>; // or some placeholder
+  }
+
   return (
     <div className="flex flex-col w-full space-y-6">
       <div className="flex items-center space-x-6">
         <div
-          className={`w-24 h-24 rounded-full ${
+          className={`relative flex items-center justify-center w-24 h-24 rounded-full overflow-hidden ${
             isDarkMode ? "bg-[#1C1041]" : "bg-[#E0E0E0]"
           }`}
         >
-          {/* Profile Picture would go here */}
+          {/* Display profile picture if it exists, otherwise show placeholder */}
+          {user && user?.profilePicture ? (
+            <img
+              src={user?.profilePicture}
+              alt="Profile"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <UserIcon />
+          )}
         </div>
         <div>
+          {/* Hidden file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handlePhotoUpload}
+            accept="image/png, image/jpeg, image/gif"
+            style={{ display: "none" }}
+          />
           <button
+            onClick={() => fileInputRef.current?.click()} // Trigger hidden input
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors duration-200 ${
               isDarkMode
                 ? "bg-[#2A1B5A] text-white hover:bg-[#4A3F78]"
@@ -148,39 +220,42 @@ const Profile = ({ isDarkMode }) => {
       </div>
 
       <div className="flex space-x-4">
-        <div className="w-1/2">
+        <div className="w-full">
           <label className={labelClass}>First Name</label>
-          <input type="text" className={inputClass} placeholder="John" />
+          <input
+            type="text"
+            className={inputClass}
+            value={user?.name || "N/A"}
+            readOnly
+          />
         </div>
-        <div className="w-1/2">
-          <label className={labelClass}>Last Name</label>
-          <input type="text" className={inputClass} placeholder="Doe" />
-        </div>
-      </div>
-
-      <div>
-        <label className={labelClass}>Username</label>
-        <input type="text" className={inputClass} placeholder="johndoe" />
       </div>
       <div>
         <label className={labelClass}>Wallet Address</label>
-        <input type="text" className={inputClass} placeholder="0xAbC...123" />
+        <input
+          type="text"
+          className={inputClass}
+          value={user?.wallet_address || "N/A"}
+          readOnly
+        />
       </div>
       <div>
         <label className={labelClass}>Email</label>
         <input
           type="email"
           className={inputClass}
-          placeholder="john.doe@example.com"
+          value={user?.email || "No email found"}
+          readOnly
         />
       </div>
     </div>
   );
 };
 
-// --- Component for Settings Tab ---
 const Setting = ({ isDarkMode, toggleDarkMode }) => {
   const [updates, setUpdates] = useState({ auto: true, manual: false });
+
+  // --- Style classes ---
   const textColor = isDarkMode ? "text-gray-300" : "text-gray-700";
   const headingColor = isDarkMode ? "text-white" : "text-black";
   const linkColor = `cursor-pointer ${
@@ -189,9 +264,11 @@ const Setting = ({ isDarkMode, toggleDarkMode }) => {
       : "text-gray-600 hover:text-black"
   }`;
 
+  // --- Reusable Checkbox Component ---
   const Checkbox = ({ label, checked, onChange }) => (
     <label className="flex items-center cursor-pointer space-x-3">
       <div
+        onClick={onChange} // Added onClick here for better click handling
         className={`w-5 h-5 border-2 rounded flex justify-center items-center transition-all duration-200 ${
           isDarkMode
             ? checked
@@ -204,9 +281,20 @@ const Setting = ({ isDarkMode, toggleDarkMode }) => {
       >
         {checked && <CheckIcon className="w-4 h-4 text-white" />}
       </div>
-      <span className={textColor}>{label}</span>
+      <span onClick={onChange} className={textColor}>
+        {label}
+      </span>
     </label>
   );
+
+  // --- Handler to toggle between Auto and Manual updates ---
+  const handleUpdateSettingChange = (setting) => {
+    if (setting === "auto") {
+      setUpdates({ auto: true, manual: false });
+    } else {
+      setUpdates({ auto: false, manual: true });
+    }
+  };
 
   return (
     <div className={`w-full space-y-8 ${textColor}`}>
@@ -234,19 +322,18 @@ const Setting = ({ isDarkMode, toggleDarkMode }) => {
           <Checkbox
             label="Auto download and install updates (recommended)"
             checked={updates.auto}
-            onChange={() => setUpdates({ ...updates, auto: !updates.auto })}
+            onChange={() => handleUpdateSettingChange("auto")}
           />
           <Checkbox
             label="Manual updates"
             checked={updates.manual}
-            onChange={() => setUpdates({ ...updates, manual: !updates.manual })}
+            onChange={() => handleUpdateSettingChange("manual")}
           />
         </div>
       </div>
 
       <div className="space-y-4">
         <h3 className={`text-lg font-semibold mb-3 ${headingColor}`}>More</h3>
-        <p className={linkColor}>Auto launch on startup</p>
         <p className={linkColor}>Bug Report</p>
         <p className={linkColor}>Documentation</p>
         <p className={linkColor}>Contributors</p>
@@ -313,7 +400,9 @@ const WhatsNew = ({ isDarkMode }) => {
 
   return (
     <div className={`w-full space-y-8 ${textColor}`}>
-      <h2 className={`text-2xl font-bold mb-4 ${headingColor}`}>What's New</h2>
+      <h2 className={`text-2xl font-bold mb-4 ${headingColor}`}>
+        What&rsquo;s New
+      </h2>
       <ChangeLog version="Version 1.0.0" date="August 1, 2025">
         <li>
           <span className={tagClass}>NEW</span> Initial public beta release.

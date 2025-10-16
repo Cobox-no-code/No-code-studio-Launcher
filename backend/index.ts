@@ -215,10 +215,10 @@ ipcMain.handle("download-game", async (event, params) => {
             throw new Error("NoCodeStudio.exe not found after extraction");
           }
 
-          // Create default secret.json
+          // Create default worker.json
           const secretFilePath = path.join(
             path.dirname(exePath),
-            "secret.json"
+            "worker.json"
           );
           const defaultData = {
             mode: "create", // default mode
@@ -250,21 +250,21 @@ ipcMain.handle("download-game", async (event, params) => {
 
 // ==================== UPDATE SECRET ====================
 ipcMain.handle(
-  "update-secret",
+  "update-worker",
   async (_, data: { path: string; updates: Record<string, any> }) => {
     try {
       if (!data.path || !isValidPath(data.path)) {
-        throw new Error("Invalid path for secret.json");
+        throw new Error("Invalid path for worker.json");
       }
 
-      const secretFile = path.join(data.path, "secret.json");
+      const secretFile = path.join(data.path, "worker.json");
 
       let currentData = {};
       if (fs.existsSync(secretFile)) {
         try {
           currentData = JSON.parse(fs.readFileSync(secretFile, "utf-8"));
         } catch (err) {
-          console.warn("Failed to parse existing secret.json, overwriting");
+          console.warn("Failed to parse existing worker.json, overwriting");
         }
       }
 
@@ -277,6 +277,47 @@ ipcMain.handle(
     }
   }
 );
+const appDataPath = app.getPath("userData");
+ipcMain.handle("create-secret", async (_, content: Record<string, any>) => {
+  try {
+    const secretFile = path.join(appDataPath, "secret.json");
+
+    if (fs.existsSync(secretFile)) {
+      throw new Error(`secret.json already exists at ${secretFile}`);
+    }
+
+    ensureDirectoryExists(appDataPath);
+    fs.writeFileSync(secretFile, JSON.stringify(content, null, 2));
+    return { success: true, filePath: secretFile };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+ipcMain.handle("update-secret", async (_, updates: Record<string, any>) => {
+  try {
+    const secretFile = path.join(appDataPath, "secret.json");
+
+    let currentData = {};
+    if (fs.existsSync(secretFile)) {
+      try {
+        currentData = JSON.parse(fs.readFileSync(secretFile, "utf-8"));
+      } catch (err) {
+        console.warn(
+          "Failed to parse existing secret.json, it will be overwritten."
+        );
+      }
+    }
+
+    const newData = { ...currentData, ...updates };
+
+    ensureDirectoryExists(appDataPath);
+    fs.writeFileSync(secretFile, JSON.stringify(newData, null, 2));
+
+    return { success: true, filePath: secretFile };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
 
 ipcMain.handle("launch-game", async (_, exePath) => {
   try {
