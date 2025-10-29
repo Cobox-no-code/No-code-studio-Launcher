@@ -1,6 +1,7 @@
 "use client";
 import { useDarkMode } from "@/context/DarkModeContext";
 import { useUser } from "@/context/UserContext";
+import api from "@/utils/api";
 import { items } from "@/utils/navbar";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -22,7 +23,7 @@ const Layout = ({ children }: LayoutProps) => {
       viewBox="0 0 24 24"
       strokeWidth={1.5}
       stroke="currentColor"
-      className="w-12 h-12 text-gray-400"
+      className="w-6 h-6 text-gray-400"
     >
       <path
         strokeLinecap="round"
@@ -31,6 +32,18 @@ const Layout = ({ children }: LayoutProps) => {
       />
     </svg>
   );
+  const fetch = async () => {
+    const userData = localStorage.getItem("userData");
+    if (userData) {
+      const parsedUser = JSON.parse(userData);
+      const res = await api.get(`/users/${parsedUser.id}`);
+    }
+  };
+
+  useEffect(() => {
+    fetch();
+  }, []);
+
   // Apply dark mode class to document
   useEffect(() => {
     if (isDarkMode) {
@@ -86,7 +99,9 @@ const Layout = ({ children }: LayoutProps) => {
                     alt=""
                   />
                 ) : (
-                  <UserIcon />
+                  <div className=" w-8 h-8 rounded-full flex justify-center items-center bg-white">
+                    <UserIcon />
+                  </div>
                 )}
               </Link>
             </div>
@@ -97,7 +112,7 @@ const Layout = ({ children }: LayoutProps) => {
           <img
             onClick={() => setMenu(!menu)}
             className=" absolute inset-0 z-50  h-screen  p-4"
-            src="/layout.png"
+            src="./layout.png"
             alt=""
           />
         )}

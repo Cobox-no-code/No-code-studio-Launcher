@@ -36,6 +36,7 @@ function useOnClickOutside(
 }
 
 export default function Settings() {
+  const { logout } = useUser();
   const router = useRouter();
   const divref = useRef<HTMLDivElement | null>(null);
   const pushedRef = useRef(false); // prevent double pushes
@@ -83,6 +84,22 @@ export default function Settings() {
                 {item}
               </button>
             ))}
+
+            <button
+              key={"Logout"}
+              onClick={logout}
+              className={`text-md rounded-xl font-normal cursor-pointer w-full text-left px-5 py-2.5 mb-2 transition-all duration-200 ${
+                isDarkMode
+                  ? tab === "Logout"
+                    ? "bg-[#2A1B5A] text-white"
+                    : "text-[#A0A0A0] hover:bg-[#1C1041]"
+                  : tab === "Logout"
+                  ? "bg-[#E0E0E0] text-black"
+                  : "text-[#9F9F9F] hover:bg-[#EEEEEE]"
+              }`}
+            >
+              Logout
+            </button>
           </div>
 
           {/* Right Content */}

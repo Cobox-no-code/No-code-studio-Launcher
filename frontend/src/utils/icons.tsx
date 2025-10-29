@@ -7,14 +7,14 @@ export const ToggleDarkMode = ({ isDarkMode, toggleDarkMode }) => {
       {isDarkMode ? (
         <img
           onClick={toggleDarkMode}
-          src="/sun.png"
+          src="./sun.png"
           alt=""
           className=" absolute cursor-pointer bottom-[5vh] right-[5vh] w-6 h-6 transition-all"
         />
       ) : (
         <img
           onClick={toggleDarkMode}
-          src="/moon.png"
+          src="./moon.png"
           alt=""
           className=" absolute bottom-[5vh] cursor-pointer transition-all right-[5vh] w-6 h-6"
         />

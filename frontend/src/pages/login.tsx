@@ -105,7 +105,7 @@ export default function Login() {
       <div className="relative w-full h-full ">
         <video
           ref={videoRef}
-          src={"/final.mov"}
+          src={"./final.mov"}
           autoPlay
           muted
           preload="auto"

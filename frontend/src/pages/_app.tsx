@@ -40,7 +40,7 @@ function MyApp({ Component, pageProps }: AppProps) {
             },
           }}
         />
-        <DarkModeProvider>{content}</DarkModeProvider>;
+        <DarkModeProvider>{content}</DarkModeProvider>
       </DownloadProvider>
     </UserProvider>
   );

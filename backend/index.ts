@@ -168,6 +168,7 @@ ipcMain.handle("choose-install-path", async () => {
     return null;
   }
 });
+const appDataPath = app.getPath("userData");
 // ==================== DOWNLOAD GAME ====================
 ipcMain.handle("download-game", async (event, params) => {
   const url = params?.url;
@@ -217,7 +218,7 @@ ipcMain.handle("download-game", async (event, params) => {
 
           // Create default worker.json
           const secretFilePath = path.join(
-            path.dirname(exePath),
+           appDataPath,
             "worker.json"
           );
           const defaultData = {
@@ -253,11 +254,8 @@ ipcMain.handle(
   "update-worker",
   async (_, data: { path: string; updates: Record<string, any> }) => {
     try {
-      if (!data.path || !isValidPath(data.path)) {
-        throw new Error("Invalid path for worker.json");
-      }
 
-      const secretFile = path.join(data.path, "worker.json");
+      const secretFile = path.join(appDataPath, "worker.json");
 
       let currentData = {};
       if (fs.existsSync(secretFile)) {
@@ -277,7 +275,7 @@ ipcMain.handle(
     }
   }
 );
-const appDataPath = app.getPath("userData");
+
 ipcMain.handle("create-secret", async (_, content: Record<string, any>) => {
   try {
     const secretFile = path.join(appDataPath, "secret.json");
@@ -430,3 +428,4 @@ ipcMain.handle("install-update", async () => {
 });
 
 export { createWindow };
+

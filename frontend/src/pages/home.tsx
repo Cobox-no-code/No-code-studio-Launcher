@@ -205,9 +205,7 @@ export default function Home() {
   // It will now read `isDownloading` and `downloadProgress` from the global context.
   return (
     <div className="w-full h-full overflow-hidden">
-      {/* ... (All your JSX remains the same) ... */}
-      {/* ... */}
-      <img className=" absolute inset-0 z-50 " src="/home.png" alt="" />
+      <img className=" absolute inset-0 z-50 " src="./home.png" alt="" />
       <GamesModal active={gameModal} setActive={setGameModal} />
       {mode === "play" && (
         <button
