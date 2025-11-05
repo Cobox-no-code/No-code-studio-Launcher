@@ -70,48 +70,20 @@ export default function Home() {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return; // ✅ Only runs in browser
+    const gameData = localStorage.getItem("gameData");
+    const parsedGame = JSON.parse(gameData);
+    console.log("Parsed Game Data:", parsedGame.link);
+    if (parsedGame && parsedGame.link) {
+      setDownloadUrl(parsedGame.link);
+    }
+    if (!window.electronAPI) return;
+    checkGameInstallation();
+    checkForUpdate();
 
-    const updateFromLocalStorage = () => {
-      const gameDataStr = window.localStorage.getItem("gameData");
-      const gamePathStr = window.localStorage.getItem("gamePath");
-
-      if (gameDataStr) {
-        try {
-          const parsedGame = JSON.parse(gameDataStr);
-          if (parsedGame?.link) {
-            setDownloadUrl(parsedGame.link);
-          }
-        } catch (err) {
-          console.error("Invalid gameData in localStorage:", err);
-        }
-      }
-
-      if (window.electronAPI) {
-        checkGameInstallation();
-        checkForUpdate();
-      }
-    };
-
-    // 🔹 Run immediately on mount
-    updateFromLocalStorage();
-
-    // 🔹 Listen for changes in other tabs or in-app storage updates
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "gameData" || e.key === "gamePath") {
-        updateFromLocalStorage();
-      }
-    };
-    window.addEventListener("storage", handleStorageChange);
-
-    // 🔹 Also listen for custom in-tab updates
-    const handleCustomUpdate = () => updateFromLocalStorage();
-    window.addEventListener("localStorageUpdate", handleCustomUpdate);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("localStorageUpdate", handleCustomUpdate);
-    };
+    // ❌ 4. Remove the progress listener setup from here, it's now global
+    // window.electronAPI.onDownloadProgress((progress) => {
+    //   setDownloadProgress(progress);
+    // });
   }, []);
 
   useEffect(() => {
@@ -137,7 +109,6 @@ export default function Home() {
           setGamePath(storedPath);
         } else {
           localStorage.removeItem(GAME_KEY);
-          window.dispatchEvent(new Event("localStorageUpdate"));
         }
       }
     } catch (error) {
@@ -178,7 +149,6 @@ export default function Home() {
       });
 
       localStorage.setItem(GAME_KEY, exePath);
-      window.dispatchEvent(new Event("localStorageUpdate"));
       setGamePath(exePath);
       setGameStatus({ installed: true, path: exePath });
     } catch (error) {

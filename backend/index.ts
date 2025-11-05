@@ -177,6 +177,22 @@ ipcMain.handle("download-game", async (event, params) => {
   if (!url || !targetDir || !isValidPath(targetDir)) {
     throw new Error("Invalid download URL or target directory");
   }
+  // Helper to find .exe file recursively
+  function findExeFile(dir: string, exeName: string): string | null {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        const found = findExeFile(fullPath, exeName);
+        if (found) return found;
+      } else if (entry.name === exeName) {
+        return fullPath;
+      }
+    }
+    return null;
+  }
+
+  // Try to locate the .exe
 
   const zipPath = path.join(targetDir, "Archive.zip");
   const extractPath = path.join(targetDir, "ARCHIVE");
@@ -211,16 +227,13 @@ ipcMain.handle("download-game", async (event, params) => {
           fs.unlinkSync(zipPath);
 
           // Find NoCodeStudio.exe
-          const exePath = path.join(extractPath, "NoCodeStudio.exe");
-          if (!fs.existsSync(exePath)) {
+          const exePath = findExeFile(extractPath, "NoCodeStudio.exe");
+          if (!exePath) {
             throw new Error("NoCodeStudio.exe not found after extraction");
           }
 
           // Create default worker.json
-          const secretFilePath = path.join(
-           appDataPath,
-            "worker.json"
-          );
+          const secretFilePath = path.join(appDataPath, "worker.json");
           const defaultData = {
             mode: "create", // default mode
             type: "creategame", // default type
@@ -229,8 +242,9 @@ ipcMain.handle("download-game", async (event, params) => {
             secretFilePath,
             JSON.stringify(defaultData, null, 2)
           );
+          console.log("Created default worker.json at:", exePath);
 
-          resolve(extractPath);
+          resolve(exePath);
         } catch (err) {
           reject(err);
         }
@@ -254,7 +268,6 @@ ipcMain.handle(
   "update-worker",
   async (_, data: { path: string; updates: Record<string, any> }) => {
     try {
-
       const secretFile = path.join(appDataPath, "worker.json");
 
       let currentData = {};
@@ -323,7 +336,7 @@ ipcMain.handle("launch-game", async (_, exePath) => {
       throw new Error("Invalid executable path");
     }
 
-    const executable = path.join(exePath, "NoCodeStudio.exe");
+    const executable = path.join(exePath);
 
     // Check if executable exists
     if (!fs.existsSync(executable)) {
@@ -428,4 +441,3 @@ ipcMain.handle("install-update", async () => {
 });
 
 export { createWindow };
-

@@ -55,7 +55,6 @@ const Layout = ({ children }: LayoutProps) => {
       // If no local game data — first-time setup
       if (!localGameData) {
         localStorage.setItem("gameData", JSON.stringify(latestGame));
-        window.dispatchEvent(new Event("localStorageUpdate"));
         return;
       }
 
@@ -71,12 +70,11 @@ const Layout = ({ children }: LayoutProps) => {
         // 2️⃣ Remove old game path (forces launcher to re-download)
         if (localGamePath) {
           localStorage.removeItem("gamePath");
-          window.dispatchEvent(new Event("localStorageUpdate"));
         }
 
         // 3️⃣ Optional: trigger a re-download if your launcher listens for this
         // You can emit a custom event if needed:
-        window.dispatchEvent(new Event("localStorageUpdate"));
+        window.dispatchEvent(new Event("gameVersionUpdated"));
       }
     } catch (err) {
       console.error("Error while checking game version:", err);
