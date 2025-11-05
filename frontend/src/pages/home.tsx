@@ -11,9 +11,7 @@ import {
 import { Gamepad2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const GAME_KEY = "cyber-game-path";
-const DOWNLOAD_URL =
-  "https://cobox-game-data.s3-accelerate.amazonaws.com/Archive.zip";
+const GAME_KEY = "gamePath";
 
 // ... (Keep your interfaces and declare global) ...
 interface GameStatus {
@@ -52,6 +50,9 @@ declare global {
 export default function Home() {
   const { isDarkMode, toggleDarkMode } = useDarkMode();
   const [gameModal, setGameModal] = useState(false);
+  const [DOWNLOAD_URL, setDownloadUrl] = useState(
+    "https://cobox-launcher.s3.amazonaws.com/game/builds/game-latest.zip"
+  );
   // ✅ 2. Use the global download state
   const { isDownloading, downloadProgress, startDownload, finishDownload } =
     useDownload();
@@ -69,13 +70,48 @@ export default function Home() {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   useEffect(() => {
-    checkGameInstallation();
-    checkForUpdate();
+    if (typeof window === "undefined") return; // ✅ Only runs in browser
 
-    // ❌ 4. Remove the progress listener setup from here, it's now global
-    // window.electronAPI.onDownloadProgress((progress) => {
-    //   setDownloadProgress(progress);
-    // });
+    const updateFromLocalStorage = () => {
+      const gameDataStr = window.localStorage.getItem("gameData");
+      const gamePathStr = window.localStorage.getItem("gamePath");
+
+      if (gameDataStr) {
+        try {
+          const parsedGame = JSON.parse(gameDataStr);
+          if (parsedGame?.link) {
+            setDownloadUrl(parsedGame.link);
+          }
+        } catch (err) {
+          console.error("Invalid gameData in localStorage:", err);
+        }
+      }
+
+      if (window.electronAPI) {
+        checkGameInstallation();
+        checkForUpdate();
+      }
+    };
+
+    // 🔹 Run immediately on mount
+    updateFromLocalStorage();
+
+    // 🔹 Listen for changes in other tabs or in-app storage updates
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "gameData" || e.key === "gamePath") {
+        updateFromLocalStorage();
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+
+    // 🔹 Also listen for custom in-tab updates
+    const handleCustomUpdate = () => updateFromLocalStorage();
+    window.addEventListener("localStorageUpdate", handleCustomUpdate);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("localStorageUpdate", handleCustomUpdate);
+    };
   }, []);
 
   useEffect(() => {
@@ -101,6 +137,7 @@ export default function Home() {
           setGamePath(storedPath);
         } else {
           localStorage.removeItem(GAME_KEY);
+          window.dispatchEvent(new Event("localStorageUpdate"));
         }
       }
     } catch (error) {
@@ -141,6 +178,7 @@ export default function Home() {
       });
 
       localStorage.setItem(GAME_KEY, exePath);
+      window.dispatchEvent(new Event("localStorageUpdate"));
       setGamePath(exePath);
       setGameStatus({ installed: true, path: exePath });
     } catch (error) {
@@ -153,19 +191,6 @@ export default function Home() {
     }
   };
 
-  // ... (no changes needed for handleReinstall, getButtonText, handleGameTabsToggle, launchWithSecret, etc.)
-  const handleReinstall = () => {
-    localStorage.removeItem(GAME_KEY);
-    setGamePath(null);
-    setGameStatus({ installed: false });
-    setError(null);
-  };
-
-  const getButtonText = () => {
-    if (isDownloading) return "Installing...";
-    if (gameStatus.installed) return "Launch Game";
-    return "Download Game";
-  };
   const handleGameTabsToggle = () => {
     if (isDownloading) return; // Prevent toggling while downloading
     if (gamePath && gameStatus.installed) {

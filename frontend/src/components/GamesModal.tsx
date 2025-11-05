@@ -110,7 +110,7 @@ const SavedItem = ({ isDarkMode, game }) => {
   const [isLaunching, setIsLaunching] = useState(false);
   const cardBgClass = isDarkMode ? "bg-[#1C1041]" : "bg-[#EAEAEA]";
   const [gamePath, setGamePath] = useState<string | null>(null);
-  const GAME_KEY = "cyber-game-path";
+  const GAME_KEY = "gamePath";
 
   useEffect(() => {
     checkGameInstallation();

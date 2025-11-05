@@ -40,8 +40,52 @@ const Layout = ({ children }: LayoutProps) => {
     }
   };
 
+  const fetchGameData = async () => {
+    try {
+      // Get existing local game data
+      const localGameData = localStorage.getItem("gameData");
+      const localGamePath = localStorage.getItem("gamePath");
+
+      // Always fetch latest game version (id = 1)
+      const res = await api.get(`/game-version/1`);
+      const latestGame = res.data;
+
+      if (!latestGame) return;
+
+      // If no local game data — first-time setup
+      if (!localGameData) {
+        localStorage.setItem("gameData", JSON.stringify(latestGame));
+        window.dispatchEvent(new Event("localStorageUpdate"));
+        return;
+      }
+
+      const parsedGame = JSON.parse(localGameData);
+
+      // Compare versions
+      if (parsedGame.version !== latestGame.version) {
+        console.log("🔄 New version detected, resetting local game data...");
+
+        // 1️⃣ Update localStorage with new game info
+        localStorage.setItem("gameData", JSON.stringify(latestGame));
+
+        // 2️⃣ Remove old game path (forces launcher to re-download)
+        if (localGamePath) {
+          localStorage.removeItem("gamePath");
+          window.dispatchEvent(new Event("localStorageUpdate"));
+        }
+
+        // 3️⃣ Optional: trigger a re-download if your launcher listens for this
+        // You can emit a custom event if needed:
+        window.dispatchEvent(new Event("localStorageUpdate"));
+      }
+    } catch (err) {
+      console.error("Error while checking game version:", err);
+    }
+  };
+
   useEffect(() => {
     fetch();
+    fetchGameData();
   }, []);
 
   // Apply dark mode class to document
