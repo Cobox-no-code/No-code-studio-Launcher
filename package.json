@@ -94,10 +94,10 @@
         "nsis"
       ],
       "icon": "./public/icon.png",
-      "artifactName": "${name}-${version}-windows-${arch}.${ext}"
+      "artifactName": "${name}-alpha-windows-${arch}.${ext}"
     },
     "nsis": {
-      "artifactName": "${name}-${version}-windows-${arch}-nsis-installer.${ext}",
+      "artifactName": "${name}-alpha-windows-${arch}-nsis-installer.${ext}",
       "allowToChangeInstallationDirectory": true,
       "oneClick": false,
       "perMachine": true
