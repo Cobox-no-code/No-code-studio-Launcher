@@ -71,10 +71,6 @@ const Layout = ({ children }: LayoutProps) => {
         if (localGamePath) {
           localStorage.removeItem("gamePath");
         }
-
-        // 3️⃣ Optional: trigger a re-download if your launcher listens for this
-        // You can emit a custom event if needed:
-        window.dispatchEvent(new Event("gameVersionUpdated"));
       }
     } catch (err) {
       console.error("Error while checking game version:", err);
@@ -111,11 +107,13 @@ const Layout = ({ children }: LayoutProps) => {
                   isDarkMode ? "bg-[#4D349C]" : "bg-white"
                 }  flex flex-col space-y-4 absolute top-[5.5rem] translate-x-0 p-2.5 rounded-lg`}
               >
-                {items.map((item) => (
-                  <Link href={`${item.path}`}>
-                    {isDarkMode ? item.iconDark() : item.iconLight()}
-                  </Link>
-                ))}
+                {items
+                  .filter((item) => item && item.path) // 👈 Prevent null/undefined
+                  .map((item) => (
+                    <Link key={item.path} href={item.path}>
+                      {isDarkMode ? item.iconDark() : item.iconLight()}
+                    </Link>
+                  ))}
               </div>
             )}
 

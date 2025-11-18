@@ -367,25 +367,36 @@ const About = ({ isDarkMode }) => {
 
   return (
     <div className={`w-full space-y-6 ${textColor}`}>
-      <h2 className={`text-2xl font-bold ${headingColor}`}>About Our App</h2>
+      <h2 className={`text-2xl font-bold ${headingColor}`}>About</h2>
+
       <p>
-        Welcome to the next generation of decentralized applications. Our
-        platform is built with cutting-edge technology to provide a seamless,
-        secure, and user-centric experience in the world of Web3.
+        A powerful sandbox-style creation engine built for rapid world-building
+        and experimentation. Design sci-fi environments, customize every object,
+        paint foliage, tune lighting, and drop in interactive gameplay
+        assets—all in real time.
       </p>
+
+      <p>
+        Whether you&apos;re building a lab, a base, or a full-blown level, this
+        engine gives you complete creative control with intuitive tools, physics
+        options, and dynamic visual customization.
+      </p>
+
       <p>
         This application is currently in active development. We appreciate your
         support and feedback as we continue to build and improve.
       </p>
+
       <div>
         <p>
-          <strong>Version:</strong> 1.0.0 (Beta)
+          <strong>Version:</strong> Alpha
         </p>
         <p>
           <strong>Last Updated:</strong> August 2025
         </p>
       </div>
-      <p className="text-sm">© 2025 Your App Inc. All Rights Reserved.</p>
+
+      <p className="text-sm">© 2025 COBOX Games Inc. All Rights Reserved.</p>
     </div>
   );
 };
@@ -394,9 +405,11 @@ const About = ({ isDarkMode }) => {
 const WhatsNew = ({ isDarkMode }) => {
   const textColor = isDarkMode ? "text-gray-300" : "text-gray-700";
   const headingColor = isDarkMode ? "text-white" : "text-black";
+
   const tagClass = `px-2 py-0.5 text-xs rounded-full font-semibold ${
     isDarkMode ? "bg-green-900 text-green-300" : "bg-green-200 text-green-800"
   }`;
+
   const tagFixClass = `px-2 py-0.5 text-xs rounded-full font-semibold ${
     isDarkMode ? "bg-blue-900 text-blue-300" : "bg-blue-200 text-blue-800"
   }`;
@@ -420,6 +433,54 @@ const WhatsNew = ({ isDarkMode }) => {
       <h2 className={`text-2xl font-bold mb-4 ${headingColor}`}>
         What&rsquo;s New
       </h2>
+
+      <ChangeLog version="Version 1.1.0" date="November 2025">
+        <li>
+          <span className={tagClass}>NEW</span> Build. Create. Customize —
+          Faster than Ever.
+        </li>
+        <li>
+          <span className={tagClass}>NEW</span> Drag-and-drop building with
+          floors, walls, ceilings & sci-fi assets.
+        </li>
+        <li>
+          <span className={tagClass}>NEW</span> New gizmo controls for quick
+          move/rotate/scale adjustments.
+        </li>
+        <li>
+          <span className={tagClass}>NEW</span> One-click actions for physics,
+          collision, and axis-locking.
+        </li>
+        <li>
+          <span className={tagClass}>NEW</span> Foliage painting system with
+          adjustable brush radius & density.
+        </li>
+        <li>
+          <span className={tagClass}>NEW</span> Real-time lighting controls:
+          time-of-day, sun angle, intensity & fog.
+        </li>
+        <li>
+          <span className={tagClass}>NEW</span> Fully drivable drift-tuned car
+          added for testing & fun.
+        </li>
+        <li>
+          <span className={tagClass}>NEW</span> Pre-built gameplay assets
+          (traps, cannons, seesaws) for instant interaction.
+        </li>
+        <li>
+          <span className={tagClass}>NEW</span> Custom material editor: color
+          wheel, roughness, specular, emissive & metallic sliders.
+        </li>
+        <li>
+          <span className={tagClass}>IMPROVEMENT</span> Enhanced geometry tools
+          for modular level building.
+        </li>
+        <li>
+          <span className={tagClass}>NEW</span> New 3D Text Actor with font,
+          spacing & layout customization.
+        </li>
+      </ChangeLog>
+
       <ChangeLog version="Version 1.0.0" date="August 1, 2025">
         <li>
           <span className={tagClass}>NEW</span> Initial public beta release.
@@ -433,6 +494,7 @@ const WhatsNew = ({ isDarkMode }) => {
           themes.
         </li>
       </ChangeLog>
+
       <ChangeLog version="Version 0.9.5" date="July 22, 2025">
         <li>
           <span className={tagFixClass}>FIX</span> Resolved wallet connection

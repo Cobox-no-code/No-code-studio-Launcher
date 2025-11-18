@@ -1,7 +1,7 @@
 electronVersion: 34.2.0
 asar: true
 compression: normal
-productName: cobox
+productName: COBOX
 appId: br.com.electron.next
 
 extraMetadata:
@@ -24,7 +24,7 @@ win:
   artifactName: ${name}-${version}-windows-${arch}.${ext}
 
 nsis:
-  artifactName: ${name}-${version}-windows-${arch}-nsis-installer.${ext}
+  artifactName: ${name}-alpha-${arch}-nsis-installer.${ext}
   allowToChangeInstallationDirectory: true
   oneClick: false
   perMachine: true

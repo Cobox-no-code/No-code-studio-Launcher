@@ -16,6 +16,8 @@ interface UpdateStatus {
 }
 
 export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
+  const [hasCheckedOnce, setHasCheckedOnce] = useState(false);
+
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     checking: false,
     available: false,
@@ -26,7 +28,15 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
 
   useEffect(() => {
     if (!isOpen) return;
+    // Prevent multiple checks every time the modal opens
+    if (!hasCheckedOnce) {
+      setHasCheckedOnce(true);
 
+      // optional: automatically check here if you want
+      if (window.electronAPI?.checkForUpdates) {
+        window.electronAPI.checkForUpdates();
+      }
+    }
     // Listen for update events from main process
     const handleUpdateEvent = (event: any, data: any) => {
       console.log("Update event:", event, data);
@@ -80,13 +90,11 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
       }
     };
 
-    // Set up IPC listeners (you'll need to add these to your preload script)
     if (window.electronAPI?.onUpdateEvent) {
       window.electronAPI.onUpdateEvent(handleUpdateEvent);
     }
 
     return () => {
-      // Clean up listeners
       if (window.electronAPI?.removeUpdateListener) {
         window.electronAPI.removeUpdateListener();
       }

@@ -63,7 +63,7 @@ export const ToggleMode = ({ isDarkMode, mode, setMode }) => {
           { id: "error-toast" }
         );
       }}
-      className="absolute cursor-pointer bottom-[5vh] left-[5vh] w-10 h-10 transition-all"
+      className="absolute cursor-pointer bottom-[5vh] left-[5vh] w-10 h-10 "
       width="34"
       height="18"
       viewBox="0 0 54 28"
@@ -86,10 +86,10 @@ export const CreateButtons = ({
     <>
       {isDarkMode ? (
         <>
-          <div className="absolute -bottom-3 left-[29%] ">
+          <div className="absolute bottom-0 left-[29%] ">
             <svg
               width="528"
-              height="138"
+              height="100"
               viewBox="0 0 1028 138"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -141,7 +141,7 @@ export const CreateButtons = ({
 
             <button
               onClick={createEnvironment}
-              className=" absolute bottom-15  left-[4%] cursor-pointer"
+              className=" absolute bottom-10  left-[4%] cursor-pointer"
             >
               <svg
                 width="180"
@@ -158,7 +158,7 @@ export const CreateButtons = ({
             </button>
             <button
               onClick={createGame}
-              className=" absolute bottom-15   right-[6%] cursor-pointer"
+              className=" absolute bottom-10   right-[6%] cursor-pointer"
             >
               <svg
                 width="140"
@@ -176,11 +176,11 @@ export const CreateButtons = ({
           </div>
         </>
       ) : (
-        <div className="absolute -bottom-3 left-[29%] ">
+        <div className="absolute bottom-0 left-[29%] ">
           <svg
             className=" "
             width="528"
-            height="138"
+            height="100"
             viewBox="0 0 1028 138"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -232,7 +232,7 @@ export const CreateButtons = ({
 
           <button
             onClick={createEnvironment}
-            className=" absolute bottom-15  left-[4%] cursor-pointer"
+            className=" absolute bottom-10  left-[4%] cursor-pointer"
           >
             <svg
               width="180"
@@ -249,7 +249,7 @@ export const CreateButtons = ({
           </button>
           <button
             onClick={createGame}
-            className=" absolute bottom-15   right-[6%] cursor-pointer"
+            className=" absolute bottom-10   right-[6%] cursor-pointer"
           >
             <svg
               width="140"
@@ -284,7 +284,7 @@ export const CreateButtonsPlaceholder = ({
           {isDarkMode ? (
             <svg
               onClick={playGame}
-              className=" absolute bottom-[8vh] left-1/2 -translate-x-13 hover:scale-110 cursor-pointer transition-all z-50 "
+              className=" absolute bottom-[8vh] left-1/2 -translate-x-13.5 hover:scale-110 cursor-pointer transition-all z-50 "
               width="100"
               height="100"
               viewBox="0 0 169 169"
@@ -304,7 +304,7 @@ export const CreateButtonsPlaceholder = ({
           ) : (
             <svg
               onClick={playGame}
-              className=" absolute bottom-[8vh] left-1/2 -translate-x-13 hover:scale-110 cursor-pointer transition-all z-50"
+              className=" absolute bottom-[8vh] left-1/2 -translate-x-13.5 hover:scale-110 cursor-pointer transition-all z-50"
               width="100"
               height="100"
               viewBox="0 0 169 169"
@@ -328,7 +328,7 @@ export const CreateButtonsPlaceholder = ({
           {isDarkMode ? (
             <svg
               onClick={setActiveGameTabs}
-              className=" absolute bottom-[8vh] left-1/2 -translate-x-13 hover:scale-110 cursor-pointer transition-all z-50 "
+              className=" absolute bottom-[8vh] left-1/2 -translate-x-13.5 hover:scale-110 cursor-pointer transition-all z-50 "
               width="100"
               height="100"
               viewBox="0 0 169 169"
@@ -348,7 +348,7 @@ export const CreateButtonsPlaceholder = ({
           ) : (
             <svg
               onClick={setActiveGameTabs}
-              className=" absolute bottom-[8vh] left-1/2 -translate-x-13 hover:scale-110 cursor-pointer transition-all z-50"
+              className=" absolute bottom-[8vh] left-1/2 -translate-x-13.5 hover:scale-110 cursor-pointer transition-all z-50"
               width="100"
               height="100"
               viewBox="0 0 169 169"

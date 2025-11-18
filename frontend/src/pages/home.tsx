@@ -9,7 +9,7 @@ import {
   ToggleMode,
 } from "@/utils/icons";
 import { Gamepad2Icon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const GAME_KEY = "gamePath";
 
@@ -48,6 +48,8 @@ declare global {
 }
 
 export default function Home() {
+  const didCheckUpdate = useRef(false);
+
   const { isDarkMode, toggleDarkMode } = useDarkMode();
   const [gameModal, setGameModal] = useState(false);
   const [DOWNLOAD_URL, setDownloadUrl] = useState(
@@ -118,11 +120,14 @@ export default function Home() {
   };
 
   const checkForUpdate = async () => {
-    // ... (no changes in this function)
+    if (didCheckUpdate.current) return; // ⛔ Prevent re-checking on tab change
+    didCheckUpdate.current = true; // mark as checked
+
     try {
       const result = await window.electronAPI.checkForUpdates();
+
       if (result?.success && result.updateInfo?.version) {
-        setShowUpdateModal(true);
+        setShowUpdateModal(true); // show ONLY if update exists
       }
     } catch (error) {
       console.error("Update check failed:", error);
@@ -134,13 +139,17 @@ export default function Home() {
       return;
     }
 
-    startDownload(); // ✅ 5. Use the global function to start
+    startDownload();
     setError(null);
 
     try {
       let installPath = await window.electronAPI.chooseInstallPath();
+
+      // ❌ If user didn't choose a directory → STOP, cancel download
       if (!installPath) {
-        installPath = await window.electronAPI.getDefaultInstallPath();
+        setError("You must choose an installation folder.");
+        finishDownload();
+        return;
       }
 
       const exePath = await window.electronAPI.downloadGame({
@@ -155,9 +164,6 @@ export default function Home() {
       console.error("Download/install error:", error);
       setError("Failed to download or install game. Please try again.");
       localStorage.removeItem(GAME_KEY);
-    } finally {
-      // The context will handle resetting the state, but you can also call it here if needed
-      // finishDownload(); // The listener in the context now handles this automatically
     }
   };
 
@@ -199,7 +205,7 @@ export default function Home() {
   // The rest of your return statement can remain exactly the same!
   // It will now read `isDownloading` and `downloadProgress` from the global context.
   return (
-    <div className="w-full h-full overflow-hidden">
+    <div className="w-full h-full  overflow-hidden">
       <img className=" absolute inset-0 z-50 " src="./home.png" alt="" />
       <GamesModal active={gameModal} setActive={setGameModal} />
       {mode === "play" && (
