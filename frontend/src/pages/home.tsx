@@ -74,9 +74,9 @@ export default function Home() {
   useEffect(() => {
     const gameData = localStorage.getItem("gameData");
     const parsedGame = JSON.parse(gameData);
-    console.log("Parsed Game Data:", parsedGame.link);
-    if (parsedGame && parsedGame.link) {
-      setDownloadUrl(parsedGame.link);
+
+    if (parsedGame && parsedGame?.link) {
+      setDownloadUrl(parsedGame?.link);
     }
     if (!window.electronAPI) return;
     checkGameInstallation();
