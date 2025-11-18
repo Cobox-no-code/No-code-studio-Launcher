@@ -127,7 +127,9 @@ export default function Home() {
       const result = await window.electronAPI.checkForUpdates();
 
       if (result?.success && result.updateInfo?.version) {
-        setShowUpdateModal(true); // show ONLY if update exists
+        setShowUpdateModal(true); // YES update
+      } else {
+        setShowUpdateModal(false); // NO update
       }
     } catch (error) {
       console.error("Update check failed:", error);

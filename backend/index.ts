@@ -406,26 +406,24 @@ ipcMain.handle("get-default-install-path", async () => {
 
 ipcMain.handle("check-for-updates", async () => {
   try {
-    log.info("Manual update check triggered");
     const result = await autoUpdater.checkForUpdates();
 
-    // Extract only serializable data
+    if (
+      !result ||
+      !result.updateInfo ||
+      result.updateInfo.version === app.getVersion()
+    ) {
+      return { success: true, updateInfo: null }; // 🔥 No update
+    }
+
     return {
       success: true,
       updateInfo: {
-        version: result?.updateInfo?.version,
-        releaseName: result?.updateInfo?.releaseName,
-        releaseNotes: result?.updateInfo?.releaseNotes,
-        files: result?.updateInfo?.files,
+        version: result.updateInfo.version,
       },
     };
   } catch (error) {
-    log.error("Error checking for updates:", error);
-    sendUpdateEvent("update-error", { message: error.message });
-    return {
-      success: false,
-      message: error.message,
-    };
+    return { success: false, message: error.message };
   }
 });
 
