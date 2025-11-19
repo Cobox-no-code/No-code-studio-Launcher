@@ -266,10 +266,12 @@ export default function Home() {
       <ToggleMode isDarkMode={isDarkMode} mode={mode} setMode={setMode} />
 
       {/* ✅ Auto-triggered modal */}
-      <UpdateModal
-        isOpen={showUpdateModal}
-        onClose={() => setShowUpdateModal(false)}
-      />
+      {showUpdateModal && (
+        <UpdateModal
+          isOpen={showUpdateModal}
+          onClose={() => setShowUpdateModal(false)}
+        />
+      )}
     </div>
   );
 }
