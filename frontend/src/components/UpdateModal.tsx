@@ -27,7 +27,6 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
   });
 
   useEffect(() => {
-    if (!isOpen) return;
     // Prevent multiple checks every time the modal opens
     if (!hasCheckedOnce) {
       setHasCheckedOnce(true);
@@ -99,7 +98,7 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
         window.electronAPI.removeUpdateListener();
       }
     };
-  }, [isOpen]);
+  }, []);
 
   const handleCheckForUpdates = async () => {
     try {

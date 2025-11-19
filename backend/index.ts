@@ -9,6 +9,7 @@ import { spawn } from "node:child_process";
 import { join } from "node:path";
 import os from "os";
 import path from "path";
+import semver from "semver";
 import { initLogs, isDev, prepareNext } from "./utils";
 
 let mainWindow: BrowserWindow | null = null;
@@ -408,18 +409,22 @@ ipcMain.handle("check-for-updates", async () => {
   try {
     const result = await autoUpdater.checkForUpdates();
 
-    if (
-      !result ||
-      !result.updateInfo ||
-      result.updateInfo.version === app.getVersion()
-    ) {
-      return { success: true, updateInfo: null }; // 🔥 No update
+    if (!result || !result.updateInfo) {
+      return { success: true, updateInfo: null };
+    }
+
+    const currentVersion = app.getVersion();
+    const latestVersion = result.updateInfo.version;
+
+    // 🔥 Check if latest version is greater than current version
+    if (!semver.gt(latestVersion, currentVersion)) {
+      return { success: true, updateInfo: null }; // Not higher → No update
     }
 
     return {
       success: true,
       updateInfo: {
-        version: result.updateInfo.version,
+        version: latestVersion,
       },
     };
   } catch (error) {
