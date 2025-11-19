@@ -1,3 +1,4 @@
+// UpdateModal.tsx
 import { useEffect, useState } from "react";
 
 interface UpdateModalProps {
@@ -16,7 +17,7 @@ interface UpdateStatus {
 }
 
 export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
-  const [hasCheckedOnce, setHasCheckedOnce] = useState(false);
+  // const [hasCheckedOnce, setHasCheckedOnce] = useState(false); // REMOVED
 
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     checking: false,
@@ -27,15 +28,11 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
   });
 
   useEffect(() => {
-    // Prevent multiple checks every time the modal opens
-    if (!hasCheckedOnce) {
-      setHasCheckedOnce(true);
+    // --- CHANGE: No automatic check on modal open. ---
+    // The initial check is now handled by Home.tsx on startup.
+    // Manual checks are triggered by handleCheckForUpdates below.
+    // ----------------------------------------------------
 
-      // optional: automatically check here if you want
-      if (window.electronAPI?.checkForUpdates) {
-        window.electronAPI.checkForUpdates();
-      }
-    }
     // Listen for update events from main process
     const handleUpdateEvent = (event: any, data: any) => {
       console.log("Update event:", event, data);
@@ -45,6 +42,8 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
           setUpdateStatus((prev) => ({
             ...prev,
             checking: true,
+            available: false, // Reset available on new check
+            downloaded: false, // Reset downloaded on new check
             error: undefined,
           }));
           break;
@@ -89,19 +88,24 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
       }
     };
 
+    // Note: The listener in Home.tsx will also receive these events.
     if (window.electronAPI?.onUpdateEvent) {
+      // Listen for the events while the modal is open
       window.electronAPI.onUpdateEvent(handleUpdateEvent);
     }
 
     return () => {
-      if (window.electronAPI?.removeUpdateListener) {
-        window.electronAPI.removeUpdateListener();
-      }
+      // The listener cleanup is handled in Home.tsx for a global listener.
+      // If you are using a separate listener for the modal, keep this:
+      // if (window.electronAPI?.removeUpdateListener) {
+      //   window.electronAPI.removeUpdateListener();
+      // }
     };
-  }, []);
+  }, []); // Run only once to set up the listener
 
   const handleCheckForUpdates = async () => {
     try {
+      // Reset status before checking
       setUpdateStatus({
         checking: true,
         available: false,
@@ -111,8 +115,9 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
         error: undefined,
       });
 
-      // Trigger update check (you'll need to add this to your preload script)
+      // Trigger update check in main process
       if (window.electronAPI?.checkForUpdates) {
+        // This will trigger "checking-for-update" event, updating the status
         await window.electronAPI.checkForUpdates();
       }
     } catch (error) {
@@ -164,6 +169,7 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
       return "Download Update";
     }
 
+    // Default button for manual check
     return "Check for Updates";
   };
 
@@ -245,9 +251,11 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
     if (updateStatus.downloaded) {
       handleInstallUpdate();
     } else if (updateStatus.available) {
-      // Download will start automatically when available
+      // If update is available, download starts automatically by electron-updater
+      // (as setup in main.ts/electron-updater config), so no action needed here.
       return;
     } else {
+      // Manual check
       handleCheckForUpdates();
     }
   };

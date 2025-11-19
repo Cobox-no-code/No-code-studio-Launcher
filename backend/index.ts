@@ -9,7 +9,6 @@ import { spawn } from "node:child_process";
 import { join } from "node:path";
 import os from "os";
 import path from "path";
-import semver from "semver";
 import { initLogs, isDev, prepareNext } from "./utils";
 
 let mainWindow: BrowserWindow | null = null;
@@ -70,9 +69,6 @@ app.whenReady().then(async () => {
   await prepareNext("./frontend", 3000);
   await initLogs();
   createWindow();
-
-  // Don't auto-check for updates on startup - let user trigger it
-  // autoUpdater.checkForUpdates();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -403,30 +399,14 @@ ipcMain.handle("get-default-install-path", async () => {
   return defaultPath;
 });
 
-// ==================== NEW UPDATE IPC HANDLERS ====================
+// ==================== UPDATE IPC HANDLERS ====================
 
 ipcMain.handle("check-for-updates", async () => {
+  // autoUpdater.checkForUpdates() triggers events, which are sent to the renderer.
+  // We don't need to return the info here, as the events will handle the UI state.
   try {
-    const result = await autoUpdater.checkForUpdates();
-
-    if (!result || !result.updateInfo) {
-      return { success: true, updateInfo: null };
-    }
-
-    const currentVersion = app.getVersion();
-    const latestVersion = result.updateInfo.version;
-
-    // 🔥 Check if latest version is greater than current version
-    if (!semver.gt(latestVersion, currentVersion)) {
-      return { success: true, updateInfo: null }; // Not higher → No update
-    }
-
-    return {
-      success: true,
-      updateInfo: {
-        version: latestVersion,
-      },
-    };
+    await autoUpdater.checkForUpdates();
+    return { success: true };
   } catch (error) {
     return { success: false, message: error.message };
   }
