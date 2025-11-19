@@ -9,7 +9,7 @@ import {
   ToggleDarkMode,
   ToggleMode,
 } from "@/utils/icons";
-import { DownloadCloudIcon, Gamepad2Icon } from "lucide-react"; // Import DownloadCloudIcon for the button
+import { Gamepad2Icon } from "lucide-react"; // Import DownloadCloudIcon for the button
 import { useEffect, useRef, useState } from "react";
 
 const GAME_KEY = "gamePath";
@@ -230,12 +230,6 @@ export default function Home() {
       )}
 
       {/* NEW: Manual Update Check Button */}
-      <button
-        onClick={handleOpenUpdateModal}
-        className="flex gap-2 z-60 absolute top-[2rem] right-8 p-2 rounded-lg cursor-pointer items-center justify-between bg-white text-sm font-medium text-black hover:bg-gray-100 shadow-md"
-      >
-        <DownloadCloudIcon className="w-5 h-5" /> Updates
-      </button>
 
       <CreateButtonsPlaceholder
         mode={mode}
