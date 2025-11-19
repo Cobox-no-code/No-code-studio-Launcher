@@ -1,15 +1,14 @@
-// Home.tsx
 import GamesModal from "@/components/GamesModal";
 import UpdateModal from "@/components/UpdateModal";
 import { useDarkMode } from "@/context/DarkModeContext";
-import { useDownload } from "@/context/ProgressContext";
+import { useDownload } from "@/context/ProgressContext"; // ✅ 1. Import the custom hook
 import {
   CreateButtons,
   CreateButtonsPlaceholder,
   ToggleDarkMode,
   ToggleMode,
 } from "@/utils/icons";
-import { Gamepad2Icon } from "lucide-react"; // Import DownloadCloudIcon for the button
+import { Gamepad2Icon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 const GAME_KEY = "gamePath";
@@ -56,36 +55,21 @@ export default function Home() {
   const [DOWNLOAD_URL, setDownloadUrl] = useState(
     "https://cobox-launcher.s3.amazonaws.com/game/builds/game-latest.zip"
   );
+  // ✅ 2. Use the global download state
   const { isDownloading, downloadProgress, startDownload, finishDownload } =
     useDownload();
 
   const [mode, setMode] = useState<"play" | "create">("create");
   const [activeGameTabs, setActiveGameTabs] = useState(false);
   const [gamePath, setGamePath] = useState<string | null>(null);
+  // ❌ 3. Remove the local state for downloading
+  // const [isDownloading, setIsDownloading] = useState(false);
+  // const [downloadProgress, setDownloadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [gameStatus, setGameStatus] = useState<GameStatus>({
     installed: false,
   });
-
-  // State to control modal visibility - opens for update available or manual check
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-
-  const handleOpenUpdateModal = () => {
-    setShowUpdateModal(true);
-  };
-
-  const checkForUpdate = async () => {
-    if (didCheckUpdate.current) return;
-    didCheckUpdate.current = true;
-
-    try {
-      // Trigger the check in the main process.
-      // The main process will fire an event if an update is available.
-      await window.electronAPI.checkForUpdates();
-    } catch (error) {
-      console.error("Initial update check failed:", error);
-    }
-  };
 
   useEffect(() => {
     const gameData = localStorage.getItem("gameData");
@@ -98,27 +82,10 @@ export default function Home() {
     checkGameInstallation();
     checkForUpdate();
 
-    // --- NEW: Update Event Listener in Home.tsx ---
-    const handleUpdateEvent = (event: string, data: any) => {
-      console.log("Global Update event received:", event, data);
-
-      // Auto-open the modal ONLY if an update is available
-      if (event === "update-available") {
-        setShowUpdateModal(true);
-      }
-    };
-
-    if (window.electronAPI?.onUpdateEvent) {
-      window.electronAPI.onUpdateEvent(handleUpdateEvent);
-    }
-
-    return () => {
-      if (window.electronAPI?.removeUpdateListener) {
-        // Note: You must ensure this cleans up correctly in preload.js
-        window.electronAPI.removeUpdateListener();
-      }
-    };
-    // ---------------------------------------------
+    // ❌ 4. Remove the progress listener setup from here, it's now global
+    // window.electronAPI.onDownloadProgress((progress) => {
+    //   setDownloadProgress(progress);
+    // });
   }, []);
 
   useEffect(() => {
@@ -132,6 +99,7 @@ export default function Home() {
   }, [mode]);
 
   const checkGameInstallation = async () => {
+    // ... (no changes in this function)
     try {
       const storedPath = localStorage.getItem(GAME_KEY);
       if (storedPath) {
@@ -151,6 +119,23 @@ export default function Home() {
     }
   };
 
+  const checkForUpdate = async () => {
+    if (didCheckUpdate.current) return; // ⛔ Prevent re-checking on tab change
+    didCheckUpdate.current = true; // mark as checked
+
+    try {
+      const result = await window.electronAPI.checkForUpdates();
+
+      if (result?.success && result.updateInfo?.version) {
+        setShowUpdateModal(true); // YES update
+      } else {
+        setShowUpdateModal(false); // NO update
+      }
+    } catch (error) {
+      console.error("Update check failed:", error);
+    }
+  };
+
   const handleDownloadOrPlay = async () => {
     if (gamePath && gameStatus.installed) {
       return;
@@ -162,6 +147,7 @@ export default function Home() {
     try {
       let installPath = await window.electronAPI.chooseInstallPath();
 
+      // ❌ If user didn't choose a directory → STOP, cancel download
       if (!installPath) {
         setError("You must choose an installation folder.");
         finishDownload();
@@ -184,10 +170,12 @@ export default function Home() {
   };
 
   const handleGameTabsToggle = () => {
-    if (isDownloading) return;
+    if (isDownloading) return; // Prevent toggling while downloading
     if (gamePath && gameStatus.installed) {
+      // If the game is installed, toggle the create/environment buttons
       setActiveGameTabs(!activeGameTabs);
     } else {
+      // If the game is not installed, start the download process
       handleDownloadOrPlay();
     }
   };
@@ -202,6 +190,7 @@ export default function Home() {
         updates: { mode, type },
       });
 
+      // Delay 2 seconds before launching
       setTimeout(async () => {
         await window.electronAPI.launchGame(gamePath);
       }, 2000);
@@ -215,6 +204,8 @@ export default function Home() {
   const createEnvironment = () => launchWithSecret("createenv");
   const playGame = () => launchWithSecret("playgame");
 
+  // The rest of your return statement can remain exactly the same!
+  // It will now read `isDownloading` and `downloadProgress` from the global context.
   return (
     <div className="w-full h-full  overflow-hidden">
       <img className=" absolute inset-0 z-50 " src="./home.png" alt="" />
@@ -228,9 +219,6 @@ export default function Home() {
           <Gamepad2Icon /> Explore
         </button>
       )}
-
-      {/* NEW: Manual Update Check Button */}
-
       <CreateButtonsPlaceholder
         mode={mode}
         playGame={playGame}
@@ -277,13 +265,11 @@ export default function Home() {
       {/* Play/Create Mode Toggle */}
       <ToggleMode isDarkMode={isDarkMode} mode={mode} setMode={setMode} />
 
-      {/* Auto-triggered or manually-triggered modal */}
-      {showUpdateModal && (
-        <UpdateModal
-          isOpen={showUpdateModal}
-          onClose={() => setShowUpdateModal(false)}
-        />
-      )}
+      {/* ✅ Auto-triggered modal */}
+      <UpdateModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+      />
     </div>
   );
 }
