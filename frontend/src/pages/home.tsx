@@ -9,6 +9,7 @@ import {
   ToggleMode,
 } from "@/utils/icons";
 import { Gamepad2Icon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 const GAME_KEY = "gamePath";
@@ -49,7 +50,7 @@ declare global {
 
 export default function Home() {
   const didCheckUpdate = useRef(false);
-
+  const router = useRouter();
   const { isDarkMode, toggleDarkMode } = useDarkMode();
   const [gameModal, setGameModal] = useState(false);
   const [DOWNLOAD_URL, setDownloadUrl] = useState(
@@ -175,6 +176,8 @@ export default function Home() {
       setGamePath(savedPath);
       setGameStatus({ installed: true, path: savedPath });
       finishDownload();
+      router.push("/home");
+      router;
     } catch (error) {
       console.error("Download/install error:", error);
       setError("Failed to download or install game. Please try again.");
@@ -233,13 +236,15 @@ export default function Home() {
           <Gamepad2Icon /> Explore
         </button>
       )}
-      <CreateButtonsPlaceholder
-        mode={mode}
-        playGame={playGame}
-        isDarkMode={isDarkMode}
-        setActiveGameTabs={handleGameTabsToggle}
-        activeGameTabs={activeGameTabs}
-      />
+      <div className="absolute left-1/2 bottom-0 -translate-x-1/2 z-50">
+        <CreateButtonsPlaceholder
+          mode={mode}
+          playGame={playGame}
+          isDarkMode={isDarkMode}
+          setActiveGameTabs={handleGameTabsToggle}
+          activeGameTabs={activeGameTabs}
+        />
+      </div>
       {isDownloading && (
         <div className="absolute bottom-[1vh] left-1/2 -translate-x-1/2 w-80 flex flex-col items-center gap-2 z-50">
           {/* Progress bar container */}
