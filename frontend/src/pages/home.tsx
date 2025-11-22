@@ -62,9 +62,7 @@ export default function Home() {
   const [mode, setMode] = useState<"play" | "create">("create");
   const [activeGameTabs, setActiveGameTabs] = useState(false);
   const [gamePath, setGamePath] = useState<string | null>(null);
-  // ❌ 3. Remove the local state for downloading
-  // const [isDownloading, setIsDownloading] = useState(false);
-  // const [downloadProgress, setDownloadProgress] = useState(0);
+
   const [error, setError] = useState<string | null>(null);
   const [gameStatus, setGameStatus] = useState<GameStatus>({
     installed: false,
@@ -72,8 +70,9 @@ export default function Home() {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   useEffect(() => {
-    const gameData = localStorage.getItem("gameData");
-    const parsedGame = JSON.parse(gameData);
+    const gameData = localStorage?.getItem("gameData");
+    if (!gameData) return;
+    const parsedGame = JSON?.parse(gameData);
 
     if (parsedGame && parsedGame?.link) {
       setDownloadUrl(parsedGame?.link);
@@ -81,11 +80,6 @@ export default function Home() {
     if (!window.electronAPI) return;
     checkGameInstallation();
     checkForUpdate();
-
-    // ❌ 4. Remove the progress listener setup from here, it's now global
-    // window.electronAPI.onDownloadProgress((progress) => {
-    //   setDownloadProgress(progress);
-    // });
   }, []);
 
   useEffect(() => {
@@ -147,7 +141,7 @@ export default function Home() {
     try {
       let installPath = await window.electronAPI.chooseInstallPath();
 
-      // ❌ If user didn't choose a directory → STOP, cancel download
+      // User didn't choose folder
       if (!installPath) {
         setError("You must choose an installation folder.");
         finishDownload();
@@ -159,13 +153,33 @@ export default function Home() {
         targetDir: installPath,
       });
 
+      // --- 🛑 IMPORTANT NEW CHECK ---
+      // Ensure the path is actually written before finishing
       localStorage.setItem(GAME_KEY, exePath);
-      setGamePath(exePath);
-      setGameStatus({ installed: true, path: exePath });
+
+      let savedPath = localStorage.getItem(GAME_KEY);
+
+      if (!savedPath) {
+        console.warn("⚠ Path not saved yet, retrying...");
+        localStorage.setItem(GAME_KEY, exePath);
+        savedPath = localStorage.getItem(GAME_KEY);
+      }
+
+      if (!savedPath) {
+        console.error("❌ Failed to save game path");
+        setError("Could not save installation path. Try again.");
+        return; // Don't finish download
+      }
+      // --- END CHECK ---
+
+      setGamePath(savedPath);
+      setGameStatus({ installed: true, path: savedPath });
+      finishDownload();
     } catch (error) {
       console.error("Download/install error:", error);
       setError("Failed to download or install game. Please try again.");
       localStorage.removeItem(GAME_KEY);
+      finishDownload();
     }
   };
 
