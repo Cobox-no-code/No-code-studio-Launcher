@@ -39,6 +39,10 @@ interface ElectronAPI {
   }) => Promise<any>;
   createSecret: (data: Record<string, any>) => Promise<any>;
   updateSecret: (data: Record<string, any>) => Promise<any>;
+  getGameInstallationStatus: () => Promise<{
+    installed: boolean;
+    path?: string;
+  }>;
   _updateListeners: Map<string, (event: any, ...args: any[]) => void>;
 }
 
@@ -84,28 +88,40 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (gamePath && gameStatus.installed) {
-      const dir = gamePath;
-      window.electronAPI.updateWorker({
-        path: dir,
-        updates: { mode },
-      });
-    }
+    const check = async () => {
+      const statusResult = await window.electronAPI.getGameInstallationStatus();
+      const storedExePath = statusResult.path; // This is the full EXE path
+      if (gamePath) {
+        const dir = gamePath;
+        window.electronAPI.updateWorker({
+          path: dir,
+          updates: { mode },
+        });
+      }
+    };
+    check();
   }, [mode]);
 
+  // Home.tsx
   const checkGameInstallation = async () => {
-    // ... (no changes in this function)
     try {
-      const storedPath = localStorage.getItem(GAME_KEY);
-      if (storedPath) {
-        const status = await window.electronAPI.checkGameInstallation(
-          storedPath
-        );
-        setGameStatus(status);
-        if (status.installed) {
-          setGamePath(storedPath);
+      // 1. Get the reliably stored path (full EXE path) from worker.json
+      const statusResult = await window.electronAPI.getGameInstallationStatus();
+      const storedExePath = statusResult.path; // This is the full EXE path
+
+      if (storedExePath) {
+        setGameStatus(statusResult);
+        if (statusResult.installed) {
+          setGamePath(storedExePath); // StoredExePath is correct here
         } else {
-          localStorage.removeItem(GAME_KEY);
+          // If installed=false, the file is missing/corrupted, so clear the config.
+          await window.electronAPI.updateWorker({
+            // The `path` argument here is mostly ignored now, but the required type is string
+            path: storedExePath,
+            updates: {
+              gamePath: null, // Clear the invalid path
+            },
+          });
         }
       }
     } catch (error) {
@@ -132,7 +148,12 @@ export default function Home() {
   };
 
   const handleDownloadOrPlay = async () => {
-    if (gamePath && gameStatus.installed) {
+    const statusResult = await window.electronAPI.getGameInstallationStatus();
+    const gamePath = statusResult.path;
+
+    if (gamePath) {
+      setGamePath(gamePath);
+      setGameStatus(statusResult);
       return;
     }
 
@@ -153,30 +174,12 @@ export default function Home() {
         url: DOWNLOAD_URL,
         targetDir: installPath,
       });
-
-      // --- 🛑 IMPORTANT NEW CHECK ---
-      // Ensure the path is actually written before finishing
-      localStorage.setItem(GAME_KEY, exePath);
-
-      let savedPath = localStorage.getItem(GAME_KEY);
-
-      if (!savedPath) {
-        console.warn("⚠ Path not saved yet, retrying...");
-        localStorage.setItem(GAME_KEY, exePath);
-        savedPath = localStorage.getItem(GAME_KEY);
+      if (exePath) {
+        setGamePath(exePath);
+        setGameStatus({ installed: true, path: exePath });
+        finishDownload();
       }
 
-      if (!savedPath) {
-        console.error("❌ Failed to save game path");
-        setError("Could not save installation path. Try again.");
-        return; // Don't finish download
-      }
-      // --- END CHECK ---
-
-      setGamePath(savedPath);
-      setGameStatus({ installed: true, path: savedPath });
-      finishDownload();
-      router.push("/home");
       router;
     } catch (error) {
       console.error("Download/install error:", error);
@@ -186,9 +189,13 @@ export default function Home() {
     }
   };
 
-  const handleGameTabsToggle = () => {
+  const handleGameTabsToggle = async () => {
     if (isDownloading) return; // Prevent toggling while downloading
-    if (gamePath && gameStatus.installed) {
+    const statusResult = await window.electronAPI.getGameInstallationStatus();
+    const gamePath = statusResult.path;
+    if (gamePath) {
+      setGamePath(gamePath);
+      setGameStatus(statusResult);
       // If the game is installed, toggle the create/environment buttons
       setActiveGameTabs(!activeGameTabs);
     } else {
@@ -200,7 +207,12 @@ export default function Home() {
   const launchWithSecret = async (
     type: "creategame" | "createenv" | "playgame"
   ) => {
-    if (!gamePath) return;
+    const statusResult = await window.electronAPI.getGameInstallationStatus();
+    const gamePath = statusResult.path;
+    if (!gamePath) {
+      setError("Game is not installed.");
+      return;
+    }
     try {
       await window.electronAPI.updateWorker({
         path: gamePath,
