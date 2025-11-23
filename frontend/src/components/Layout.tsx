@@ -44,7 +44,7 @@ const Layout = ({ children }: LayoutProps) => {
     try {
       // Get existing local game data
       const localGameData = localStorage.getItem("gameData");
-      const localGamePath = localStorage.getItem("gamePath");
+      const stored = await window.electronAPI.getGameInstallationStatus();
 
       // Always fetch latest game version (id = 1)
       const res = await api.get(`/game-version/1`);
@@ -66,7 +66,8 @@ const Layout = ({ children }: LayoutProps) => {
 
         // 1️⃣ Update localStorage with new game info
         localStorage.setItem("gameData", JSON.stringify(latestGame));
-
+        if (!stored) return;
+        const localGamePath = stored.path;
         // 2️⃣ Remove old game path (forces launcher to re-download)
         if (localGamePath) {
           await window.electronAPI.updateWorker({
