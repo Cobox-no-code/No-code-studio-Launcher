@@ -69,7 +69,12 @@ const Layout = ({ children }: LayoutProps) => {
 
         // 2️⃣ Remove old game path (forces launcher to re-download)
         if (localGamePath) {
-          localStorage.removeItem("gamePath");
+          await window.electronAPI.updateWorker({
+            updates: {
+              gamePath: null,
+            },
+            path: localGamePath,
+          });
         }
       }
     } catch (err) {

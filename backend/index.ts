@@ -236,6 +236,7 @@ ipcMain.handle("download-game", async (event, params) => {
           // Create default worker.json
           const secretFilePath = path.join(appDataPath, "worker.json");
           const defaultData = {
+            gamePath: exePath,
             mode: "create", // default mode
             type: "creategame", // default type
           };
@@ -263,7 +264,50 @@ ipcMain.handle("download-game", async (event, params) => {
     });
   });
 });
+function readWorkerConfig(): Record<string, any> {
+  const secretFile = path.join(appDataPath, "worker.json");
+  let currentData = {};
+  if (fs.existsSync(secretFile)) {
+    try {
+      currentData = JSON.parse(fs.readFileSync(secretFile, "utf-8"));
+    } catch (err) {
+      console.warn("Failed to parse existing worker.json.");
+      // If parsing fails, the file might be corrupt; we treat it as non-existent config.
+    }
+  }
+  return currentData;
+}
 
+/**
+ * Checks the saved path in worker.json and confirms if the executable exists.
+ */
+ipcMain.handle("get-game-status", async () => {
+  try {
+    const config = readWorkerConfig();
+    const gamePath = config.gamePath as string | undefined; // 'gamePath' is the key you added in download-game
+
+    if (!gamePath || !isValidPath(gamePath)) {
+      // Path not saved or invalid
+      return { installed: false, path: null };
+    }
+
+    // Since 'gamePath' in your download-game resolves to the full executable path:
+    // const executable = path.join(gamePath, "NoCodeStudio.exe");
+    // You are saving the full exe path, so just check that path.
+    const executable = gamePath;
+
+    // Check if the executable file exists at the saved path
+    const installed = fs.existsSync(executable);
+
+    return {
+      installed: installed,
+      path: installed ? executable : null,
+    };
+  } catch (error) {
+    console.error("Error retrieving game status:", error);
+    return { installed: false, path: null };
+  }
+});
 // ==================== UPDATE SECRET ====================
 ipcMain.handle(
   "update-worker",

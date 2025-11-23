@@ -37,6 +37,7 @@ const electronAPI = {
   updateWorker: (data) => ipcRenderer.invoke("update-worker", data),
   launchGame: (exePath) => ipcRenderer.invoke("launch-game", exePath),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
+  getGameInstallationStatus: () => ipcRenderer.invoke("get-game-status"),
   checkGameInstallation: (gamePath) =>
     ipcRenderer.invoke("check-game-installation", gamePath),
   getDefaultInstallPath: () => ipcRenderer.invoke("get-default-install-path"),
@@ -63,6 +64,7 @@ const electronAPI = {
       "update-worker",
       "update-secret",
       "create-secret",
+      "get-game-status",
     ];
 
     channels.forEach((channel) => {
