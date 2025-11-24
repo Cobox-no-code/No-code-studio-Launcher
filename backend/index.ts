@@ -42,10 +42,8 @@ function createWindow(): BrowserWindow {
   if (isDev) {
     win.loadURL("http://localhost:3000/");
     win.maximize();
-    win.setMenu(null);
   } else {
     win.loadFile(join(__dirname, "..", "frontend", "out", "index.html"));
-    win.setMenu(null);
   }
 
   win.webContents.on("did-finish-load", () => {
