@@ -5,15 +5,15 @@ import { autoUpdater } from "electron-updater";
 import extract from "extract-zip";
 import fs from "fs";
 import https from "https";
-import { spawn } from "node:child_process";
+import { ChildProcess, spawn } from "node:child_process";
 import { join } from "node:path";
 import os from "os";
 import path from "path";
 import semver from "semver";
 import { initLogs, isDev, prepareNext } from "./utils";
-
+const appDataPath = app.getPath("userData");
 let mainWindow: BrowserWindow | null = null;
-
+let activeGameProcess: ChildProcess | null = null;
 function createWindow(): BrowserWindow {
   const preloadPath = join(__dirname, "preload.js");
   console.log("Preload script path:", preloadPath);
@@ -42,8 +42,10 @@ function createWindow(): BrowserWindow {
   if (isDev) {
     win.loadURL("http://localhost:3000/");
     win.maximize();
+    win.setMenu(null);
   } else {
     win.loadFile(join(__dirname, "..", "frontend", "out", "index.html"));
+    win.setMenu(null);
   }
 
   win.webContents.on("did-finish-load", () => {
@@ -136,14 +138,12 @@ app.on(
   }
 );
 
-// Helper function to ensure directory exists
 function ensureDirectoryExists(dirPath: string): void {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
   }
 }
 
-// Helper function to validate file paths
 function isValidPath(filePath: string): boolean {
   try {
     const normalizedPath = path.normalize(filePath);
@@ -153,60 +153,76 @@ function isValidPath(filePath: string): boolean {
   }
 }
 
-// ==================== EXISTING IPC HANDLERS ====================
-
-ipcMain.handle("choose-install-path", async () => {
-  try {
-    const result = await dialog.showOpenDialog({
-      properties: ["openDirectory"],
-      title: "Choose Installation Directory",
-    });
-    return result.filePaths?.[0] || null;
-  } catch (error) {
-    console.error("Error choosing install path:", error);
-    return null;
+function readWorkerConfig(): Record<string, any> {
+  const secretFile = path.join(appDataPath, "worker.json");
+  let currentData = {};
+  if (fs.existsSync(secretFile)) {
+    try {
+      currentData = JSON.parse(fs.readFileSync(secretFile, "utf-8"));
+    } catch (err) {
+      console.warn("Failed to parse existing worker.json.");
+    }
   }
+  return currentData;
+}
+
+function saveWorkerConfig(data: Record<string, any>) {
+  const secretFile = path.join(appDataPath, "worker.json");
+  const current = readWorkerConfig();
+  const newData = { ...current, ...data };
+  ensureDirectoryExists(appDataPath);
+  fs.writeFileSync(secretFile, JSON.stringify(newData, null, 2));
+  return newData;
+}
+
+// ==================== NEW IPC HANDLERS FOR FLOW ====================
+
+// 1. Get Server Version (Called first on click)
+ipcMain.handle("get-server-version", async () => {
+  return new Promise((resolve, reject) => {
+    // Replace with your actual API endpoint
+    const url = "https://app.cobox.co/api/game-version/1";
+
+    https
+      .get(url, (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          try {
+            const parsed = JSON.parse(data);
+            resolve(parsed);
+          } catch (e) {
+            // If JSON parse fails, return null or mock for dev
+            resolve(null);
+          }
+        });
+      })
+      .on("error", (err) => {
+        console.error("API Fetch Error:", err);
+        resolve(null);
+      });
+  });
 });
-const appDataPath = app.getPath("userData");
-// ==================== DOWNLOAD GAME ====================
+
+// 2. Download Game
 ipcMain.handle("download-game", async (event, params) => {
   const url = params?.url;
   const targetDir = params?.targetDir;
 
-  if (!url || !targetDir || !isValidPath(targetDir)) {
-    throw new Error("Invalid download URL or target directory");
-  }
-  // Helper to find .exe file recursively
-  function findExeFile(dir: string, exeName: string): string | null {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        const found = findExeFile(fullPath, exeName);
-        if (found) return found;
-      } else if (entry.name === exeName) {
-        return fullPath;
-      }
-    }
-    return null;
-  }
-
-  // Try to locate the .exe
+  if (!url || !targetDir) throw new Error("Invalid arguments");
 
   const zipPath = path.join(targetDir, "Archive.zip");
-  const extractPath = path.join(targetDir, "ARCHIVE");
+  const extractPath = path.join(targetDir, "GameFiles");
 
   ensureDirectoryExists(targetDir);
 
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(zipPath);
-
     const request = https.get(url, (res) => {
       if (res.statusCode !== 200) {
-        reject(new Error(`Download failed with status: ${res.statusCode}`));
+        reject(new Error(`Download status: ${res.statusCode}`));
         return;
       }
-
       const totalSize = parseInt(res.headers["content-length"] || "0", 10);
       let downloadedSize = 0;
 
@@ -221,28 +237,31 @@ ipcMain.handle("download-game", async (event, params) => {
       file.on("finish", async () => {
         file.close();
         try {
-          // Extract zip
+          // Extract
           await extract(zipPath, { dir: extractPath });
           fs.unlinkSync(zipPath);
 
-          // Find NoCodeStudio.exe
-          const exePath = findExeFile(extractPath, "NoCodeStudio.exe");
-          if (!exePath) {
-            throw new Error("NoCodeStudio.exe not found after extraction");
-          }
-
-          // Create default worker.json
-          const secretFilePath = path.join(appDataPath, "worker.json");
-          const defaultData = {
-            gamePath: exePath,
-            mode: "create", // default mode
-            type: "creategame", // default type
+          // Find EXE
+          const findExe = (dir: string): string | null => {
+            const files = fs.readdirSync(dir, { withFileTypes: true });
+            for (const file of files) {
+              const full = path.join(dir, file.name);
+              if (file.isDirectory()) {
+                const found = findExe(full);
+                if (found) return found;
+              } else if (file.name === "NoCodeStudio.exe") {
+                return full;
+              }
+            }
+            return null;
           };
-          fs.writeFileSync(
-            secretFilePath,
-            JSON.stringify(defaultData, null, 2)
-          );
-          console.log("Created default worker.json at:", exePath);
+
+          const exePath = findExe(extractPath);
+          if (!exePath) throw new Error("NoCodeStudio.exe not found");
+
+          // ✅ AUTOMATICALLY SAVE PATH TO WORKER.JSON
+          saveWorkerConfig({ gamePath: exePath });
+          console.log("Game installed and path saved:", exePath);
 
           resolve(exePath);
         } catch (err) {
@@ -255,82 +274,82 @@ ipcMain.handle("download-game", async (event, params) => {
       if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
       reject(err);
     });
-
-    request.setTimeout(30000, () => {
-      request.destroy();
-      reject(new Error("Download timeout"));
-    });
   });
 });
-function readWorkerConfig(): Record<string, any> {
-  const secretFile = path.join(appDataPath, "worker.json");
-  let currentData = {};
-  if (fs.existsSync(secretFile)) {
-    try {
-      currentData = JSON.parse(fs.readFileSync(secretFile, "utf-8"));
-    } catch (err) {
-      console.warn("Failed to parse existing worker.json.");
-      // If parsing fails, the file might be corrupt; we treat it as non-existent config.
-    }
-  }
-  return currentData;
-}
 
-/**
- * Checks the saved path in worker.json and confirms if the executable exists.
- */
-ipcMain.handle("get-game-status", async () => {
+// 3. Launch Game (No Arguments - Reads worker.json)
+ipcMain.handle("launch-game", async () => {
   try {
-    const config = readWorkerConfig();
-    const gamePath = config.gamePath as string | undefined; // 'gamePath' is the key you added in download-game
-
-    if (!gamePath || !isValidPath(gamePath)) {
-      // Path not saved or invalid
-      return { installed: false, path: null };
+    // 2️⃣ CHECK IF ALREADY RUNNING
+    if (activeGameProcess && !activeGameProcess.killed) {
+      console.log("⚠️ Blocked launch: Game is already running.");
+      return { success: false, error: "Game is already running" };
     }
 
-    // Since 'gamePath' in your download-game resolves to the full executable path:
-    // const executable = path.join(gamePath, "NoCodeStudio.exe");
-    // You are saving the full exe path, so just check that path.
-    const executable = gamePath;
+    const config = readWorkerConfig();
+    const exePath = config.gamePath;
 
-    // Check if the executable file exists at the saved path
-    const installed = fs.existsSync(executable);
+    if (!exePath || !fs.existsSync(exePath)) {
+      throw new Error("Game path not found in configuration or file missing.");
+    }
 
-    return {
-      installed: installed,
-      path: installed ? executable : null,
-    };
-  } catch (error) {
-    console.error("Error retrieving game status:", error);
-    return { installed: false, path: null };
+    const exeDir = path.dirname(exePath);
+
+    console.log(`Launching game from: ${exePath}`);
+
+    const child = spawn(exePath, [], {
+      cwd: exeDir,
+      detached: true,
+      stdio: "ignore",
+      shell: false,
+    });
+
+    // 3️⃣ STORE THE PROCESS REFERENCE
+    activeGameProcess = child;
+
+    // 4️⃣ LISTEN FOR EXIT (To allow re-launching later)
+    child.on("close", (code) => {
+      console.log(`Game process closed with code ${code}`);
+      activeGameProcess = null; // Reset variable so user can play again
+    });
+
+    child.on("error", (err) => {
+      console.error("Game process error:", err);
+      activeGameProcess = null;
+    });
+
+    child.unref();
+    return { success: true };
+  } catch (error: any) {
+    console.error("Launch error:", error);
+    activeGameProcess = null; // Ensure reset on error
+    return { success: false, error: error.message };
   }
 });
-// ==================== UPDATE SECRET ====================
-ipcMain.handle(
-  "update-worker",
-  async (_, data: { path: string; updates: Record<string, any> }) => {
-    try {
-      const secretFile = path.join(appDataPath, "worker.json");
 
-      let currentData = {};
-      if (fs.existsSync(secretFile)) {
-        try {
-          currentData = JSON.parse(fs.readFileSync(secretFile, "utf-8"));
-        } catch (err) {
-          console.warn("Failed to parse existing worker.json, overwriting");
-        }
-      }
+// ==================== UTILITY HANDLERS ====================
 
-      const newData = { ...currentData, ...data.updates };
-      fs.writeFileSync(secretFile, JSON.stringify(newData, null, 2));
+ipcMain.handle("choose-install-path", async () => {
+  const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+  return result.filePaths?.[0] || null;
+});
 
-      return { success: true, filePath: secretFile };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
+ipcMain.handle("get-game-status", async () => {
+  const config = readWorkerConfig();
+  if (config.gamePath && fs.existsSync(config.gamePath)) {
+    return { installed: true, path: config.gamePath };
   }
-);
+  return { installed: false, path: null };
+});
+
+ipcMain.handle("update-worker", async (_, data) => {
+  try {
+    saveWorkerConfig(data.updates); // Merges updates
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+});
 
 ipcMain.handle("create-secret", async (_, content: Record<string, any>) => {
   try {
@@ -370,58 +389,6 @@ ipcMain.handle("update-secret", async (_, updates: Record<string, any>) => {
     return { success: true, filePath: secretFile };
   } catch (error: any) {
     return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle("launch-game", async (_, exePath) => {
-  try {
-    if (!exePath) throw new Error("Invalid executable path");
-
-    // Check file exists
-    if (!fs.existsSync(exePath)) {
-      throw new Error(`Executable not found at: ${exePath}`);
-    }
-
-    // Check it's a file, not folder
-    const stat = fs.statSync(exePath);
-    if (!stat.isFile()) {
-      throw new Error("The provided path is not a file");
-    }
-
-    const exeDir = path.dirname(exePath);
-
-    if (!fs.existsSync(exeDir)) {
-      throw new Error("Executable directory does not exist");
-    }
-
-    console.log("DRY RUN CHECKS PASSED:");
-    console.log(" - Path exists");
-    console.log(" - Is file");
-    console.log(" - Directory exists");
-    console.log(" - Ready for spawn on Windows");
-
-    // --- MAC BEHAVIOR ---
-    if (process.platform === "darwin") {
-      return {
-        success: false,
-        dryRunPassed: true,
-        message: "Spawn skipped: macOS cannot run .exe",
-      };
-    }
-
-    // --- WINDOWS BEHAVIOR ---
-    const child = spawn(exePath, [], {
-      cwd: exeDir,
-      detached: true,
-      stdio: "ignore",
-      shell: true,
-    });
-
-    child.unref();
-    return { success: true };
-  } catch (error) {
-    console.error("Launch game error:", error);
-    throw error;
   }
 });
 
