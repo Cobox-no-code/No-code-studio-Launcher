@@ -377,23 +377,46 @@ ipcMain.handle("update-secret", async (_, updates: Record<string, any>) => {
 
 ipcMain.handle("launch-game", async (_, exePath) => {
   try {
-    if (!exePath || !isValidPath(exePath)) {
-      throw new Error("Invalid executable path");
-    }
+    if (!exePath) throw new Error("Invalid executable path");
 
+    // Check file exists
     if (!fs.existsSync(exePath)) {
       throw new Error(`Executable not found at: ${exePath}`);
     }
 
-    const exeDir = path.dirname(exePath); // ← Yahi sahi hai
+    // Check it's a file, not folder
+    const stat = fs.statSync(exePath);
+    if (!stat.isFile()) {
+      throw new Error("The provided path is not a file");
+    }
 
-    console.log("Launching game:", exePath);
-    console.log("Exe directory:", exeDir);
+    const exeDir = path.dirname(exePath);
 
+    if (!fs.existsSync(exeDir)) {
+      throw new Error("Executable directory does not exist");
+    }
+
+    console.log("DRY RUN CHECKS PASSED:");
+    console.log(" - Path exists");
+    console.log(" - Is file");
+    console.log(" - Directory exists");
+    console.log(" - Ready for spawn on Windows");
+
+    // --- MAC BEHAVIOR ---
+    if (process.platform === "darwin") {
+      return {
+        success: false,
+        dryRunPassed: true,
+        message: "Spawn skipped: macOS cannot run .exe",
+      };
+    }
+
+    // --- WINDOWS BEHAVIOR ---
     const child = spawn(exePath, [], {
+      cwd: exeDir,
       detached: true,
       stdio: "ignore",
-      cwd: exeDir, // ← FIXED
+      shell: true,
     });
 
     child.unref();
