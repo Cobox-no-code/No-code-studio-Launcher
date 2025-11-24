@@ -106,7 +106,7 @@
     "mac": {
       "target": "dmg",
       "icon": "./public/icon.png",
-      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "artifactName": "${productName}-Setup-apha.${ext}",
       "darkModeSupport": true
     },
     "linux": {
