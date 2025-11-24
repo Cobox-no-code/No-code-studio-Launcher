@@ -381,18 +381,19 @@ ipcMain.handle("launch-game", async (_, exePath) => {
       throw new Error("Invalid executable path");
     }
 
-    const executable = path.join(exePath);
-
-    // Check if executable exists
-    if (!fs.existsSync(executable)) {
-      throw new Error(`Executable not found at: ${executable}`);
+    if (!fs.existsSync(exePath)) {
+      throw new Error(`Executable not found at: ${exePath}`);
     }
 
-    console.log("Launching game:", executable);
-    const child = spawn(executable, [], {
+    const exeDir = path.dirname(exePath); // ← Yahi sahi hai
+
+    console.log("Launching game:", exePath);
+    console.log("Exe directory:", exeDir);
+
+    const child = spawn(exePath, [], {
       detached: true,
       stdio: "ignore",
-      cwd: exePath, // Set working directory to game folder
+      cwd: exeDir, // ← FIXED
     });
 
     child.unref();
