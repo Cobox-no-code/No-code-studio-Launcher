@@ -1,77 +1,76 @@
-import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
+// preload.ts
+import { contextBridge, ipcRenderer } from "electron";
 
 console.log("Preload script is loading...");
 
-export const api = {
-  on: (channel: string, callback: Function) => {
-    ipcRenderer.on(channel, (event: IpcRendererEvent, args: any) =>
-      callback(event, args)
-    );
-  },
-
-  send: (channel: string, args: any): void => {
-    ipcRenderer.send(channel, args);
-  },
-
-  sendSync: (channel: string, args: any): any => {
-    return ipcRenderer.sendSync(channel, args);
-  },
-};
-
 const electronAPI = {
-  // Existing game-related methods
+  // === CORE GAME FLOW ===
+
+  /**
+   * Fetches game version and download link directly from server (Main Process).
+   * Bypasses CORS issues present in Renderer.
+   */
+  getServerVersion: () => ipcRenderer.invoke("get-server-version"),
+
+  /**
+   * Opens native dialog to pick folder. Returns string path or null.
+   */
   chooseInstallPath: () => ipcRenderer.invoke("choose-install-path"),
-  downloadGame: (params) => {
-    console.log("Preload: downloadGame called with:", params);
-    console.log("Preload: params type:", typeof params);
-    console.log("Preload: params keys:", params ? Object.keys(params) : "null");
-    return ipcRenderer.invoke("download-game", params);
-  },
+
+  /**
+   * Downloads zip, extracts, finds EXE, and saves path to worker.json.
+   * Returns the path to the executable.
+   */
+  downloadGame: (params: { url: string; targetDir: string }) =>
+    ipcRenderer.invoke("download-game", params),
+
+  /**
+   * Launches the game using path stored in worker.json.
+   * No arguments needed anymore.
+   */
+  launchGame: () => ipcRenderer.invoke("launch-game"),
+
+  /**
+   * Checks if game path in worker.json exists on disk.
+   */
+  getGameInstallationStatus: () => ipcRenderer.invoke("get-game-status"),
+
+  /**
+   * Updates keys in worker.json (mode, type, etc.)
+   */
+  updateWorker: (data: { path: string; updates: Record<string, any> }) =>
+    ipcRenderer.invoke("update-worker", data),
+
+  // === UTILS & EVENTS ===
+
+  openExternal: (url: string) => ipcRenderer.invoke("open-external", url),
+
   onDownloadProgress: (callback: (progress: number) => void) => {
+    // Remove existing listeners to prevent duplicate progress bars
+    ipcRenderer.removeAllListeners("download-progress");
     ipcRenderer.on("download-progress", (_event, progress) => {
       callback(progress);
     });
   },
-  createSecret: (data) => ipcRenderer.invoke("create-secret", data),
-  updateSecret: (data) => ipcRenderer.invoke("update-secret", data),
-  updateWorker: (data) => ipcRenderer.invoke("update-worker", data),
-  launchGame: (exePath) => ipcRenderer.invoke("launch-game", exePath),
-  openExternal: (url) => ipcRenderer.invoke("open-external", url),
-  getGameInstallationStatus: () => ipcRenderer.invoke("get-game-status"),
-  checkGameInstallation: (gamePath) =>
-    ipcRenderer.invoke("check-game-installation", gamePath),
-  getDefaultInstallPath: () => ipcRenderer.invoke("get-default-install-path"),
 
-  // Update-related methods
+  // === UPDATER (AutoUpdater) ===
+
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
 
-  // Update event listeners
-  // Store listeners so they can be removed later
-  _updateListeners: new Map<
-    string,
-    (event: IpcRendererEvent, ...args: any[]) => void
-  >(),
-
-  onUpdateEvent: (callback: (event: string, data: any) => void) => {
+  // Helper to listen to general update events
+  onUpdateEvent: (callback: (channel: string, data: any) => void) => {
     const channels = [
       "checking-for-update",
       "update-available",
       "update-not-available",
-      "download-progress",
       "update-downloaded",
       "update-error",
-      "update-worker",
-      "update-secret",
-      "create-secret",
-      "get-game-status",
     ];
 
     channels.forEach((channel) => {
-      const listener = (_: IpcRendererEvent, data: any) =>
-        callback(channel, data);
-      ipcRenderer.on(channel, listener);
-      electronAPI._updateListeners.set(channel, listener);
+      ipcRenderer.removeAllListeners(channel); // Cleanup old
+      ipcRenderer.on(channel, (_event, data) => callback(channel, data));
     });
   },
 
@@ -80,21 +79,11 @@ const electronAPI = {
       "checking-for-update",
       "update-available",
       "update-not-available",
-      "download-progress",
       "update-downloaded",
       "update-error",
-      "update-worker",
-      "update-secret",
-      "create-secret",
+      "download-progress",
     ];
-
-    channels.forEach((channel) => {
-      const listener = electronAPI._updateListeners.get(channel);
-      if (listener) {
-        ipcRenderer.removeListener(channel, listener);
-        electronAPI._updateListeners.delete(channel);
-      }
-    });
+    channels.forEach((channel) => ipcRenderer.removeAllListeners(channel));
   },
 };
 
