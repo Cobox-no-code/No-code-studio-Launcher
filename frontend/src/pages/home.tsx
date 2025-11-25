@@ -21,6 +21,7 @@ interface ServerVersionData {
 interface GameStatus {
   installed: boolean;
   path?: string;
+  version?: string;
 }
 
 interface ElectronAPI {
@@ -73,23 +74,60 @@ export default function Home() {
     if (!window.electronAPI) return;
 
     const init = async () => {
-      const status = await window.electronAPI.getGameInstallationStatus();
-      if (status.installed) {
-        setGameInstalled(true);
-        // Don't auto-show tabs here, let user click to open them
-        setActiveGameTabs(false);
-      }
+      try {
+        // A. Get Local Status (Path + Version)
+        const localStatus =
+          await window.electronAPI.getGameInstallationStatus();
 
-      if (!didCheckUpdate.current) {
-        didCheckUpdate.current = true;
-        try {
+        // B. Get Server Version
+        const serverData = await window.electronAPI.getServerVersion();
+
+        // C. LOGIC: Compare Versions
+        let isLatestVersion = true;
+
+        if (
+          localStatus.installed &&
+          localStatus.version &&
+          serverData?.version
+        ) {
+          // If server version is different from local version
+          if (serverData.version !== localStatus.version) {
+            console.log(
+              `Update available! Local: ${localStatus.version}, Server: ${serverData.version}`
+            );
+            isLatestVersion = false;
+
+            // ⚠️ OPTION: Automatically invalidate the old build
+            // This forces the UI to show "Download" (which acts as Update)
+            await window.electronAPI.updateWorker({
+              path: "",
+              updates: { gamePath: null }, // Clear path so it looks uninstalled
+            });
+
+            setStatusMessage("Update Available");
+            setGameInstalled(false); // Reset UI to uninstalled state
+          }
+        }
+
+        // D. Set State based on result
+        if (localStatus.installed && isLatestVersion) {
+          setGameInstalled(true);
+          setActiveGameTabs(false);
+        } else if (!isLatestVersion && localStatus.installed) {
+          // It was installed, but we just invalidated it above.
+          setGameInstalled(false);
+        }
+
+        // E. Check for Launcher Updates (AutoUpdater)
+        if (!didCheckUpdate.current) {
+          didCheckUpdate.current = true;
           const update = await window.electronAPI.checkForUpdates();
           if (update?.success && update.updateInfo?.version) {
             setShowUpdateModal(true);
           }
-        } catch (e) {
-          console.error("Update check failed", e);
         }
+      } catch (err) {
+        console.error("Initialization error:", err);
       }
     };
 
@@ -154,8 +192,6 @@ export default function Home() {
       if (mode === "create") {
         setActiveGameTabs(true); // Show tabs so they can create
       } else {
-        // Optional: Auto launch if in play mode after download?
-        // Or just let them click again.
       }
 
       finishDownload();

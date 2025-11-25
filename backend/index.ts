@@ -336,10 +336,17 @@ ipcMain.handle("choose-install-path", async () => {
 
 ipcMain.handle("get-game-status", async () => {
   const config = readWorkerConfig();
+
+  // Check if path exists AND file exists
   if (config.gamePath && fs.existsSync(config.gamePath)) {
-    return { installed: true, path: config.gamePath };
+    return {
+      installed: true,
+      path: config.gamePath,
+      // 👇 ADD THIS: Return the local version so frontend can compare
+      version: config.version || "0.0.0",
+    };
   }
-  return { installed: false, path: null };
+  return { installed: false, path: null, version: null };
 });
 
 ipcMain.handle("update-worker", async (_, data) => {
