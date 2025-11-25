@@ -1,58 +1,48 @@
 import {
   createContext,
-  useState,
-  useContext,
   ReactNode,
+  useContext,
   useEffect,
+  useState,
 } from "react";
 
-// Define the shape of the context data
 interface DownloadContextType {
   isDownloading: boolean;
   downloadProgress: number;
   startDownload: () => void;
   finishDownload: () => void;
-  // We no longer need setDownloadProgress here, it will be handled internally
 }
 
-// Create the context with a default value
 const DownloadContext = createContext<DownloadContextType | undefined>(
   undefined
 );
 
-// Create the Provider component
 export const DownloadProvider = ({ children }: { children: ReactNode }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
 
-  // This useEffect will run only once when the app loads
-  // It sets up the global listener for download progress
   useEffect(() => {
     if (window.electronAPI) {
+      // ✅ FIX: Remove the logic that checks for 100% and resets.
+      // Just update the number. Let Home.tsx call finishDownload().
       window.electronAPI.onDownloadProgress((progress) => {
-        // When progress is reported, update our global state
-        if (!isDownloading) setIsDownloading(true); // Ensure downloading state is active
         setDownloadProgress(progress);
 
-        if (progress >= 100) {
-          // Optional: Auto-reset after a delay when download completes
-          setTimeout(() => {
-            setIsDownloading(false);
-            setDownloadProgress(0);
-          }, 2000); // Reset after 2 seconds
-        }
+        // Safety: ensure UI is visible if backend sends progress
+        // using functional update to avoid stale closure issues
+        setIsDownloading((prev) => (prev ? prev : true));
       });
     }
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
 
   const startDownload = () => {
     setIsDownloading(true);
-    setDownloadProgress(0); // Reset progress on new download
+    setDownloadProgress(0);
   };
 
   const finishDownload = () => {
     setIsDownloading(false);
-    setDownloadProgress(0); // Reset progress
+    setDownloadProgress(0);
   };
 
   const value = {
@@ -69,7 +59,6 @@ export const DownloadProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Create a custom hook for easy access to the context
 export const useDownload = () => {
   const context = useContext(DownloadContext);
   if (context === undefined) {
