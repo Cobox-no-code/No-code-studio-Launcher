@@ -97,8 +97,6 @@ export default function Home() {
             );
             isLatestVersion = false;
 
-            // ⚠️ OPTION: Automatically invalidate the old build
-            // This forces the UI to show "Download" (which acts as Update)
             await window.electronAPI.updateWorker({
               path: "",
               updates: { gamePath: null }, // Clear path so it looks uninstalled
@@ -135,15 +133,14 @@ export default function Home() {
   }, []);
 
   // 2. MAIN ACTION LOGIC (FIXED)
+  // 2. MAIN ACTION LOGIC (FIXED WITH DELAY)
   const handleDownloadOrPlay = async () => {
     // A. IF INSTALLED
     if (gameInstalled) {
       if (mode === "create") {
-        // ✅ FIX: In Create Mode, just toggle the tabs. DO NOT LAUNCH.
         console.log("Create mode: Toggling tabs");
         setActiveGameTabs(!activeGameTabs);
       } else {
-        // ✅ FIX: In Play Mode, launch immediately.
         console.log("Play mode: Launching default");
         await launchWithSecret("play", "playgame");
       }
@@ -161,6 +158,7 @@ export default function Home() {
       const downloadLink = serverData?.link || "https://default-bucket-url.zip";
       const version = serverData?.version || "1.0.0";
 
+      // Save metadata first
       await window.electronAPI.updateWorker({
         path: "",
         updates: {
@@ -180,18 +178,33 @@ export default function Home() {
 
       setStatusMessage("Downloading...");
 
+      // 1️⃣ PERFORM DOWNLOAD
       await window.electronAPI.downloadGame({
         url: downloadLink,
         targetDir: installPath,
       });
 
-      setStatusMessage("");
-      setGameInstalled(true);
+      // 2️⃣ ADD "FINALIZING" STATE (The Fix)
+      setStatusMessage("Finalizing installation...");
 
-      // After download success:
-      if (mode === "create") {
-        setActiveGameTabs(true); // Show tabs so they can create
+      // Force a 5-second wait while showing 100% progress
+      // This ensures main.ts has fully written worker.json
+      await new Promise((resolve) => setTimeout(resolve, 15000));
+
+      // 3️⃣ VERIFY INSTALLATION (Double Check)
+      // Before we unlock the UI, let's ask Electron "Are you ACTUALLY ready?"
+      const checkStatus = await window.electronAPI.getGameInstallationStatus();
+
+      if (checkStatus.installed && checkStatus.path) {
+        setStatusMessage("Ready!");
+        setGameInstalled(true);
+
+        if (mode === "create") {
+          setActiveGameTabs(true);
+        }
       } else {
+        // If we waited 5 seconds and it's still not ready, something failed.
+        throw new Error("Installation verification failed. Please try again.");
       }
 
       finishDownload();
@@ -202,7 +215,6 @@ export default function Home() {
       finishDownload();
     }
   };
-
   const launchWithSecret = async (currentMode: string, type: string) => {
     if (!gameInstalled) {
       alert("Game not installed yet.");
