@@ -278,6 +278,8 @@ ipcMain.handle("download-game", async (event, params) => {
 });
 
 // 3. Launch Game (No Arguments - Reads worker.json)
+// main.ts
+
 ipcMain.handle("launch-game", async () => {
   try {
     // 2️⃣ CHECK IF ALREADY RUNNING
@@ -287,10 +289,18 @@ ipcMain.handle("launch-game", async () => {
     }
 
     const config = readWorkerConfig();
-    const exePath = config.gamePath;
+    let exePath = config.gamePath;
 
-    if (!exePath || !fs.existsSync(exePath)) {
-      throw new Error("Game path not found in configuration or file missing.");
+    if (!exePath) {
+      throw new Error("Game path not found in configuration.");
+    }
+
+    // 1️⃣.5️⃣ NORMALIZE PATH (The Fix)
+    // This fixes "C:/Games//Build/Game.exe" -> "C:\Games\Build\Game.exe"
+    exePath = path.normalize(exePath);
+
+    if (!fs.existsSync(exePath)) {
+      throw new Error(`Game file missing at path: ${exePath}`);
     }
 
     const exeDir = path.dirname(exePath);
@@ -307,10 +317,10 @@ ipcMain.handle("launch-game", async () => {
     // 3️⃣ STORE THE PROCESS REFERENCE
     activeGameProcess = child;
 
-    // 4️⃣ LISTEN FOR EXIT (To allow re-launching later)
+    // 4️⃣ LISTEN FOR EXIT
     child.on("close", (code) => {
       console.log(`Game process closed with code ${code}`);
-      activeGameProcess = null; // Reset variable so user can play again
+      activeGameProcess = null;
     });
 
     child.on("error", (err) => {
@@ -322,7 +332,7 @@ ipcMain.handle("launch-game", async () => {
     return { success: true };
   } catch (error: any) {
     console.error("Launch error:", error);
-    activeGameProcess = null; // Ensure reset on error
+    activeGameProcess = null;
     return { success: false, error: error.message };
   }
 });
