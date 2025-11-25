@@ -1,14 +1,13 @@
 // preload.ts
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 
 console.log("Preload script is loading...");
 
 const electronAPI = {
-  // === CORE GAME FLOW ===
+  // ==================== NEW FLOW FUNCTIONS ====================
 
   /**
    * Fetches game version and download link directly from server (Main Process).
-   * Bypasses CORS issues present in Renderer.
    */
   getServerVersion: () => ipcRenderer.invoke("get-server-version"),
 
@@ -19,14 +18,12 @@ const electronAPI = {
 
   /**
    * Downloads zip, extracts, finds EXE, and saves path to worker.json.
-   * Returns the path to the executable.
    */
   downloadGame: (params: { url: string; targetDir: string }) =>
     ipcRenderer.invoke("download-game", params),
 
   /**
    * Launches the game using path stored in worker.json.
-   * No arguments needed anymore.
    */
   launchGame: () => ipcRenderer.invoke("launch-game"),
 
@@ -36,12 +33,34 @@ const electronAPI = {
   getGameInstallationStatus: () => ipcRenderer.invoke("get-game-status"),
 
   /**
+   * Checks specific path (Legacy/Helper)
+   */
+  checkGameInstallation: (gamePath: string) =>
+    ipcRenderer.invoke("check-game-installation", gamePath),
+
+  getDefaultInstallPath: () => ipcRenderer.invoke("get-default-install-path"),
+
+  // ==================== RESTORED SECRET/WORKER FUNCTIONS ====================
+
+  /**
    * Updates keys in worker.json (mode, type, etc.)
    */
   updateWorker: (data: { path: string; updates: Record<string, any> }) =>
     ipcRenderer.invoke("update-worker", data),
 
-  // === UTILS & EVENTS ===
+  /**
+   * ✅ RESTORED: Create secret.json
+   */
+  createSecret: (data: Record<string, any>) =>
+    ipcRenderer.invoke("create-secret", data),
+
+  /**
+   * ✅ RESTORED: Update secret.json
+   */
+  updateSecret: (data: Record<string, any>) =>
+    ipcRenderer.invoke("update-secret", data),
+
+  // ==================== UTILS & EVENTS ====================
 
   openExternal: (url: string) => ipcRenderer.invoke("open-external", url),
 
@@ -53,12 +72,17 @@ const electronAPI = {
     });
   },
 
-  // === UPDATER (AutoUpdater) ===
+  // ==================== UPDATER (AutoUpdater) ====================
 
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
 
-  // Helper to listen to general update events
+  // Helper to store listeners so they can be removed
+  _updateListeners: new Map<
+    string,
+    (event: IpcRendererEvent, ...args: any[]) => void
+  >(),
+
   onUpdateEvent: (callback: (channel: string, data: any) => void) => {
     const channels = [
       "checking-for-update",
@@ -66,11 +90,26 @@ const electronAPI = {
       "update-not-available",
       "update-downloaded",
       "update-error",
+      "download-progress", // Added this to general events too just in case
+      "update-worker",
+      "update-secret",
+      "create-secret",
     ];
 
     channels.forEach((channel) => {
-      ipcRenderer.removeAllListeners(channel); // Cleanup old
-      ipcRenderer.on(channel, (_event, data) => callback(channel, data));
+      // Clean up previous listeners for this channel
+      const oldListener = electronAPI._updateListeners.get(channel);
+      if (oldListener) {
+        ipcRenderer.removeListener(channel, oldListener);
+      }
+
+      // Create new listener
+      const listener = (_event: IpcRendererEvent, data: any) =>
+        callback(channel, data);
+
+      // Register
+      ipcRenderer.on(channel, listener);
+      electronAPI._updateListeners.set(channel, listener);
     });
   },
 
@@ -82,8 +121,18 @@ const electronAPI = {
       "update-downloaded",
       "update-error",
       "download-progress",
+      "update-worker",
+      "update-secret",
+      "create-secret",
     ];
-    channels.forEach((channel) => ipcRenderer.removeAllListeners(channel));
+
+    channels.forEach((channel) => {
+      const listener = electronAPI._updateListeners.get(channel);
+      if (listener) {
+        ipcRenderer.removeListener(channel, listener);
+        electronAPI._updateListeners.delete(channel);
+      }
+    });
   },
 };
 

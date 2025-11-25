@@ -63,7 +63,7 @@ const Layout = ({ children }: LayoutProps) => {
                   placeholder="Search"
                   value={searchValue}
                   onChange={(e) => setSearchValue(e.target.value)}
-                  className={`px-2 py-1.5 rounded-2xl text-xs focus:outline-none border-none ${
+                  className={`px-2 py-1.5 rounded-2xl text-xs focus:outline-none border-none text-gray-400 ${
                     isDarkMode ? "bg-[#1F163C]" : "bg-white"
                   }`}
                 />

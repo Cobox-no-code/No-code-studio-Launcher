@@ -33,7 +33,8 @@ interface ElectronAPI {
     path: string;
     updates: Record<string, any>;
   }) => Promise<{ success: boolean }>;
-
+  createSecret: (data: Record<string, any>) => Promise<{ success: boolean }>;
+  updateSecret: (data: Record<string, any>) => Promise<{ success: boolean }>;
   // Utils
   openExternal: (url: string) => Promise<{ success: boolean }>;
   onDownloadProgress: (callback: (progress: number) => void) => void;
@@ -208,7 +209,7 @@ export default function Home() {
       )}
 
       {/* MAIN BUTTON */}
-      <div className="absolute left-1/2 bottom-0 -translate-x-1/2 z-50">
+      <div className="absolute left-[49.8%] bottom-0 -translate-x-1/2  z-50">
         <CreateButtonsPlaceholder
           mode={mode}
           playGame={() => launchWithSecret(mode, "playgame")}
@@ -224,7 +225,7 @@ export default function Home() {
         <div className="absolute bottom-[1vh] left-1/2 -translate-x-1/2 w-80 flex flex-col items-center gap-2 z-[70]">
           <div className="relative w-full h-2 bg-gray-700 rounded-full overflow-hidden border border-gray-600">
             <div
-              className="h-full bg-indigo-500 transition-all duration-300 ease-out"
+              className="h-full bg-[#8267D2] transition-all duration-300 ease-out"
               style={{ width: `${downloadProgress}%` }}
             ></div>
           </div>
