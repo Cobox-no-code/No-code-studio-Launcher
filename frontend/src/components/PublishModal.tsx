@@ -3,11 +3,16 @@ import { useDarkMode } from "@/context/DarkModeContext";
 import api from "@/utils/api";
 import {
   ArrowLeft,
+  Check,
   CheckCircle,
+  FileText,
   Folder,
+  Gamepad2,
   Globe,
+  Image as ImageIcon,
   Loader2,
   Upload,
+  User,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -294,8 +299,10 @@ const PublishDetails = ({ game, onBack, onSuccess }) => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const labelClass = isDarkMode ? "text-gray-300" : "text-gray-600";
-  const inputBase = `w-full px-4 py-2 rounded-lg border transition-all duration-200 outline-none focus:ring-2 focus:ring-[#8267D2]/40`;
+  // Styling Constants
+  const labelClass = isDarkMode ? "text-gray-400" : "text-gray-600";
+  const headingClass = isDarkMode ? "text-white" : "text-gray-900";
+  const inputBase = `w-full pl-10 pr-4 py-2.5 rounded-xl border transition-all duration-200 outline-none focus:ring-4 focus:ring-[#8267D2]/20`;
   const inputTheme = isDarkMode
     ? "bg-[#1C1041] border-[#3D2B7A] text-white placeholder:text-gray-500 focus:border-[#8267D2]"
     : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#8267D2]";
@@ -313,7 +320,7 @@ const PublishDetails = ({ game, onBack, onSuccess }) => {
     if (!name.trim()) return toast.error("Game title is required.");
     if (!previewUrl) return toast.error("Thumbnail is required.");
     if (!author.trim()) return toast.error("Author name is required.");
-    if (!consent) return toast.error("Please accept the terms.");
+    if (!consent) return toast.error("Please accept the legal terms.");
 
     setIsSubmitting(true);
     const loadingToast = toast.loading("Uploading game...");
@@ -346,35 +353,71 @@ const PublishDetails = ({ game, onBack, onSuccess }) => {
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-      <button
-        onClick={onBack}
-        className="flex items-center text-xs font-bold text-[#8267D2] mb-6 group"
-      >
-        <ArrowLeft
-          size={14}
-          className="mr-2 group-hover:-translate-x-1 transition-transform"
-        />
-        Back to selection
-      </button>
+    <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Header Section */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <button
+            onClick={onBack}
+            className="flex items-center text-xs font-bold text-[#8267D2] mb-3 group hover:opacity-80 transition-opacity"
+          >
+            <ArrowLeft
+              size={14}
+              className="mr-2 group-hover:-translate-x-1 transition-transform"
+            />
+            Back to selection
+          </button>
+          <h2 className={`text-3xl font-black tracking-tight ${headingClass}`}>
+            Finalize <span className="text-[#8267D2]">Publication</span>
+          </h2>
+          <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest font-bold">
+            Project ID: {game.id}
+          </p>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-        <div className="md:col-span-4 space-y-4">
-          <label className={`text-xs font-bold ${labelClass}`}>
-            Thumbnail (16:9)
-          </label>
+        {/* Left Side: Thumbnail */}
+        <div className="md:col-span-5 space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <ImageIcon size={14} className="text-[#8267D2]" />
+            <label
+              className={`text-xs font-bold uppercase tracking-wider ${labelClass}`}
+            >
+              Cover Image <span className="text-red-500">*</span>
+            </label>
+          </div>
           <div
             onClick={() => !isSubmitting && thumbInputRef.current?.click()}
-            className={`relative aspect-video rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer overflow-hidden ${
+            className={`relative aspect-video rounded-2xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all group overflow-hidden ${
               previewUrl
-                ? "border-solid border-[#8267D2]"
-                : "border-gray-500 hover:border-[#8267D2]"
+                ? "border-solid border-[#8267D2] shadow-lg shadow-[#8267D2]/10"
+                : "border-gray-500 hover:border-[#8267D2] bg-gray-500/5"
             }`}
           >
             {previewUrl ? (
-              <img src={previewUrl} className="w-full h-full object-cover" />
+              <>
+                <img
+                  src={previewUrl}
+                  className="w-full h-full object-cover"
+                  alt="Preview"
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <p className="text-white text-xs font-bold bg-[#8267D2] px-4 py-2 rounded-full">
+                    Change Image
+                  </p>
+                </div>
+              </>
             ) : (
-              <Upload className="text-gray-500" />
+              <div className="text-center">
+                <Upload
+                  size={32}
+                  className="mx-auto text-gray-500 group-hover:text-[#8267D2] mb-2 transition-colors"
+                />
+                <p className="text-[10px] font-bold text-gray-500">
+                  Click to upload 16:9 Thumbnail
+                </p>
+              </div>
             )}
           </div>
           <input
@@ -386,60 +429,118 @@ const PublishDetails = ({ game, onBack, onSuccess }) => {
           />
         </div>
 
-        <div className="md:col-span-8 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={`text-xs font-bold block mb-1 ${labelClass}`}>
-                Title
+        {/* Right Side: Metadata Form */}
+        <div className="md:col-span-7 flex flex-col gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Title Field */}
+            <div className="space-y-2">
+              <label
+                className={`text-xs font-bold flex items-center gap-2 ${labelClass}`}
+              >
+                <Gamepad2 size={14} /> Title{" "}
+                <span className="text-red-500">*</span>
               </label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={`${inputBase} ${inputTheme}`}
-              />
+              <div className="relative">
+                <Gamepad2
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                />
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="The name of your masterpiece"
+                  className={`${inputBase} ${inputTheme}`}
+                />
+              </div>
             </div>
-            <div>
-              <label className={`text-xs font-bold block mb-1 ${labelClass}`}>
-                Creator Name
+
+            {/* Author Field */}
+            <div className="space-y-2">
+              <label
+                className={`text-xs font-bold flex items-center gap-2 ${labelClass}`}
+              >
+                <User size={14} /> Creator{" "}
+                <span className="text-red-500">*</span>
               </label>
-              <input
-                value={author}
-                onChange={(e) => setAuthor(e.target.value)}
-                className={`${inputBase} ${inputTheme}`}
-              />
+              <div className="relative">
+                <User
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                />
+                <input
+                  value={author}
+                  onChange={(e) => setAuthor(e.target.value)}
+                  placeholder="Author display name"
+                  className={`${inputBase} ${inputTheme}`}
+                />
+              </div>
             </div>
           </div>
-          <div>
-            <label className={`text-xs font-bold block mb-1 ${labelClass}`}>
-              Description
+
+          {/* Description Field */}
+          <div className="space-y-2">
+            <label
+              className={`text-xs font-bold flex items-center gap-2 ${labelClass}`}
+            >
+              <FileText size={14} /> Description
             </label>
             <textarea
-              rows={3}
+              rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className={`${inputBase} ${inputTheme} resize-none`}
+              placeholder="Tell the world what your game is about..."
+              className={`${inputBase} ${inputTheme} pl-4 resize-none`}
             />
           </div>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={consent}
-              onChange={(e) => setConsent(e.target.checked)}
-              className="rounded border-gray-300 text-[#8267D2]"
-            />
-            <span className={`text-[10px] ${labelClass}`}>
-              Confirm ownership of this content.
-            </span>
-          </label>
+
+          {/* Legal Consent / Custom Checkbox */}
+          <div
+            className={`p-4 rounded-xl border flex items-start gap-4 cursor-pointer transition-colors ${
+              consent
+                ? "bg-[#8267D2]/10 border-[#8267D2]/30"
+                : isDarkMode
+                ? "bg-black/20 border-white/5"
+                : "bg-gray-50 border-gray-200"
+            }`}
+            onClick={() => setConsent(!consent)}
+          >
+            <div
+              className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center ${
+                consent ? "bg-[#8267D2] border-[#8267D2]" : "border-gray-500"
+              }`}
+            >
+              {consent && <Check size={14} className="text-white font-bold" />}
+            </div>
+            <div className="space-y-1">
+              <p
+                className={`text-[11px] font-bold uppercase tracking-tight ${
+                  isDarkMode ? "text-white" : "text-gray-900"
+                }`}
+              >
+                Legal Declaration & Consent
+              </p>
+              <p className="text-[10px] leading-relaxed text-gray-500">
+                I hereby declare that I am the legal owner of this content or
+                possess all necessary rights to publish it. I understand that
+                any copyright violations may lead to immediate removal and
+                account restriction.
+              </p>
+            </div>
+          </div>
+
+          {/* Submit Button */}
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="w-full py-3 bg-[#8267D2] text-white font-bold rounded-xl flex items-center justify-center disabled:opacity-50"
+            className="w-full py-4 bg-[#8267D2] text-white font-black text-sm uppercase tracking-[2px] rounded-xl flex items-center justify-center gap-3 shadow-xl shadow-[#8267D2]/20 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
-              <Loader2 className="animate-spin" />
+              <>
+                <Loader2 className="animate-spin" size={20} />
+                Finalizing...
+              </>
             ) : (
-              "Publish Game"
+              "Complete Publication"
             )}
           </button>
         </div>
