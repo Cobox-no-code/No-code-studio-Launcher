@@ -1,8 +1,10 @@
 // main.ts
+import axios from "axios";
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import log from "electron-log";
 import { autoUpdater } from "electron-updater";
 import extract from "extract-zip";
+import FormData from "form-data";
 import fs from "fs";
 import https from "https";
 import { ChildProcess, spawn } from "node:child_process";
@@ -11,6 +13,7 @@ import os from "os";
 import path from "path";
 import semver from "semver";
 import { initLogs, isDev, prepareNext } from "./utils";
+const BACKEND_URL = "https://app.cobox.co/api";
 const appDataPath = app.getPath("userData");
 let mainWindow: BrowserWindow | null = null;
 let activeGameProcess: ChildProcess | null = null;
@@ -174,7 +177,48 @@ function saveWorkerConfig(data: Record<string, any>) {
   fs.writeFileSync(secretFile, JSON.stringify(newData, null, 2));
   return newData;
 }
+ipcMain.handle("publish-game-full", async (event, payload) => {
+  const { filePath, thumbnailBase64, metadata } = payload;
+  console.log("Publishing game with payload:", payload);
+  try {
+    const form = new FormData();
 
+    // 1. Handle the Game File from System Path
+    if (fs.existsSync(filePath)) {
+      form.append("gameFile", fs.createReadStream(filePath));
+    } else {
+      throw new Error("Game file not found at the provided path.");
+    }
+
+    // 2. Handle Thumbnail (Base64 to Buffer)
+    // Remove the data:image/png;base64, prefix
+    const base64Data = thumbnailBase64.replace(/^data:image\/\w+;base64,/, "");
+    const thumbBuffer = Buffer.from(base64Data, "base64");
+    form.append("thumbnail", thumbBuffer, {
+      filename: `${metadata.title}.png`,
+    });
+    form.append("id", metadata.id);
+    form.append("title", metadata.title);
+    form.append("authorName", metadata.authorName);
+    form.append("description", metadata.description);
+
+    // 4. Send to your EC2 API
+    const response = await axios.post(BACKEND_URL + "/published-games", form, {
+      headers: {
+        ...form.getHeaders(),
+        // Add your JWT here if required
+        Authorization: `Bearer ${metadata.token}`,
+      },
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+    });
+
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("IPC Main Error:", error);
+    return { success: false, error: error.message };
+  }
+});
 // ==================== NEW IPC HANDLERS FOR FLOW ====================
 
 // 1. Get Server Version (Called first on click)
@@ -361,8 +405,8 @@ ipcMain.handle("get-game-status", async () => {
 
 ipcMain.handle("update-worker", async (_, data) => {
   try {
-    saveWorkerConfig(data.updates); // Merges updates
-    return { success: true };
+    const res = saveWorkerConfig(data.updates); // Merges updates
+    return { success: true, data: res };
   } catch (e: any) {
     return { success: false, error: e.message };
   }
@@ -493,4 +537,128 @@ ipcMain.handle("install-update", async () => {
   }
 });
 
+// Live games logic
+
+const liveGamesDir = path.join(appDataPath, "live_games");
+
+// Helper function to ensure directory exists
+function ensureLiveGamesDir() {
+  if (!fs.existsSync(liveGamesDir)) {
+    fs.mkdirSync(liveGamesDir, { recursive: true });
+    console.log("Created directory:", liveGamesDir);
+  }
+}
+ipcMain.handle("download-live-game", async (event, { url, gameId, title }) => {
+  ensureLiveGamesDir(); // Safety check
+
+  const safeTitle = title.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+  const fileName = `${gameId}_${safeTitle}.sav`;
+  const filePath = path.join(liveGamesDir, fileName);
+
+  try {
+    const response = await axios({
+      method: "get",
+      url: url,
+      responseType: "stream",
+    });
+
+    const writer = fs.createWriteStream(filePath);
+    response.data.pipe(writer);
+
+    return new Promise((resolve, reject) => {
+      writer.on("finish", () => resolve({ success: true, path: filePath }));
+      writer.on("error", (err) =>
+        reject({ success: false, error: err.message })
+      );
+    });
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+ipcMain.handle("check-download-status", async (event, gameIds: string[]) => {
+  ensureLiveGamesDir(); // Safety check
+
+  const statusMap: Record<
+    string,
+    { downloaded: boolean; path: string | null }
+  > = {};
+
+  try {
+    const files = fs.readdirSync(liveGamesDir);
+
+    gameIds.forEach((id) => {
+      // Find file starting with the specific ID
+      const foundFile = files.find((file) => file.startsWith(`${id}_`));
+
+      if (foundFile) {
+        statusMap[id] = {
+          downloaded: true,
+          path: path.join(liveGamesDir, foundFile),
+        };
+      } else {
+        statusMap[id] = { downloaded: false, path: null };
+      }
+    });
+
+    return statusMap;
+  } catch (err) {
+    return {};
+  }
+});
+
+//Publishing Games
+const LOCAL_SAVE_PATH = path.join(
+  process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"),
+  "NoCodeStudio",
+  "Saved",
+  "SaveGames"
+);
+
+ipcMain.handle("get-local-library-games", async () => {
+  try {
+    if (!fs.existsSync(LOCAL_SAVE_PATH)) {
+      fs.mkdirSync(LOCAL_SAVE_PATH, { recursive: true });
+      return [];
+    }
+
+    const files = fs.readdirSync(LOCAL_SAVE_PATH);
+
+    const localGames = files
+      .filter((file) => file.endsWith(".sav"))
+      .map((file) => {
+        const fullPath = path.join(LOCAL_SAVE_PATH, file);
+        const stats = fs.statSync(fullPath);
+
+        const nameWithoutExt = file.replace(".sav", "");
+
+        // --- IMPROVED ID GENERATION ---
+        // We use the filename + the unix timestamp of creation
+        // Format: "MyGame_1734556800000"
+        const timestamp = stats.birthtime.getTime();
+        const generatedId = `${nameWithoutExt}_${timestamp}`;
+
+        // If your files already use the "ID_Name" format, we can still parse the name
+        const parts = nameWithoutExt.split("_");
+        const displayName =
+          parts.length > 1 ? parts.slice(1).join(" ") : nameWithoutExt;
+
+        return {
+          id: generatedId, // Unique combined ID
+          name: displayName, // Clean display name
+          fileName: file, // Original filename for system operations
+          path: fullPath,
+          createdAt: stats.birthtime,
+          size: stats.size,
+        };
+      });
+
+    // Sort by newest first using the date object
+    return localGames.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    );
+  } catch (error) {
+    console.error("Failed to read local library:", error);
+    return [];
+  }
+});
 export { createWindow };

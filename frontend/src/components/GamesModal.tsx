@@ -1,10 +1,21 @@
 "use client";
 import { useDarkMode } from "@/context/DarkModeContext";
-import api from "@/utils/api"; // Make sure to import your custom API instance
+import api from "@/utils/api";
+import {
+  ArrowLeft,
+  Calendar,
+  CheckCircle,
+  Download,
+  Eye,
+  Info,
+  Loader2,
+  Play,
+  User,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
-// The useOnClickOutside hook is correct and needs no changes.
+// --- Hook for clicking outside ---
 function useOnClickOutside(
   ref: React.RefObject<HTMLElement>,
   handler: () => void
@@ -24,205 +35,441 @@ function useOnClickOutside(
   }, [ref, handler]);
 }
 
+const SkeletonCard = ({ isDarkMode }) => (
+  <div
+    className={`h-[260px] rounded-xl animate-pulse ${
+      isDarkMode ? "bg-[#1C1041]/50" : "bg-gray-200"
+    }`}
+  />
+);
+
 export default function GamesModal({ active, setActive }) {
   const divref = useRef<HTMLDivElement | null>(null);
   const { isDarkMode } = useDarkMode();
   const [games, setGames] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedGame, setSelectedGame] = useState(null);
 
-  const handleOutside = useCallback(() => {
-    setActive(false);
-  }, [setActive]);
+  useOnClickOutside(divref, () => setActive(false));
 
-  useOnClickOutside(divref, handleOutside);
+  const fetchAndSyncGames = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // 1. Fetch from Server
+      const response = await api.get("/published-games");
+      const serverGames = response.data;
 
-  // Fetch games when the modal becomes active
-  useEffect(() => {
-    if (active) {
-      const fetchGames = async () => {
-        setIsLoading(true);
-        try {
-          const response = await api.get("/games");
-          setGames(response.data);
-        } catch (error) {
-          console.error("Failed to fetch games:", error);
-          setGames([]); // Ensure games is an empty array on error
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchGames();
+      // 2. Check Local Status via IPC (Passing array of IDs)
+      const serverIds = serverGames.map((g: any) => g.id);
+      const localStatus = await window.electronAPI.checkDownloadStatus(
+        serverIds
+      );
+
+      // 3. Merge Local Data (isDownloaded & localPath) into Server Data
+      const merged = serverGames.map((game: any) => ({
+        ...game,
+        isDownloaded: localStatus[game.id]?.downloaded || false,
+        localPath: localStatus[game.id]?.path || null,
+      }));
+
+      setGames(merged);
+    } catch (error) {
+      console.error("Failed to sync games:", error);
+      toast.error("Failed to load library");
+    } finally {
+      setIsLoading(false);
     }
-  }, [active]);
+  }, []);
 
-  const backdropClass = isDarkMode ? "bg-[#0E052A]/80" : "bg-[#F5F5FF]/68";
+  useEffect(() => {
+    if (active) fetchAndSyncGames();
+  }, [active, fetchAndSyncGames]);
+
+  const handleViewDetails = async (game) => {
+    setSelectedGame(game);
+    try {
+      await api.put(`/published-games/${game.id}/view`);
+    } catch (err) {
+      console.error("View increment failed");
+    }
+  };
+
   const modalBgClass = isDarkMode ? "bg-[#0E052A]" : "bg-white";
+  const backdropClass = isDarkMode ? "bg-[#0E052A]/80" : "bg-[#F5F5FF]/68";
 
   if (!active) return null;
 
   return (
     <div
-      className={`fixed w-full h-full top-0 left-0 z-[100] flex justify-center items-center backdrop-blur-sm transition-colors duration-300 ${backdropClass}`}
+      className={`fixed w-full h-full top-0 left-0 z-[100] flex justify-center items-center backdrop-blur-sm ${backdropClass}`}
     >
       <div
         ref={divref}
-        className={`rounded-3xl shadow-2xl min-w-6xl w-[60vw] max-w-6xl h-[75vh] py-4 px-4 transition-colors duration-300 ${modalBgClass}`}
+        className={`rounded-3xl shadow-2xl min-w-6xl w-[60vw] max-w-6xl h-[75vh] overflow-hidden flex flex-col transition-colors duration-300 ${modalBgClass}`}
       >
-        <div className="flex flex-col mx-auto w-full h-full space-y-2">
-          <div className="flex flex-col pt-4">
-            {/* Navigation can go here */}
-          </div>
-
-          <div className="w-full h-full overflow-y-auto pr-4">
-            {isLoading ? (
-              // State 1: Show skeleton cards while loading
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {Array.from({ length: 12 }).map((_, index) => (
-                  <SkeletonCard key={index} isDarkMode={isDarkMode} />
-                ))}
-              </div>
-            ) : games.length > 0 ? (
-              // State 2: Show game cards once data is loaded
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {games.map((game) => (
-                  <SavedItem
-                    key={game.id}
-                    isDarkMode={isDarkMode}
-                    game={game}
-                  />
-                ))}
-              </div>
-            ) : (
-              // State 3: Show message if no games are available
-              <div className="flex items-center justify-center h-full">
-                <p className="text-gray-400 text-lg">No games available.</p>
-              </div>
-            )}
-          </div>
+        <div className="flex-1 overflow-y-auto p-8">
+          {isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <SkeletonCard key={i} isDarkMode={isDarkMode} />
+              ))}
+            </div>
+          ) : selectedGame ? (
+            <GameDetailsView
+              game={selectedGame}
+              onBack={() => setSelectedGame(null)}
+              onRefresh={fetchAndSyncGames}
+            />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+              {games.map((game) => (
+                <GameCard
+                  key={game.id}
+                  isDarkMode={isDarkMode}
+                  game={game}
+                  onViewDetails={() => handleViewDetails(game)}
+                  onRefresh={fetchAndSyncGames}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// --- Component for a single Game Item card ---
-const SavedItem = ({ isDarkMode, game }) => {
-  const [isLaunching, setIsLaunching] = useState(false);
-  const cardBgClass = isDarkMode ? "bg-[#1C1041]" : "bg-[#EAEAEA]";
-  const [gamePath, setGamePath] = useState<string | null>(null);
-  const GAME_KEY = "gamePath";
+const GameCard = ({ isDarkMode, game, onViewDetails, onRefresh }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const cardBgClass = isDarkMode
+    ? "bg-[#1C1041]"
+    : "bg-white border border-gray-200";
+  const thumbnail = `https://app.cobox.co${game.thumbnail}`;
+  const launchWithSecret = async (
+    currentMode: string,
+    type: string,
+    gameInstalled: boolean,
+    specificPath?: string // Pass the path directly after download
+  ) => {
+    const finalPath = specificPath || game.localPath;
 
-  useEffect(() => {
-    checkGameInstallation();
-
-    // ❌ 4. Remove the progress listener setup from here, it's now global
-    // window.electronAPI.onDownloadProgress((progress) => {
-    //   setDownloadProgress(progress);
-    // });
-  }, []);
-  const checkGameInstallation = async () => {
-    // ... (no changes in this function)
-    try {
-      const storedPath = localStorage.getItem(GAME_KEY);
-      if (storedPath) {
-        const status = await window.electronAPI.checkGameInstallation(
-          storedPath
-        );
-        if (status.installed) {
-          setGamePath(storedPath);
-        } else {
-          localStorage.removeItem(GAME_KEY);
-        }
-      }
-    } catch (error) {
-      console.error("Error checking game installation:", error);
-    }
-  };
-
-  const handlePlay = async () => {
-    if (!game || !game.data) {
-      toast.error("Game data is missing.");
+    if (!gameInstalled || !finalPath) {
+      toast.error("Game files not found. Please download again.");
       return;
     }
 
-    setIsLaunching(true);
     try {
-      // 2. Prepare the updates for the worker.json file
-      const workerUpdates = {
-        type: "playgame",
-        mode: "play",
-        data: game.data, // This is the JSON from the 'data' field of the game object
-      };
-
-      // 3. Call the IPC handler to update the file
-      await window.electronAPI.updateWorker({
-        path: gamePath,
-        updates: workerUpdates,
+      // 1. Update worker.json so the engine knows what to load
+      const workerResult = await window.electronAPI.updateWorker({
+        path: "",
+        updates: {
+          mode: currentMode, // "play"
+          type: type, // "playgame"
+          currentGamePath: finalPath,
+          activeGameId: game.id,
+        },
       });
 
-      // 4. Call the IPC handler to launch the game's executable
-      await window.electronAPI.launchGame(gamePath);
-    } catch (error) {
-      console.error("Failed to launch game:", error);
-      toast.error(`There was an error launching ${game.title}.`);
+      if (!workerResult.success)
+        throw new Error("Failed to update game configuration.");
+
+      // 3. Trigger the actual executable launch
+      const launchResult = await window.electronAPI.launchGame();
+
+      if (!launchResult.success) {
+        console.error("Launch failed:", launchResult.error);
+        toast.error(`Launch failed: ${launchResult.error}`);
+      } else {
+        toast.success(`Launching ${game.title}...`);
+      }
+    } catch (error: any) {
+      console.error("Launch error:", error);
+      toast.error(error.message || "An error occurred during launch.");
+    }
+  };
+  const handlePlayAction = async () => {
+    setIsProcessing(true);
+    let currentLocalPath = game.localPath;
+    const isFirstTimeDownload = !game.isDownloaded; // Capture initial state
+
+    try {
+      // 1. Download only if not present
+      if (isFirstTimeDownload) {
+        toast.loading("Downloading game files...", { id: "game-action" });
+        const result = await window.electronAPI.downloadLiveGame({
+          url: `https://app.cobox.co${game.file_path}`,
+          gameId: game.id,
+          title: game.title,
+        });
+
+        if (!result.success) throw new Error(result.error);
+        currentLocalPath = result.path;
+
+        // 2. Increment Install on Server ONLY for first-time downloads
+        // We do this inside the block so it only runs once per machine
+        await api.put(`/published-games/${game.id}/install`);
+        toast.success("Download complete!", { id: "game-action" });
+      }
+
+      // 3. Launch with the secret/config setup
+      // This runs every time, whether it was just downloaded or already existed
+      await launchWithSecret("play", "playgame", true, currentLocalPath);
+
+      if (!isFirstTimeDownload) {
+        toast.success("Launching game...", { id: "game-action" });
+      }
+
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to launch", { id: "game-action" });
     } finally {
-      setIsLaunching(false);
+      setIsProcessing(false);
     }
   };
 
   return (
     <div
-      className={`group relative aspect-video rounded-xl transition-colors duration-300 overflow-hidden cursor-pointer ${cardBgClass}`}
+      className={`flex flex-col rounded-xl overflow-hidden pb-4 shadow-sm hover:shadow-md transition-all ${cardBgClass} h-[260px] relative`}
     >
-      {/* Overlay with Play Button - appears on hover */}
-      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex justify-center items-center">
-        <button
-          onClick={handlePlay}
-          disabled={isLaunching}
-          className="bg-purple-600 text-white font-bold py-2 px-6 rounded-full transform hover:scale-105 transition-transform duration-200 shadow-lg disabled:bg-purple-800 disabled:cursor-not-allowed flex items-center"
-        >
-          {isLaunching ? (
-            <>
-              <svg
-                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              Launching...
-            </>
-          ) : (
-            "Play"
-          )}
-        </button>
+      {game.isDownloaded && (
+        <div className="absolute top-2 left-2 z-10 bg-green-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-lg">
+          <CheckCircle size={10} /> ON DISK
+        </div>
+      )}
+
+      <div className="relative h-32 w-full shrink-0">
+        <img
+          src={thumbnail}
+          alt={game.title}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1">
+          <Eye size={10} /> {game.view_count || 0}
+        </div>
       </div>
 
-      {/* Game Title */}
-      <div className="absolute bottom-0 left-0 p-3 w-full bg-gradient-to-t from-black/70 to-transparent">
-        <h4 className="text-white font-semibold truncate">{game.title}</h4>
+      <div className="p-3 flex flex-col flex-1 justify-between">
+        <div className="space-y-0.5">
+          <h4
+            className={`font-bold text-sm truncate ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
+            {game.title}
+          </h4>
+          <p className="text-[10px] text-[#8267D2] font-bold uppercase tracking-tight">
+            By {game.author_name}
+          </p>
+          <p
+            className={`text-[11px] line-clamp-2 mt-1 leading-snug ${
+              isDarkMode ? "text-gray-400" : "text-gray-600"
+            }`}
+          >
+            {game.description || "No description provided."}
+          </p>
+        </div>
+
+        <div className="flex gap-1.5 mt-2">
+          <button
+            onClick={handlePlayAction}
+            disabled={isProcessing}
+            className={`flex-1 py-3 cursor-pointer rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all text-white ${
+              game.isDownloaded
+                ? "bg-green-600 hover:bg-green-700"
+                : "bg-[#8267D2] hover:brightness-110"
+            } disabled:opacity-50`}
+          >
+            {isProcessing ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : game.isDownloaded ? (
+              <Play size={12} fill="white" />
+            ) : (
+              <Download size={12} />
+            )}
+            {game.isDownloaded ? "Play" : "Download"}
+          </button>
+          <button
+            onClick={onViewDetails}
+            className={`px-3 py-3 rounded-lg border transition-all flex items-center cursor-pointer justify-center ${
+              isDarkMode
+                ? "border-white/10 text-white hover:bg-white/5"
+                : "border-gray-200 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            <Info size={14} />
+          </button>
+        </div>
       </div>
     </div>
   );
 };
 
-// --- Component for the loading skeleton ---
-const SkeletonCard = ({ isDarkMode }) => {
-  const cardBgClass = isDarkMode ? "bg-[#1C1041]/50" : "bg-[#EAEAEA]";
+const GameDetailsView = ({ game, onBack, onRefresh }) => {
+  const { isDarkMode } = useDarkMode();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const thumbnail = `https://app.cobox.co${game.thumbnail}`;
+
+  const launchWithSecret = async (
+    currentMode: string,
+    type: string,
+    gameInstalled: boolean,
+    specificPath?: string // Pass the path directly after download
+  ) => {
+    const finalPath = specificPath || game.localPath;
+
+    if (!gameInstalled || !finalPath) {
+      toast.error("Game files not found. Please download again.");
+      return;
+    }
+
+    try {
+      // 1. Update worker.json so the engine knows what to load
+      const workerResult = await window.electronAPI.updateWorker({
+        path: "",
+        updates: {
+          mode: currentMode, // "play"
+          type: type, // "playgame"
+          currentGamePath: finalPath,
+          activeGameId: game.id,
+        },
+      });
+
+      if (!workerResult.success)
+        throw new Error("Failed to update game configuration.");
+
+      // 3. Trigger the actual executable launch
+      const launchResult = await window.electronAPI.launchGame();
+
+      if (!launchResult.success) {
+        console.error("Launch failed:", launchResult.error);
+        toast.error(`Launch failed: ${launchResult.error}`);
+      } else {
+        toast.success(`Launching ${game.title}...`);
+      }
+    } catch (error: any) {
+      console.error("Launch error:", error);
+      toast.error(error.message || "An error occurred during launch.");
+    }
+  };
+  const handlePlayAction = async () => {
+    setIsProcessing(true);
+    let currentLocalPath = game.localPath;
+    const isFirstTimeDownload = !game.isDownloaded; // Capture initial state
+
+    try {
+      // 1. Download only if not present
+      if (isFirstTimeDownload) {
+        toast.loading("Downloading game files...", { id: "game-action" });
+        const result = await window.electronAPI.downloadLiveGame({
+          url: `https://app.cobox.co${game.file_path}`,
+          gameId: game.id,
+          title: game.title,
+        });
+
+        if (!result.success) throw new Error(result.error);
+        currentLocalPath = result.path;
+
+        // 2. Increment Install on Server ONLY for first-time downloads
+        // We do this inside the block so it only runs once per machine
+        await api.put(`/published-games/${game.id}/install`);
+        toast.success("Download complete!", { id: "game-action" });
+      }
+
+      // 3. Launch with the secret/config setup
+      // This runs every time, whether it was just downloaded or already existed
+      await launchWithSecret("play", "playgame", true, currentLocalPath);
+
+      if (!isFirstTimeDownload) {
+        toast.success("Launching game...", { id: "game-action" });
+      }
+
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to launch", { id: "game-action" });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
-    <div className={`aspect-video rounded-xl animate-pulse ${cardBgClass}`} />
+    <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+      <button
+        onClick={onBack}
+        className="flex items-center text-[#8267D2] cursor-pointer font-bold mb-6 group"
+      >
+        <ArrowLeft
+          size={20}
+          className="mr-2 group-hover:-translate-x-1 transition-transform"
+        />
+        Back to Library
+      </button>
+
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
+        <div className="md:col-span-5">
+          <div className="relative">
+            <img
+              src={thumbnail}
+              alt={game.title}
+              className="w-full aspect-video rounded-3xl object-cover shadow-2xl border-4 border-[#8267D2]/20"
+            />
+            {game.isDownloaded && (
+              <div className="absolute top-4 left-4 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                READY TO PLAY
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handlePlayAction}
+            disabled={isProcessing}
+            className="w-full mt-6 cursor-pointer bg-[#8267D2] text-white py-4 rounded-2xl font-black text-xl flex items-center justify-center gap-3 hover:brightness-110 shadow-lg transition-all disabled:opacity-50"
+          >
+            {isProcessing ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <Play size={24} fill="white" />
+            )}
+            {game.isDownloaded ? "PLAY NOW" : "DOWNLOAD & PLAY"}
+          </button>
+        </div>
+
+        <div className="md:col-span-7 space-y-6">
+          <h1
+            className={`text-4xl font-black ${
+              isDarkMode ? "text-white" : "text-gray-900"
+            }`}
+          >
+            {game.title}
+          </h1>
+          <div className="flex flex-wrap gap-4">
+            <div className="bg-[#8267D2]/10 px-4 py-2 rounded-full flex items-center gap-2 text-[#8267D2] font-bold text-sm">
+              <User size={16} /> {game.author_name}
+            </div>
+            <div className="bg-gray-500/10 px-4 py-2 rounded-full flex items-center gap-2 text-gray-500 font-bold text-sm">
+              <Eye size={16} /> {game.view_count} Views
+            </div>
+            <div className="bg-gray-500/10 px-4 py-2 rounded-full flex items-center gap-2 text-gray-500 font-bold text-sm">
+              <Calendar size={16} />{" "}
+              {new Date(game.created_at).toLocaleDateString()}
+            </div>
+          </div>
+          <div className="space-y-3">
+            <h3
+              className={`text-xl font-bold ${
+                isDarkMode ? "text-gray-200" : "text-gray-700"
+              }`}
+            >
+              About the game
+            </h3>
+            <p
+              className={`text-lg leading-relaxed ${
+                isDarkMode ? "text-gray-400" : "text-gray-600"
+              }`}
+            >
+              {game.description || "No description provided."}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
