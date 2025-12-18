@@ -2,7 +2,74 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 
 console.log("Preload script is loading...");
+interface ServerVersionData {
+  version: string;
+  link: string; // The download URL
+}
 
+interface GameStatus {
+  installed: boolean;
+  path?: string;
+  version?: string;
+}
+export interface PublishGamePayload {
+  filePath: string; // The absolute system path (e.g., /Users/sarthak/Downloads/game.sav)
+  thumbnailBase64: string; // The base64 string from the preview state
+  metadata: {
+    id: string | number;
+    userId: string | number;
+    title: string;
+    authorName: string;
+    description: string;
+    token?: string; // JWT for API authentication
+  };
+}
+
+// The response received from the Electron Main process
+export interface IpcResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+interface ElectronAPI {
+  getServerVersion: () => Promise<ServerVersionData | null>;
+  chooseInstallPath: () => Promise<string | null>;
+  downloadGame: (params: { url: string; targetDir: string }) => Promise<string>;
+  launchGame: () => Promise<{ success: boolean; error?: string }>;
+  getGameInstallationStatus: () => Promise<GameStatus>;
+  updateWorker: (data: {
+    path: string;
+    updates: Record<string, any>;
+  }) => Promise<{ success: boolean }>;
+  createSecret: (data: Record<string, any>) => Promise<{ success: boolean }>;
+  updateSecret: (data: Record<string, any>) => Promise<{ success: boolean }>;
+  // Utils
+  openExternal: (url: string) => Promise<{ success: boolean }>;
+  onDownloadProgress: (callback: (progress: number) => void) => void;
+
+  // Updater
+  checkForUpdates: () => Promise<any>;
+  installUpdate: () => Promise<void>;
+  onUpdateEvent: (callback: (channel: string, data: any) => void) => void;
+  removeUpdateListener: () => void;
+  publishGameFull: (payload: PublishGamePayload) => Promise<IpcResponse>;
+  getLocalLibraryGames: () => Promise<
+    Array<{
+      id: string;
+      name: string;
+      path: string;
+      createdAt: Date;
+      modifiedAt: Date;
+    }>
+  >;
+}
+
+declare global {
+  interface Window {
+    electronAPI: ElectronAPI;
+  }
+}
 const electronAPI = {
   // ==================== NEW FLOW FUNCTIONS ====================
 
@@ -73,9 +140,33 @@ const electronAPI = {
   },
 
   // ==================== UPDATER (AutoUpdater) ====================
-
+  publishGameFull: (payload: PublishGamePayload): Promise<IpcResponse> =>
+    ipcRenderer.invoke("publish-game-full", payload),
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
+
+  /**
+   * Downloads a game and saves it to the /live_games folder
+   * @param {Object} data - { url, gameId, title }
+   */
+  downloadLiveGame: (data) => ipcRenderer.invoke("download-live-game", data),
+
+  /**
+   * Checks the download status for an array of game IDs
+   * @param {Array<string>} gameIds - List of IDs to check locally
+   */
+  checkDownloadStatus: (gameIds) =>
+    ipcRenderer.invoke("check-download-status", gameIds),
+
+  getLocalLibraryGames: (): Promise<
+    Array<{
+      id: string;
+      name: string;
+      path: string;
+      createdAt: Date;
+      modifiedAt: Date;
+    }>
+  > => ipcRenderer.invoke("get-local-library-games"),
 
   // Helper to store listeners so they can be removed
   _updateListeners: new Map<
@@ -94,6 +185,9 @@ const electronAPI = {
       "update-worker",
       "update-secret",
       "create-secret",
+      "publish-game-full",
+      "download-live-game",
+      "check-download-status",
     ];
 
     channels.forEach((channel) => {
@@ -124,6 +218,9 @@ const electronAPI = {
       "update-worker",
       "update-secret",
       "create-secret",
+      "publish-game-full",
+      "download-live-game",
+      "check-download-status",
     ];
 
     channels.forEach((channel) => {

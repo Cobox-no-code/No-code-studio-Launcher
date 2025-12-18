@@ -1,5 +1,6 @@
 "use client";
 import GamesModal from "@/components/GamesModal";
+import PublishModal from "@/components/PublishModal";
 import UpdateModal from "@/components/UpdateModal";
 import { useDarkMode } from "@/context/DarkModeContext";
 import { useDownload } from "@/context/ProgressContext";
@@ -9,7 +10,7 @@ import {
   ToggleDarkMode,
   ToggleMode,
 } from "@/utils/icons";
-import { Gamepad2Icon } from "lucide-react";
+import { Folder, Gamepad2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -22,6 +23,25 @@ interface GameStatus {
   installed: boolean;
   path?: string;
   version?: string;
+}
+export interface PublishGamePayload {
+  filePath: string; // The absolute system path (e.g., /Users/sarthak/Downloads/game.sav)
+  thumbnailBase64: string; // The base64 string from the preview state
+  metadata: {
+    id: string | number;
+    userId: string | number;
+    title: string;
+    authorName: string;
+    description: string;
+    token?: string; // JWT for API authentication
+  };
+}
+
+// The response received from the Electron Main process
+export interface IpcResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
 }
 
 interface ElectronAPI {
@@ -45,6 +65,33 @@ interface ElectronAPI {
   installUpdate: () => Promise<void>;
   onUpdateEvent: (callback: (channel: string, data: any) => void) => void;
   removeUpdateListener: () => void;
+  publishGameFull: (payload: PublishGamePayload) => Promise<IpcResponse>;
+
+  downloadLiveGame: (params: {
+    url: string;
+    gameId: string;
+    title: string;
+  }) => Promise<{ success: boolean; path: string; error?: string }>;
+
+  /** Checks local /live_games folder for an array of IDs */
+  checkDownloadStatus: (gameIds: string[]) => Promise<
+    Record<
+      string,
+      {
+        downloaded: boolean;
+        path: string | null;
+      }
+    >
+  >;
+  getLocalLibraryGames: () => Promise<
+    Array<{
+      id: string;
+      name: string;
+      path: string;
+      createdAt: Date;
+      modifiedAt: Date;
+    }>
+  >;
 }
 
 declare global {
@@ -57,6 +104,7 @@ export default function Home() {
   const { isDarkMode, toggleDarkMode } = useDarkMode();
 
   const [gameModal, setGameModal] = useState(false);
+  const [publishModal, setPublishModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   const { isDownloading, downloadProgress, startDownload, finishDownload } =
@@ -246,13 +294,21 @@ export default function Home() {
       <img className="absolute inset-0 z-50" src="./home.png" alt="" />
 
       <GamesModal active={gameModal} setActive={setGameModal} />
+      <PublishModal active={publishModal} setActive={setPublishModal} />
 
-      {mode === "play" && (
+      {mode === "play" && gameInstalled ? (
         <button
           onClick={() => setGameModal(true)}
-          className="flex gap-2 z-60 absolute top-[2rem] left-8 p-2 rounded-lg bg-white text-sm font-medium text-black shadow-md hover:bg-gray-100 transition"
+          className="flex gap-2 z-60 absolute top-[2rem] left-8 p-2 rounded-lg items-center justify-center bg-white text-sm font-medium text-black shadow-md hover:bg-gray-100 transition"
         >
-          <Gamepad2Icon /> Explore
+          <Gamepad2Icon /> Discover Games
+        </button>
+      ) : (
+        <button
+          onClick={() => setPublishModal(true)}
+          className="flex gap-2 z-60 absolute top-[2rem] left-8 p-3 items-center justify-center rounded-lg bg-white text-sm font-medium text-black shadow-md hover:bg-gray-100 transition"
+        >
+          <Folder /> My Games
         </button>
       )}
 
