@@ -538,8 +538,13 @@ ipcMain.handle("install-update", async () => {
 });
 
 // Live games logic
-
-const liveGamesDir = path.join(appDataPath, "live_games");
+const LOCAL_SAVE_PATH = path.join(
+  process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"),
+  "NoCodeStudio",
+  "Saved",
+  "SaveGames"
+);
+const liveGamesDir = path.join(LOCAL_SAVE_PATH, "live_games");
 
 // Helper function to ensure directory exists
 function ensureLiveGamesDir() {
@@ -548,6 +553,7 @@ function ensureLiveGamesDir() {
     console.log("Created directory:", liveGamesDir);
   }
 }
+
 ipcMain.handle("download-live-game", async (event, { url, gameId, title }) => {
   ensureLiveGamesDir(); // Safety check
 
@@ -605,14 +611,6 @@ ipcMain.handle("check-download-status", async (event, gameIds: string[]) => {
     return {};
   }
 });
-
-//Publishing Games
-const LOCAL_SAVE_PATH = path.join(
-  process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"),
-  "NoCodeStudio",
-  "Saved",
-  "SaveGames"
-);
 
 ipcMain.handle("get-local-library-games", async () => {
   try {
