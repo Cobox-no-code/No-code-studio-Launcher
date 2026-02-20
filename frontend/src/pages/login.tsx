@@ -17,7 +17,7 @@ export default function Login() {
   const handleLogin = async () => {
     const tokenId = uuidv4();
     localStorage.setItem("verification-token", tokenId);
-    const loginUrl = `https://login.cobox.co/?tokenId=${tokenId}`;
+    const loginUrl = `https://www.cobox.games/login?tokenId=${tokenId}`;
 
     if (window.electronAPI?.openExternal) {
       await window.electronAPI.openExternal(loginUrl);
@@ -44,7 +44,7 @@ export default function Login() {
       try {
         const response = await axios.post(
           `${BACKEND_URL}/users/verify-launcher`,
-          { verificationToken: tokenId }
+          { verificationToken: tokenId },
         );
 
         if (response.data) {

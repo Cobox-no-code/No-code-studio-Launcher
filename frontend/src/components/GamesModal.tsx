@@ -15,10 +15,9 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
-// --- Hook for clicking outside ---
 function useOnClickOutside(
   ref: React.RefObject<HTMLElement>,
-  handler: () => void
+  handler: () => void,
 ) {
   useEffect(() => {
     const listener = (event: MouseEvent | TouchEvent) => {
@@ -50,22 +49,29 @@ export default function GamesModal({ active, setActive }) {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedGame, setSelectedGame] = useState(null);
 
-  useOnClickOutside(divref, () => setActive(false));
+  // ✅ FIX: Reset selectedGame when modal closes so reopening always shows the grid
+  useOnClickOutside(divref, () => {
+    setSelectedGame(null); // reset detail view
+    setActive(false);
+  });
+
+  // Also reset when active changes to false from parent (e.g. ESC key or external close)
+  useEffect(() => {
+    if (!active) {
+      setSelectedGame(null);
+    }
+  }, [active]);
 
   const fetchAndSyncGames = useCallback(async () => {
     setIsLoading(true);
     try {
-      // 1. Fetch from Server
       const response = await api.get("/published-games");
       const serverGames = response.data;
 
-      // 2. Check Local Status via IPC (Passing array of IDs)
       const serverIds = serverGames.map((g: any) => g.id);
-      const localStatus = await window.electronAPI.checkDownloadStatus(
-        serverIds
-      );
+      const localStatus =
+        await window.electronAPI.checkDownloadStatus(serverIds);
 
-      // 3. Merge Local Data (isDownloaded & localPath) into Server Data
       const merged = serverGames.map((game: any) => ({
         ...game,
         isDownloaded: localStatus[game.id]?.downloaded || false,
@@ -145,55 +151,46 @@ const GameCard = ({ isDarkMode, game, onViewDetails, onRefresh }) => {
     ? "bg-[#1C1041]"
     : "bg-white border border-gray-200";
   const thumbnail = `https://app.cobox.co${game.thumbnail}`;
+
   const launchWithSecret = async (
     currentMode: string,
     type: string,
     gameInstalled: boolean,
-    specificPath?: string // Pass the path directly after download
+    specificPath?: string,
   ) => {
     const finalPath = specificPath || game.localPath;
-
     if (!gameInstalled || !finalPath) {
       toast.error("Game files not found. Please download again.");
       return;
     }
-
     try {
-      // 1. Update worker.json so the engine knows what to load
       const workerResult = await window.electronAPI.updateWorker({
         path: "",
         updates: {
-          mode: currentMode, // "play"
-          type: type, // "playgame"
+          mode: currentMode,
+          type: type,
           currentGamePath: finalPath,
           activeGameId: game.id,
         },
       });
-
       if (!workerResult.success)
         throw new Error("Failed to update game configuration.");
-
-      // 3. Trigger the actual executable launch
       const launchResult = await window.electronAPI.launchGame();
-
       if (!launchResult.success) {
-        console.error("Launch failed:", launchResult.error);
         toast.error(`Launch failed: ${launchResult.error}`);
       } else {
         toast.success(`Launching ${game.title}...`);
       }
     } catch (error: any) {
-      console.error("Launch error:", error);
       toast.error(error.message || "An error occurred during launch.");
     }
   };
+
   const handlePlayAction = async () => {
     setIsProcessing(true);
     let currentLocalPath = game.localPath;
-    const isFirstTimeDownload = !game.isDownloaded; // Capture initial state
-
+    const isFirstTimeDownload = !game.isDownloaded;
     try {
-      // 1. Download only if not present
       if (isFirstTimeDownload) {
         toast.loading("Downloading game files...", { id: "game-action" });
         const result = await window.electronAPI.downloadLiveGame({
@@ -201,24 +198,15 @@ const GameCard = ({ isDarkMode, game, onViewDetails, onRefresh }) => {
           gameId: game.id,
           title: game.title,
         });
-
         if (!result.success) throw new Error(result.error);
         currentLocalPath = result.path;
-
-        // 2. Increment Install on Server ONLY for first-time downloads
-        // We do this inside the block so it only runs once per machine
         await api.put(`/published-games/${game.id}/install`);
         toast.success("Download complete!", { id: "game-action" });
       }
-
-      // 3. Launch with the secret/config setup
-      // This runs every time, whether it was just downloaded or already existed
       await launchWithSecret("play", "playgame", true, currentLocalPath);
-
       if (!isFirstTimeDownload) {
         toast.success("Launching game...", { id: "game-action" });
       }
-
       onRefresh();
     } catch (err: any) {
       toast.error(err.message || "Failed to launch", { id: "game-action" });
@@ -236,7 +224,6 @@ const GameCard = ({ isDarkMode, game, onViewDetails, onRefresh }) => {
           <CheckCircle size={10} /> ON DISK
         </div>
       )}
-
       <div className="relative h-32 w-full shrink-0">
         <img
           src={thumbnail}
@@ -247,13 +234,10 @@ const GameCard = ({ isDarkMode, game, onViewDetails, onRefresh }) => {
           <Eye size={10} /> {game.view_count || 0}
         </div>
       </div>
-
       <div className="p-3 flex flex-col flex-1 justify-between">
         <div className="space-y-0.5">
           <h4
-            className={`font-bold text-sm truncate ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
+            className={`font-bold text-sm truncate ${isDarkMode ? "text-white" : "text-gray-900"}`}
           >
             {game.title}
           </h4>
@@ -261,14 +245,11 @@ const GameCard = ({ isDarkMode, game, onViewDetails, onRefresh }) => {
             By {game.author_name}
           </p>
           <p
-            className={`text-[11px] line-clamp-2 mt-1 leading-snug ${
-              isDarkMode ? "text-gray-400" : "text-gray-600"
-            }`}
+            className={`text-[11px] line-clamp-2 mt-1 leading-snug ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
           >
             {game.description || "No description provided."}
           </p>
         </div>
-
         <div className="flex gap-1.5 mt-2">
           <button
             onClick={handlePlayAction}
@@ -313,51 +294,41 @@ const GameDetailsView = ({ game, onBack, onRefresh }) => {
     currentMode: string,
     type: string,
     gameInstalled: boolean,
-    specificPath?: string // Pass the path directly after download
+    specificPath?: string,
   ) => {
     const finalPath = specificPath || game.localPath;
-
     if (!gameInstalled || !finalPath) {
       toast.error("Game files not found. Please download again.");
       return;
     }
-
     try {
-      // 1. Update worker.json so the engine knows what to load
       const workerResult = await window.electronAPI.updateWorker({
         path: "",
         updates: {
-          mode: currentMode, // "play"
-          type: type, // "playgame"
+          mode: currentMode,
+          type: type,
           currentGamePath: finalPath,
           activeGameId: game.id,
         },
       });
-
       if (!workerResult.success)
         throw new Error("Failed to update game configuration.");
-
-      // 3. Trigger the actual executable launch
       const launchResult = await window.electronAPI.launchGame();
-
       if (!launchResult.success) {
-        console.error("Launch failed:", launchResult.error);
         toast.error(`Launch failed: ${launchResult.error}`);
       } else {
         toast.success(`Launching ${game.title}...`);
       }
     } catch (error: any) {
-      console.error("Launch error:", error);
       toast.error(error.message || "An error occurred during launch.");
     }
   };
+
   const handlePlayAction = async () => {
     setIsProcessing(true);
     let currentLocalPath = game.localPath;
-    const isFirstTimeDownload = !game.isDownloaded; // Capture initial state
-
+    const isFirstTimeDownload = !game.isDownloaded;
     try {
-      // 1. Download only if not present
       if (isFirstTimeDownload) {
         toast.loading("Downloading game files...", { id: "game-action" });
         const result = await window.electronAPI.downloadLiveGame({
@@ -365,24 +336,15 @@ const GameDetailsView = ({ game, onBack, onRefresh }) => {
           gameId: game.id,
           title: game.title,
         });
-
         if (!result.success) throw new Error(result.error);
         currentLocalPath = result.path;
-
-        // 2. Increment Install on Server ONLY for first-time downloads
-        // We do this inside the block so it only runs once per machine
         await api.put(`/published-games/${game.id}/install`);
         toast.success("Download complete!", { id: "game-action" });
       }
-
-      // 3. Launch with the secret/config setup
-      // This runs every time, whether it was just downloaded or already existed
       await launchWithSecret("play", "playgame", true, currentLocalPath);
-
       if (!isFirstTimeDownload) {
         toast.success("Launching game...", { id: "game-action" });
       }
-
       onRefresh();
     } catch (err: any) {
       toast.error(err.message || "Failed to launch", { id: "game-action" });
@@ -403,7 +365,6 @@ const GameDetailsView = ({ game, onBack, onRefresh }) => {
         />
         Back to Library
       </button>
-
       <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
         <div className="md:col-span-5">
           <div className="relative">
@@ -431,12 +392,9 @@ const GameDetailsView = ({ game, onBack, onRefresh }) => {
             {game.isDownloaded ? "PLAY NOW" : "DOWNLOAD & PLAY"}
           </button>
         </div>
-
         <div className="md:col-span-7 space-y-6">
           <h1
-            className={`text-4xl font-black ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
+            className={`text-4xl font-black ${isDarkMode ? "text-white" : "text-gray-900"}`}
           >
             {game.title}
           </h1>
@@ -454,16 +412,12 @@ const GameDetailsView = ({ game, onBack, onRefresh }) => {
           </div>
           <div className="space-y-3">
             <h3
-              className={`text-xl font-bold ${
-                isDarkMode ? "text-gray-200" : "text-gray-700"
-              }`}
+              className={`text-xl font-bold ${isDarkMode ? "text-gray-200" : "text-gray-700"}`}
             >
               About the game
             </h3>
             <p
-              className={`text-lg leading-relaxed ${
-                isDarkMode ? "text-gray-400" : "text-gray-600"
-              }`}
+              className={`text-lg leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
             >
               {game.description || "No description provided."}
             </p>
