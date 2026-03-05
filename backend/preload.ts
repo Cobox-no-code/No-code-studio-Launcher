@@ -4,7 +4,7 @@ import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 console.log("Preload script is loading...");
 interface ServerVersionData {
   version: string;
-  link: string; // The download URL
+  link: string;
 }
 
 interface GameStatus {
@@ -13,19 +13,18 @@ interface GameStatus {
   version?: string;
 }
 export interface PublishGamePayload {
-  filePath: string; // The absolute system path (e.g., /Users/sarthak/Downloads/game.sav)
-  thumbnailBase64: string; // The base64 string from the preview state
+  filePath: string;
+  thumbnailBase64: string;
   metadata: {
     id: string | number;
     userId: string | number;
     title: string;
     authorName: string;
     description: string;
-    token?: string; // JWT for API authentication
+    token?: string;
   };
 }
 
-// The response received from the Electron Main process
 export interface IpcResponse<T = any> {
   success: boolean;
   data?: T;
@@ -44,11 +43,8 @@ interface ElectronAPI {
   }) => Promise<{ success: boolean }>;
   createSecret: (data: Record<string, any>) => Promise<{ success: boolean }>;
   updateSecret: (data: Record<string, any>) => Promise<{ success: boolean }>;
-  // Utils
   openExternal: (url: string) => Promise<{ success: boolean }>;
   onDownloadProgress: (callback: (progress: number) => void) => void;
-
-  // Updater
   checkForUpdates: () => Promise<any>;
   installUpdate: () => Promise<void>;
   onUpdateEvent: (callback: (channel: string, data: any) => void) => void;
@@ -63,6 +59,18 @@ interface ElectronAPI {
       modifiedAt: Date;
     }>
   >;
+  downloadLiveGame: (params: {
+    url: string;
+    gameId: string;
+    title: string;
+  }) => Promise<{ success: boolean; path: string; error?: string }>;
+  checkDownloadStatus: (
+    gameIds: string[],
+  ) => Promise<Record<string, { downloaded: boolean; path: string | null }>>;
+  // ── NEW ──────────────────────────────────────────────────────────────────
+  deleteLiveGame: (params: {
+    gameId: string;
+  }) => Promise<{ success: boolean; error?: string }>;
 }
 
 declare global {
@@ -70,93 +78,51 @@ declare global {
     electronAPI: ElectronAPI;
   }
 }
+
 const electronAPI = {
-  // ==================== NEW FLOW FUNCTIONS ====================
-
-  /**
-   * Fetches game version and download link directly from server (Main Process).
-   */
   getServerVersion: () => ipcRenderer.invoke("get-server-version"),
-
-  /**
-   * Opens native dialog to pick folder. Returns string path or null.
-   */
   chooseInstallPath: () => ipcRenderer.invoke("choose-install-path"),
-
-  /**
-   * Downloads zip, extracts, finds EXE, and saves path to worker.json.
-   */
   downloadGame: (params: { url: string; targetDir: string }) =>
     ipcRenderer.invoke("download-game", params),
-
-  /**
-   * Launches the game using path stored in worker.json.
-   */
   launchGame: () => ipcRenderer.invoke("launch-game"),
-
-  /**
-   * Checks if game path in worker.json exists on disk.
-   */
   getGameInstallationStatus: () => ipcRenderer.invoke("get-game-status"),
-
-  /**
-   * Checks specific path (Legacy/Helper)
-   */
   checkGameInstallation: (gamePath: string) =>
     ipcRenderer.invoke("check-game-installation", gamePath),
-
   getDefaultInstallPath: () => ipcRenderer.invoke("get-default-install-path"),
-
-  // ==================== RESTORED SECRET/WORKER FUNCTIONS ====================
-
-  /**
-   * Updates keys in worker.json (mode, type, etc.)
-   */
   updateWorker: (data: { path: string; updates: Record<string, any> }) =>
     ipcRenderer.invoke("update-worker", data),
-
-  /**
-   * ✅ RESTORED: Create secret.json
-   */
   createSecret: (data: Record<string, any>) =>
     ipcRenderer.invoke("create-secret", data),
-
-  /**
-   * ✅ RESTORED: Update secret.json
-   */
   updateSecret: (data: Record<string, any>) =>
     ipcRenderer.invoke("update-secret", data),
-
-  // ==================== UTILS & EVENTS ====================
-
   openExternal: (url: string) => ipcRenderer.invoke("open-external", url),
-
   onDownloadProgress: (callback: (progress: number) => void) => {
-    // Remove existing listeners to prevent duplicate progress bars
     ipcRenderer.removeAllListeners("download-progress");
     ipcRenderer.on("download-progress", (_event, progress) => {
       callback(progress);
     });
   },
-
-  // ==================== UPDATER (AutoUpdater) ====================
   publishGameFull: (payload: PublishGamePayload): Promise<IpcResponse> =>
     ipcRenderer.invoke("publish-game-full", payload),
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
 
   /**
-   * Downloads a game and saves it to the /live_games folder
-   * @param {Object} data - { url, gameId, title }
+   * Downloads a live game .sav file and stores it in /live_games
    */
   downloadLiveGame: (data) => ipcRenderer.invoke("download-live-game", data),
 
   /**
-   * Checks the download status for an array of game IDs
-   * @param {Array<string>} gameIds - List of IDs to check locally
+   * Checks download status for an array of game IDs
    */
   checkDownloadStatus: (gameIds) =>
     ipcRenderer.invoke("check-download-status", gameIds),
+
+  /**
+   * Deletes the locally downloaded .sav file for a given gameId
+   */
+  deleteLiveGame: (data: { gameId: string }) =>
+    ipcRenderer.invoke("delete-live-game", data),
 
   getLocalLibraryGames: (): Promise<
     Array<{
@@ -168,7 +134,6 @@ const electronAPI = {
     }>
   > => ipcRenderer.invoke("get-local-library-games"),
 
-  // Helper to store listeners so they can be removed
   _updateListeners: new Map<
     string,
     (event: IpcRendererEvent, ...args: any[]) => void
@@ -181,27 +146,21 @@ const electronAPI = {
       "update-not-available",
       "update-downloaded",
       "update-error",
-      "download-progress", // Added this to general events too just in case
+      "download-progress",
       "update-worker",
       "update-secret",
       "create-secret",
       "publish-game-full",
       "download-live-game",
       "check-download-status",
+      "delete-live-game", // ← NEW
     ];
 
     channels.forEach((channel) => {
-      // Clean up previous listeners for this channel
       const oldListener = electronAPI._updateListeners.get(channel);
-      if (oldListener) {
-        ipcRenderer.removeListener(channel, oldListener);
-      }
-
-      // Create new listener
+      if (oldListener) ipcRenderer.removeListener(channel, oldListener);
       const listener = (_event: IpcRendererEvent, data: any) =>
         callback(channel, data);
-
-      // Register
       ipcRenderer.on(channel, listener);
       electronAPI._updateListeners.set(channel, listener);
     });
@@ -221,6 +180,7 @@ const electronAPI = {
       "publish-game-full",
       "download-live-game",
       "check-download-status",
+      "delete-live-game", // ← NEW
     ];
 
     channels.forEach((channel) => {
