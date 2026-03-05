@@ -73,6 +73,10 @@ interface ElectronAPI {
     title: string;
   }) => Promise<{ success: boolean; path: string; error?: string }>;
 
+  deleteLiveGame: (
+    gameId: any,
+  ) => Promise<{ success: boolean; error?: string }>;
+
   /** Checks local /live_games folder for an array of IDs */
   checkDownloadStatus: (gameIds: string[]) => Promise<
     Record<
@@ -141,7 +145,7 @@ export default function Home() {
           // If server version is different from local version
           if (serverData.version !== localStatus.version) {
             console.log(
-              `Update available! Local: ${localStatus.version}, Server: ${serverData.version}`
+              `Update available! Local: ${localStatus.version}, Server: ${serverData.version}`,
             );
             isLatestVersion = false;
 

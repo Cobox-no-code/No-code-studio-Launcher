@@ -59,7 +59,7 @@ function createWindow(): BrowserWindow {
     "console-message",
     (event, level, message, line, sourceId) => {
       console.log(`Renderer console [${level}]: ${message}`);
-    }
+    },
   );
 
   win.on("closed", () => {
@@ -138,7 +138,7 @@ app.on(
     } else {
       callback(false);
     }
-  }
+  },
 );
 
 function ensureDirectoryExists(dirPath: string): void {
@@ -321,6 +321,36 @@ ipcMain.handle("download-game", async (event, params) => {
   });
 });
 
+// ─── ADD THIS BLOCK right after the "check-download-status" ipcMain.handle ───
+// Place it between check-download-status and get-local-library-games
+
+ipcMain.handle(
+  "delete-live-game",
+  async (_event, { gameId }: { gameId: string }) => {
+    ensureLiveGamesDir();
+
+    try {
+      const files = fs.readdirSync(liveGamesDir);
+
+      // Find the file that starts with this gameId (format: gameId_safeTitle.sav)
+      const targetFile = files.find((file) => file.startsWith(`${gameId}_`));
+
+      if (!targetFile) {
+        // File not found on disk — treat as already deleted, return success
+        return { success: true };
+      }
+
+      const targetPath = path.join(liveGamesDir, targetFile);
+      fs.unlinkSync(targetPath);
+      console.log("Deleted live game file:", targetPath);
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("delete-live-game error:", err);
+      return { success: false, error: err.message };
+    }
+  },
+);
 // 3. Launch Game (No Arguments - Reads worker.json)
 // main.ts
 
@@ -437,7 +467,7 @@ ipcMain.handle("update-secret", async (_, updates: Record<string, any>) => {
         currentData = JSON.parse(fs.readFileSync(secretFile, "utf-8"));
       } catch (err) {
         console.warn(
-          "Failed to parse existing secret.json, it will be overwritten."
+          "Failed to parse existing secret.json, it will be overwritten.",
         );
       }
     }
@@ -542,7 +572,7 @@ const LOCAL_SAVE_PATH = path.join(
   process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"),
   "NoCodeStudio",
   "Saved",
-  "SaveGames"
+  "SaveGames",
 );
 const liveGamesDir = path.join(LOCAL_SAVE_PATH, "live_games");
 
@@ -574,7 +604,7 @@ ipcMain.handle("download-live-game", async (event, { url, gameId, title }) => {
     return new Promise((resolve, reject) => {
       writer.on("finish", () => resolve({ success: true, path: filePath }));
       writer.on("error", (err) =>
-        reject({ success: false, error: err.message })
+        reject({ success: false, error: err.message }),
       );
     });
   } catch (error: any) {
@@ -652,7 +682,7 @@ ipcMain.handle("get-local-library-games", async () => {
 
     // Sort by newest first using the date object
     return localGames.sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
     );
   } catch (error) {
     console.error("Failed to read local library:", error);

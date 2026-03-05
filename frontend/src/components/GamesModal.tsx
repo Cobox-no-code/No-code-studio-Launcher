@@ -10,6 +10,7 @@ import {
   Info,
   Loader2,
   Play,
+  Trash2,
   User,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -49,17 +50,13 @@ export default function GamesModal({ active, setActive }) {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedGame, setSelectedGame] = useState(null);
 
-  // ✅ FIX: Reset selectedGame when modal closes so reopening always shows the grid
   useOnClickOutside(divref, () => {
-    setSelectedGame(null); // reset detail view
+    setSelectedGame(null);
     setActive(false);
   });
 
-  // Also reset when active changes to false from parent (e.g. ESC key or external close)
   useEffect(() => {
-    if (!active) {
-      setSelectedGame(null);
-    }
+    if (!active) setSelectedGame(null);
   }, [active]);
 
   const fetchAndSyncGames = useCallback(async () => {
@@ -100,22 +97,45 @@ export default function GamesModal({ active, setActive }) {
     }
   };
 
+  // ── Delete downloaded file from disk ──────────────────────────────────────
+  const handleDeleteDownload = async (gameId: any) => {
+    const toastId = toast.loading("Deleting local file...");
+    try {
+      const result = await window.electronAPI.deleteLiveGame({ gameId });
+      if (!result.success) throw new Error(result.error || "Delete failed");
+      toast.success("Local file removed.", { id: toastId });
+      // If we're in the detail view for this game, go back to grid first
+      if (selectedGame?.id === gameId) setSelectedGame(null);
+      await fetchAndSyncGames(); // re-sync to flip isDownloaded → false
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete file.", { id: toastId });
+    }
+  };
+
   const modalBgClass = isDarkMode ? "bg-[#0E052A]" : "bg-white";
-  const backdropClass = isDarkMode ? "bg-[#0E052A]/80" : "bg-[#F5F5FF]/68";
 
   if (!active) return null;
 
   return (
-    <div
-      className={`fixed w-full h-full top-0 left-0 z-[100] flex justify-center items-center backdrop-blur-sm ${backdropClass}`}
-    >
+    <div className="fixed w-full h-full top-0 left-0 z-[100] flex justify-center items-center backdrop-blur-sm bg-[#0E052A]/80">
       <div
         ref={divref}
-        className={`rounded-3xl shadow-2xl min-w-6xl w-[60vw] max-w-6xl h-[75vh] overflow-hidden flex flex-col transition-colors duration-300 ${modalBgClass}`}
+        className={`rounded-3xl shadow-2xl w-[85vw] max-w-7xl h-[78vh] py-6 px-8 flex flex-col ${modalBgClass}`}
       >
-        <div className="flex-1 overflow-y-auto p-8">
+        {/* Header */}
+        {!selectedGame && (
+          <div className="flex items-center justify-between mb-6">
+            <h2
+              className={`text-2xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}
+            >
+              Discover Games
+            </h2>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto pr-2">
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
                 <SkeletonCard key={i} isDarkMode={isDarkMode} />
               ))}
@@ -125,18 +145,29 @@ export default function GamesModal({ active, setActive }) {
               game={selectedGame}
               onBack={() => setSelectedGame(null)}
               onRefresh={fetchAndSyncGames}
+              onDeleteDownload={handleDeleteDownload}
             />
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          ) : games.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {games.map((game) => (
                 <GameCard
                   key={game.id}
-                  isDarkMode={isDarkMode}
                   game={game}
-                  onViewDetails={() => handleViewDetails(game)}
-                  onRefresh={fetchAndSyncGames}
+                  isDarkMode={isDarkMode}
+                  onViewDetails={handleViewDetails}
+                  onPlayAction={async (g) => {
+                    // Quick play from card — opens detail to handle download+launch
+                    handleViewDetails(g);
+                  }}
+                  onDeleteDownload={handleDeleteDownload}
                 />
               ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-[50vh] opacity-40">
+              <p className={isDarkMode ? "text-white" : "text-gray-900"}>
+                No games published yet.
+              </p>
             </div>
           )}
         </div>
@@ -145,85 +176,40 @@ export default function GamesModal({ active, setActive }) {
   );
 }
 
-const GameCard = ({ isDarkMode, game, onViewDetails, onRefresh }) => {
-  const [isProcessing, setIsProcessing] = useState(false);
-  const cardBgClass = isDarkMode
-    ? "bg-[#1C1041]"
-    : "bg-white border border-gray-200";
+// ─────────────────────────────────────────────────────────────────────────────
+// GameCard — grid item with optional "Delete from disk" button
+// ─────────────────────────────────────────────────────────────────────────────
+const GameCard = ({
+  game,
+  isDarkMode,
+  onViewDetails,
+  onPlayAction,
+  onDeleteDownload,
+}) => {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const cardBgClass = isDarkMode ? "bg-[#1C1041]" : "bg-[#F0F0F0]";
   const thumbnail = `https://app.cobox.co${game.thumbnail}`;
 
-  const launchWithSecret = async (
-    currentMode: string,
-    type: string,
-    gameInstalled: boolean,
-    specificPath?: string,
-  ) => {
-    const finalPath = specificPath || game.localPath;
-    if (!gameInstalled || !finalPath) {
-      toast.error("Game files not found. Please download again.");
-      return;
-    }
-    try {
-      const workerResult = await window.electronAPI.updateWorker({
-        path: "",
-        updates: {
-          mode: currentMode,
-          type: type,
-          currentGamePath: finalPath,
-          activeGameId: game.id,
-        },
-      });
-      if (!workerResult.success)
-        throw new Error("Failed to update game configuration.");
-      const launchResult = await window.electronAPI.launchGame();
-      if (!launchResult.success) {
-        toast.error(`Launch failed: ${launchResult.error}`);
-      } else {
-        toast.success(`Launching ${game.title}...`);
-      }
-    } catch (error: any) {
-      toast.error(error.message || "An error occurred during launch.");
-    }
-  };
-
-  const handlePlayAction = async () => {
-    setIsProcessing(true);
-    let currentLocalPath = game.localPath;
-    const isFirstTimeDownload = !game.isDownloaded;
-    try {
-      if (isFirstTimeDownload) {
-        toast.loading("Downloading game files...", { id: "game-action" });
-        const result = await window.electronAPI.downloadLiveGame({
-          url: `https://app.cobox.co${game.file_path}`,
-          gameId: game.id,
-          title: game.title,
-        });
-        if (!result.success) throw new Error(result.error);
-        currentLocalPath = result.path;
-        await api.put(`/published-games/${game.id}/install`);
-        toast.success("Download complete!", { id: "game-action" });
-      }
-      await launchWithSecret("play", "playgame", true, currentLocalPath);
-      if (!isFirstTimeDownload) {
-        toast.success("Launching game...", { id: "game-action" });
-      }
-      onRefresh();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to launch", { id: "game-action" });
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // don't bubble to card click
+    if (!window.confirm(`Remove "${game.title}" from your device?`)) return;
+    setIsDeleting(true);
+    await onDeleteDownload(game.id);
+    setIsDeleting(false);
   };
 
   return (
     <div
       className={`flex flex-col rounded-xl overflow-hidden pb-4 shadow-sm hover:shadow-md transition-all ${cardBgClass} h-[260px] relative`}
     >
+      {/* "ON DISK" badge */}
       {game.isDownloaded && (
         <div className="absolute top-2 left-2 z-10 bg-green-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-lg">
           <CheckCircle size={10} /> ON DISK
         </div>
       )}
+
+      {/* Thumbnail */}
       <div className="relative h-32 w-full shrink-0">
         <img
           src={thumbnail}
@@ -234,6 +220,8 @@ const GameCard = ({ isDarkMode, game, onViewDetails, onRefresh }) => {
           <Eye size={10} /> {game.view_count || 0}
         </div>
       </div>
+
+      {/* Info */}
       <div className="p-3 flex flex-col flex-1 justify-between">
         <div className="space-y-0.5">
           <h4
@@ -250,27 +238,29 @@ const GameCard = ({ isDarkMode, game, onViewDetails, onRefresh }) => {
             {game.description || "No description provided."}
           </p>
         </div>
+
+        {/* Action row */}
         <div className="flex gap-1.5 mt-2">
+          {/* Play / Download */}
           <button
-            onClick={handlePlayAction}
-            disabled={isProcessing}
+            onClick={() => onPlayAction(game)}
             className={`flex-1 py-3 cursor-pointer rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all text-white ${
               game.isDownloaded
                 ? "bg-green-600 hover:bg-green-700"
                 : "bg-[#8267D2] hover:brightness-110"
-            } disabled:opacity-50`}
+            }`}
           >
-            {isProcessing ? (
-              <Loader2 size={12} className="animate-spin" />
-            ) : game.isDownloaded ? (
+            {game.isDownloaded ? (
               <Play size={12} fill="white" />
             ) : (
               <Download size={12} />
             )}
             {game.isDownloaded ? "Play" : "Download"}
           </button>
+
+          {/* Info */}
           <button
-            onClick={onViewDetails}
+            onClick={() => onViewDetails(game)}
             className={`px-3 py-3 rounded-lg border transition-all flex items-center cursor-pointer justify-center ${
               isDarkMode
                 ? "border-white/10 text-white hover:bg-white/5"
@@ -279,15 +269,39 @@ const GameCard = ({ isDarkMode, game, onViewDetails, onRefresh }) => {
           >
             <Info size={14} />
           </button>
+
+          {/* Delete from disk — only when downloaded */}
+          {game.isDownloaded && (
+            <button
+              onClick={handleDelete}
+              disabled={isDeleting}
+              title="Remove from device"
+              className={`px-3 py-3 rounded-lg border transition-all flex items-center cursor-pointer justify-center disabled:opacity-50 ${
+                isDarkMode
+                  ? "border-red-500/30 text-red-400 hover:bg-red-500/10"
+                  : "border-red-200 text-red-500 hover:bg-red-50"
+              }`}
+            >
+              {isDeleting ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Trash2 size={14} />
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-const GameDetailsView = ({ game, onBack, onRefresh }) => {
+// ─────────────────────────────────────────────────────────────────────────────
+// GameDetailsView — full detail page with delete button
+// ─────────────────────────────────────────────────────────────────────────────
+const GameDetailsView = ({ game, onBack, onRefresh, onDeleteDownload }) => {
   const { isDarkMode } = useDarkMode();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const thumbnail = `https://app.cobox.co${game.thumbnail}`;
 
   const launchWithSecret = async (
@@ -353,6 +367,22 @@ const GameDetailsView = ({ game, onBack, onRefresh }) => {
     }
   };
 
+  const handleDeleteDownload = async () => {
+    if (
+      !window.confirm(
+        `Remove "${game.title}" from your device? You can re-download it anytime.`,
+      )
+    )
+      return;
+    setIsDeleting(true);
+    await onDeleteDownload(game.id);
+    // onDeleteDownload will navigate back to grid via GamesModal handler
+    setIsDeleting(false);
+  };
+
+  const headingClass = isDarkMode ? "text-white" : "text-gray-900";
+  const subClass = isDarkMode ? "text-gray-400" : "text-gray-600";
+
   return (
     <div className="animate-in fade-in slide-in-from-right-4 duration-300">
       <button
@@ -365,7 +395,9 @@ const GameDetailsView = ({ game, onBack, onRefresh }) => {
         />
         Back to Library
       </button>
+
       <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
+        {/* Left — image + primary actions */}
         <div className="md:col-span-5">
           <div className="relative">
             <img
@@ -379,9 +411,11 @@ const GameDetailsView = ({ game, onBack, onRefresh }) => {
               </div>
             )}
           </div>
+
+          {/* Play / Download button */}
           <button
             onClick={handlePlayAction}
-            disabled={isProcessing}
+            disabled={isProcessing || isDeleting}
             className="w-full mt-6 cursor-pointer bg-[#8267D2] text-white py-4 rounded-2xl font-black text-xl flex items-center justify-center gap-3 hover:brightness-110 shadow-lg transition-all disabled:opacity-50"
           >
             {isProcessing ? (
@@ -391,36 +425,60 @@ const GameDetailsView = ({ game, onBack, onRefresh }) => {
             )}
             {game.isDownloaded ? "PLAY NOW" : "DOWNLOAD & PLAY"}
           </button>
+
+          {/* ── Delete from disk button — only when downloaded ── */}
+          {game.isDownloaded && (
+            <button
+              onClick={handleDeleteDownload}
+              disabled={isDeleting || isProcessing}
+              className={`w-full mt-3 py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 border transition-all disabled:opacity-50 ${
+                isDarkMode
+                  ? "border-red-500/30 text-red-400 hover:bg-red-500/10"
+                  : "border-red-200 text-red-500 hover:bg-red-50"
+              }`}
+            >
+              {isDeleting ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Trash2 size={16} />
+              )}
+              {isDeleting ? "Removing..." : "Delete from Device"}
+            </button>
+          )}
         </div>
+
+        {/* Right — metadata */}
         <div className="md:col-span-7 space-y-6">
-          <h1
-            className={`text-4xl font-black ${isDarkMode ? "text-white" : "text-gray-900"}`}
-          >
-            {game.title}
-          </h1>
-          <div className="flex flex-wrap gap-4">
-            <div className="bg-[#8267D2]/10 px-4 py-2 rounded-full flex items-center gap-2 text-[#8267D2] font-bold text-sm">
-              <User size={16} /> {game.author_name}
-            </div>
-            <div className="bg-gray-500/10 px-4 py-2 rounded-full flex items-center gap-2 text-gray-500 font-bold text-sm">
-              <Eye size={16} /> {game.view_count} Views
-            </div>
-            <div className="bg-gray-500/10 px-4 py-2 rounded-full flex items-center gap-2 text-gray-500 font-bold text-sm">
-              <Calendar size={16} />{" "}
-              {new Date(game.created_at).toLocaleDateString()}
-            </div>
-          </div>
-          <div className="space-y-3">
-            <h3
-              className={`text-xl font-bold ${isDarkMode ? "text-gray-200" : "text-gray-700"}`}
-            >
-              About the game
-            </h3>
-            <p
-              className={`text-lg leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
-            >
-              {game.description || "No description provided."}
+          <div>
+            <h1 className={`text-4xl font-black ${headingClass}`}>
+              {game.title}
+            </h1>
+            <p className="text-[#8267D2] font-bold mt-1">
+              by {game.author_name}
             </p>
+          </div>
+
+          <p className={`text-sm leading-relaxed ${subClass}`}>
+            {game.description || "No description provided."}
+          </p>
+
+          <div className={`grid grid-cols-2 gap-4 text-sm ${subClass}`}>
+            <div className="flex items-center gap-2">
+              <Eye size={16} className="text-[#8267D2]" />
+              <span>{game.view_count || 0} views</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Download size={16} className="text-[#8267D2]" />
+              <span>{game.install_count || 0} downloads</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <User size={16} className="text-[#8267D2]" />
+              <span>{game.creator_name || game.author_name}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Calendar size={16} className="text-[#8267D2]" />
+              <span>{new Date(game.created_at).toLocaleDateString()}</span>
+            </div>
           </div>
         </div>
       </div>
