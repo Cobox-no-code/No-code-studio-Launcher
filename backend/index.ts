@@ -17,6 +17,17 @@ const BACKEND_URL = "https://api.cobox.games/api";
 const appDataPath = app.getPath("userData");
 let mainWindow: BrowserWindow | null = null;
 let activeGameProcess: ChildProcess | null = null;
+// main.ts — add these lines before any autoUpdater usage
+autoUpdater.autoDownload = false; // don't download without user consent
+autoUpdater.allowDowngrade = false;
+autoUpdater.allowPrerelease = false; // only stable releases
+
+// Force it to always check GitHub even in edge cases
+autoUpdater.setFeedURL({
+  provider: "github",
+  owner: "Cobox-no-code",
+  repo: "CoboxLauncher",
+});
 function createWindow(): BrowserWindow {
   const preloadPath = join(__dirname, "preload.js");
   console.log("Preload script path:", preloadPath);
