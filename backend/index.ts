@@ -29,7 +29,7 @@ autoUpdater.allowPrerelease = false; // only stable releases
 autoUpdater.setFeedURL({
   provider: "github",
   owner: "Cobox-no-code",
-  repo: "CoboxLauncher",
+  repo: "No-code-studio-Launcher",
 });
 function createWindow(): BrowserWindow {
   const preloadPath = join(__dirname, "preload.js");
