@@ -1,1 +1,1 @@
-export const BACKEND_URL = "https://app.cobox.co/api"; // Production backend URL
+export const BACKEND_URL = "https://api.cobox.games/api"; // Production backend URL
