@@ -44,7 +44,9 @@ function createWindow(): BrowserWindow {
 
   if (isDev) {
     win.loadURL("http://localhost:3000/");
+
   } else {
+  
     // Use app.getAppPath() instead of __dirname — survives asar updates
     const indexPath = join(app.getAppPath(), "frontend", "out", "index.html");
     win.loadFile(indexPath);

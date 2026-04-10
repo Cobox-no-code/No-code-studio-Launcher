@@ -98,7 +98,7 @@ export default function Settings() {
                   : "text-[#9F9F9F] hover:bg-[#EEEEEE]"
               }`}
             >
-              Logout
+              SignOut
             </button>
           </div>
 
@@ -392,7 +392,7 @@ const About = ({ isDarkMode }) => {
           <strong>Version:</strong> Alpha
         </p>
         <p>
-          <strong>Last Updated:</strong> August 2025
+          <strong>Last Updated:</strong> March 2026
         </p>
       </div>
 
