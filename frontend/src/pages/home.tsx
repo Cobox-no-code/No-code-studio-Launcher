@@ -208,6 +208,7 @@ export default function Home() {
       startDownload();
 
       const serverData = await window.electronAPI.getServerVersion();
+      console.log("Fetched server version data:", serverData);
       const downloadLink = serverData?.link || "https://default-bucket-url.zip";
       const version = serverData?.version || "1.0.0";
 

@@ -255,7 +255,8 @@ ipcMain.handle("get-server-version", async () => {
         res.on("end", () => {
           try {
             const parsed = JSON.parse(data);
-            resolve(parsed);
+            resolve(parsed.version);
+            console.log("Server version data:", parsed.version);
           } catch (e) {
             // If JSON parse fails, return null or mock for dev
             resolve(null);
