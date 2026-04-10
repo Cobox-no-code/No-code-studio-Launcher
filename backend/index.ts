@@ -13,7 +13,10 @@ import os from "os";
 import path from "path";
 import semver from "semver";
 import { initLogs, isDev, prepareNext } from "./utils";
-const BACKEND_URL = "https://api.cobox.games/api";
+// ✅ Replace with
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "https://api.cobox.games/api";
+
 const appDataPath = app.getPath("userData");
 let mainWindow: BrowserWindow | null = null;
 let activeGameProcess: ChildProcess | null = null;
@@ -55,9 +58,7 @@ function createWindow(): BrowserWindow {
 
   if (isDev) {
     win.loadURL("http://localhost:3000/");
-
   } else {
-  
     // Use app.getAppPath() instead of __dirname — survives asar updates
     const indexPath = join(app.getAppPath(), "frontend", "out", "index.html");
     win.loadFile(indexPath);
