@@ -74,7 +74,7 @@ export default function PublishModal({ active, setActive }) {
   const refreshData = async () => {
     setIsLoading(true);
     try {
-      const res = await api.get("/published-games/my-games");
+      const res = await api.get("/published-games/my");
       const serverGames = res.data.data || [];
       setPublishedGames(serverGames);
 

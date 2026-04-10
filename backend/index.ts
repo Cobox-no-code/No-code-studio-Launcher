@@ -13,7 +13,7 @@ import os from "os";
 import path from "path";
 import semver from "semver";
 import { initLogs, isDev, prepareNext } from "./utils";
-const BACKEND_URL = "https://app.cobox.co/api";
+const BACKEND_URL = "https://api.cobox.games/api";
 const appDataPath = app.getPath("userData");
 let mainWindow: BrowserWindow | null = null;
 let activeGameProcess: ChildProcess | null = null;
@@ -225,7 +225,7 @@ ipcMain.handle("publish-game-full", async (event, payload) => {
 ipcMain.handle("get-server-version", async () => {
   return new Promise((resolve, reject) => {
     // Replace with your actual API endpoint
-    const url = "https://app.cobox.co/api/game-version/1";
+    const url = "https://api.cobox.games/api/game-version/1";
 
     https
       .get(url, (res) => {
