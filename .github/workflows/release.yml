@@ -45,3 +45,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEXT_PUBLIC_BACKEND_URL: ${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
           NEXT_PUBLIC_APP_ENV: production
+          EP_DRAFT: false # ← add this
+          EP_PRE_RELEASE: false # ← and this
