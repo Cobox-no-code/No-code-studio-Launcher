@@ -96,6 +96,7 @@ interface ElectronAPI {
       modifiedAt: Date;
     }>
   >;
+  downloadUpdate: () => Promise<{ success: boolean; message?: string }>;
 }
 
 declare global {

@@ -17,8 +17,6 @@ interface UpdateStatus {
 }
 
 export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
-  // const [hasCheckedOnce, setHasCheckedOnce] = useState(false); // REMOVED
-
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     checking: false,
     available: false,
@@ -28,11 +26,6 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
   });
 
   useEffect(() => {
-    // --- CHANGE: No automatic check on modal open. ---
-    // The initial check is now handled by Home.tsx on startup.
-    // Manual checks are triggered by handleCheckForUpdates below.
-    // ----------------------------------------------------
-
     // Listen for update events from main process
     const handleUpdateEvent = (event: any, data: any) => {
       console.log("Update event:", event, data);
@@ -42,11 +35,12 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
           setUpdateStatus((prev) => ({
             ...prev,
             checking: true,
-            available: false, // Reset available on new check
-            downloaded: false, // Reset downloaded on new check
+            available: false,
+            downloaded: false,
             error: undefined,
           }));
           break;
+
         case "update-available":
           setUpdateStatus((prev) => ({
             ...prev,
@@ -55,6 +49,7 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
             updateInfo: data,
           }));
           break;
+
         case "update-not-available":
           setUpdateStatus((prev) => ({
             ...prev,
@@ -62,13 +57,15 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
             available: false,
           }));
           break;
+
         case "download-progress":
           setUpdateStatus((prev) => ({
             ...prev,
             downloading: true,
-            progress: data.percent || 0,
+            progress: data?.percent || 0,
           }));
           break;
+
         case "update-downloaded":
           setUpdateStatus((prev) => ({
             ...prev,
@@ -77,35 +74,30 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
             progress: 100,
           }));
           break;
-        case "error":
+
+        // FIX: was "error", main process emits "update-error"
+        case "update-error":
           setUpdateStatus((prev) => ({
             ...prev,
             checking: false,
             downloading: false,
-            error: data.message || "Update failed",
+            error: data?.message || "Update failed",
           }));
           break;
       }
     };
 
-    // Note: The listener in Home.tsx will also receive these events.
     if (window.electronAPI?.onUpdateEvent) {
-      // Listen for the events while the modal is open
       window.electronAPI.onUpdateEvent(handleUpdateEvent);
     }
 
     return () => {
-      // The listener cleanup is handled in Home.tsx for a global listener.
-      // If you are using a separate listener for the modal, keep this:
-      // if (window.electronAPI?.removeUpdateListener) {
-      //   window.electronAPI.removeUpdateListener();
-      // }
+      // Cleanup handled globally in Home.tsx
     };
   }, []); // Run only once to set up the listener
 
   const handleCheckForUpdates = async () => {
     try {
-      // Reset status before checking
       setUpdateStatus({
         checking: true,
         available: false,
@@ -115,9 +107,7 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
         error: undefined,
       });
 
-      // Trigger update check in main process
       if (window.electronAPI?.checkForUpdates) {
-        // This will trigger "checking-for-update" event, updating the status
         await window.electronAPI.checkForUpdates();
       }
     } catch (error) {
@@ -125,6 +115,20 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
         ...prev,
         checking: false,
         error: "Failed to check for updates",
+      }));
+    }
+  };
+
+  // FIX: Dedicated async handler for starting the download
+  const handleDownloadUpdate = async () => {
+    try {
+      if (window.electronAPI?.downloadUpdate) {
+        await window.electronAPI.downloadUpdate();
+      }
+    } catch (error) {
+      setUpdateStatus((prev) => ({
+        ...prev,
+        error: "Failed to start download",
       }));
     }
   };
@@ -139,6 +143,18 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
         ...prev,
         error: "Failed to install update",
       }));
+    }
+  };
+
+  // FIX: handleButtonClick is now a proper async function with correct branch logic
+  const handleButtonClick = async () => {
+    if (updateStatus.downloaded) {
+      await handleInstallUpdate();
+    } else if (updateStatus.available) {
+      // FIX: was `return;` — now actually triggers the download
+      await handleDownloadUpdate();
+    } else {
+      await handleCheckForUpdates();
     }
   };
 
@@ -161,15 +177,8 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
       );
     }
 
-    if (updateStatus.downloaded) {
-      return "Install & Restart";
-    }
-
-    if (updateStatus.available) {
-      return "Download Update";
-    }
-
-    // Default button for manual check
+    if (updateStatus.downloaded) return "Install & Restart";
+    if (updateStatus.available) return "Download Update";
     return "Check for Updates";
   };
 
@@ -247,25 +256,12 @@ export default function UpdateModal({ isOpen, onClose }: UpdateModalProps) {
     );
   };
 
-  const handleButtonClick = () => {
-    if (updateStatus.downloaded) {
-      handleInstallUpdate();
-    } else if (updateStatus.available) {
-      // If update is available, download starts automatically by electron-updater
-      // (as setup in main.ts/electron-updater config), so no action needed here.
-      return;
-    } else {
-      // Manual check
-      handleCheckForUpdates();
-    }
-  };
-
   const isButtonDisabled = updateStatus.checking || updateStatus.downloading;
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50">
       <div
         className="relative w-[500px] h-[280px] transition-all duration-700 ease-out opacity-100 scale-100 translate-y-0"
         style={{

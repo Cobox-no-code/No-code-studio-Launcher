@@ -59,6 +59,7 @@ interface ElectronAPI {
       modifiedAt: Date;
     }>
   >;
+  downloadUpdate: () => Promise<{ success: boolean; message?: string }>;
   downloadLiveGame: (params: {
     url: string;
     gameId: string;
@@ -106,6 +107,7 @@ const electronAPI = {
     ipcRenderer.invoke("publish-game-full", payload),
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
+  downloadUpdate: () => ipcRenderer.invoke("download-update"),
 
   /**
    * Downloads a live game .sav file and stores it in /live_games
@@ -154,6 +156,7 @@ const electronAPI = {
       "download-live-game",
       "check-download-status",
       "delete-live-game", // ← NEW
+      "download-update",
     ];
 
     channels.forEach((channel) => {
