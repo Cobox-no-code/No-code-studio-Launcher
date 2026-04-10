@@ -1,7 +1,7 @@
-// Your existing Login page file
-import { useUser } from "@/context/UserContext"; // Import the useUser hook
+// Login.tsx
+import { useUser } from "@/context/UserContext";
 import { BACKEND_URL } from "@/utils/config";
-import axios from "axios"; // Still use axios for the initial verification
+import axios from "axios";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -10,9 +10,45 @@ export default function Login() {
   const [showButton, setShowButton] = useState(false);
   const [startVerification, setStartVerification] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // ─── EMERGENCY UPDATE STATE (fallback if user somehow reaches login) ────
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<
+    "idle" | "downloading" | "downloaded" | "error"
+  >("idle");
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  // ─────────────────────────────────────────────────────────────────────────
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const router = useRouter();
-  const { setUser, setToken } = useUser(); // Get setters from the context
+  const { setUser, setToken } = useUser();
+
+  // ─── UPDATE LISTENER (catches users who skipped on splash) ──────────────
+  useEffect(() => {
+    if (!window.electronAPI?.onUpdateEvent) return;
+
+    window.electronAPI.onUpdateEvent((channel: string, data: any) => {
+      switch (channel) {
+        case "update-available":
+          setUpdateAvailable(true);
+          setUpdateVersion(data?.version || "latest");
+          break;
+        case "download-progress":
+          setUpdateStatus("downloading");
+          setDownloadProgress(data?.percent || 0);
+          break;
+        case "update-downloaded":
+          setUpdateStatus("downloaded");
+          setDownloadProgress(100);
+          break;
+        case "update-error":
+          setUpdateStatus("error");
+          break;
+      }
+    });
+  }, []);
+  // ─────────────────────────────────────────────────────────────────────────
 
   const handleLogin = async () => {
     const tokenId = uuidv4();
@@ -31,7 +67,7 @@ export default function Login() {
     }, 2000);
   };
 
-  // This useEffect now handles the polling logic and stops upon success
+  // Polling for token verification
   useEffect(() => {
     if (!startVerification) return;
 
@@ -43,51 +79,43 @@ export default function Login() {
 
       try {
         const response = await axios.post(
-          `${BACKEND_URL}/users/verify-launcher`,
+          `${BACKEND_URL}/auth/verify-launcher`, // ← uses current BACKEND_URL from config
           { verificationToken: tokenId },
         );
 
         if (response.data) {
-          // On successful verification, stop polling
           clearInterval(intervalId);
 
           const { user, tokens } = response.data;
           const { accessToken, refreshToken } = tokens;
 
-          // 1. Create the secret file with initial tokens
           await window.electronAPI?.createSecret({
             authToken: accessToken,
             refreshToken: refreshToken,
             user: user,
           });
 
-          // 2. Update localStorage (correctly stringify the user object)
           localStorage.setItem("userData", JSON.stringify(user));
           localStorage.setItem("auth_token", accessToken);
           localStorage.setItem("refresh_token", refreshToken);
 
-          // 3. Update the global context state
           setUser(user);
           setToken(accessToken);
 
-          // 4. Navigate to the home page
           setIsLoading(false);
           router.push("/home");
         }
       } catch (error) {
-        // Log error but continue polling
         console.error("Polling for token... Error:", error.message);
       }
     };
 
-    // Start polling
-    verifyToken(); // Initial check
+    verifyToken();
     intervalId = setInterval(verifyToken, 3000);
-
-    // Cleanup function to stop polling when the component unmounts
     return () => clearInterval(intervalId);
   }, [startVerification, router, setUser, setToken]);
 
+  // Show button after splash delay
   useEffect(() => {
     const timer = setTimeout(() => {
       setTimeout(() => {
@@ -99,19 +127,78 @@ export default function Login() {
     return () => clearTimeout(timer);
   }, []);
 
-  // ... rest of your JSX remains the same
+  const handleDownloadUpdate = async () => {
+    try {
+      setUpdateStatus("downloading");
+      await window.electronAPI?.downloadUpdate?.();
+    } catch {
+      setUpdateStatus("error");
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    try {
+      await window.electronAPI?.installUpdate?.();
+    } catch {
+      setUpdateStatus("error");
+    }
+  };
+
   return (
-    <div className=" h-screen w-screen">
-      <div className="relative w-full h-full ">
+    <div className="h-screen w-screen">
+      <div className="relative w-full h-full">
         <video
           ref={videoRef}
           src={"./Final.mov"}
           autoPlay
           muted
           preload="auto"
-          className=" w-full h-full object-cover"
+          className="w-full h-full object-cover"
         />
       </div>
+
+      {/* ─── EMERGENCY UPDATE BANNER ──────────────────────────────────────── */}
+      {/* Shows at top of login screen if an update is available              */}
+      {updateAvailable && (
+        <div className="absolute top-0 left-0 right-0 z-50 bg-[#5B1BEE] text-white px-6 py-3 flex items-center justify-between">
+          <span className="text-sm font-medium">
+            {updateStatus === "idle" &&
+              `⚡ New version ${updateVersion} available — update to fix login issues`}
+            {updateStatus === "downloading" &&
+              `Downloading... ${Math.round(downloadProgress)}%`}
+            {updateStatus === "downloaded" &&
+              "✅ Update ready — click to install and restart"}
+            {updateStatus === "error" &&
+              "Update failed. Please download manually from cobox.games"}
+          </span>
+
+          {updateStatus === "idle" && (
+            <button
+              onClick={handleDownloadUpdate}
+              className="ml-4 bg-white text-[#5B1BEE] text-xs font-bold px-4 py-1.5 rounded-full hover:bg-gray-100 transition"
+            >
+              Update Now
+            </button>
+          )}
+          {updateStatus === "downloading" && (
+            <div className="ml-4 w-32 bg-white/30 rounded-full h-1.5">
+              <div
+                className="bg-white h-1.5 rounded-full transition-all duration-300"
+                style={{ width: `${downloadProgress}%` }}
+              />
+            </div>
+          )}
+          {updateStatus === "downloaded" && (
+            <button
+              onClick={handleInstallUpdate}
+              className="ml-4 bg-white text-[#5B1BEE] text-xs font-bold px-4 py-1.5 rounded-full hover:bg-gray-100 transition"
+            >
+              Install & Restart
+            </button>
+          )}
+        </div>
+      )}
+      {/* ─────────────────────────────────────────────────────────────────── */}
 
       {showButton && (
         <div className="absolute inset-0 flex items-center justify-center z-10">
@@ -119,15 +206,9 @@ export default function Login() {
             className={`
               relative w-[500px] h-[280px]
               transition-all duration-700 ease-out
-              ${
-                showButton
-                  ? "opacity-100 scale-100 translate-y-0"
-                  : "opacity-0 scale-95 translate-y-8"
-              }
+              ${showButton ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-8"}
             `}
-            style={{
-              filter: "drop-shadow(0 25px 50px rgba(0, 0, 0, 0.5))",
-            }}
+            style={{ filter: "drop-shadow(0 25px 50px rgba(0, 0, 0, 0.5))" }}
           >
             <svg
               className="absolute inset-0 w-full h-full"
@@ -146,11 +227,7 @@ export default function Login() {
                 {!isLoading ? (
                   <button
                     onClick={handleLogin}
-                    className="
-            relative w-52 h-14 transform hover:scale-105
-            transition-all duration-300 ease-out
-            hover:brightness-110 cursor-pointer
-          "
+                    className="relative w-52 h-14 transform hover:scale-105 transition-all duration-300 ease-out hover:brightness-110 cursor-pointer"
                     style={{
                       filter: "drop-shadow(0 6px 12px rgba(91, 27, 238, 0.4))",
                     }}
@@ -167,7 +244,6 @@ export default function Login() {
                         className="transition-all duration-300 hover:brightness-110"
                       />
                     </svg>
-
                     <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-xl z-10">
                       Sign In
                     </span>
@@ -186,7 +262,7 @@ export default function Login() {
                   <div className="flex gap-1 text-white">
                     <button
                       onClick={handleLogin}
-                      className="font-bold cursor-pointer  hover:underline"
+                      className="font-bold cursor-pointer hover:underline"
                     >
                       Sign Up
                     </button>
