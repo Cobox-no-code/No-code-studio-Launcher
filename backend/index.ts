@@ -44,11 +44,10 @@ function createWindow(): BrowserWindow {
 
   if (isDev) {
     win.loadURL("http://localhost:3000/");
-    win.maximize();
-    win.setMenu(null);
   } else {
-    win.loadFile(join(__dirname, "..", "frontend", "out", "index.html"));
-    win.setMenu(null);
+    // Use app.getAppPath() instead of __dirname — survives asar updates
+    const indexPath = join(app.getAppPath(), "frontend", "out", "index.html");
+    win.loadFile(indexPath);
   }
 
   win.webContents.on("did-finish-load", () => {
@@ -128,7 +127,15 @@ autoUpdater.on("update-downloaded", () => {
   log.info("Update downloaded. Ready to install.");
   sendUpdateEvent("update-downloaded");
 });
-
+ipcMain.handle("download-update", async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (error: any) {
+    log.error("Download update error:", error);
+    return { success: false, message: error.message };
+  }
+});
 app.on(
   "certificate-error",
   (event, webContents, url, error, certificate, callback) => {
