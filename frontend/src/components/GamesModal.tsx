@@ -65,14 +65,14 @@ export default function GamesModal({ active, setActive }) {
       const response = await api.get("/published-games");
       const serverGames = response.data;
 
-      const serverIds = serverGames.map((g: any) => g.id);
+      const serverIds = serverGames.map((g: any) => g.game_id);
       const localStatus =
         await window.electronAPI.checkDownloadStatus(serverIds);
 
       const merged = serverGames.map((game: any) => ({
         ...game,
-        isDownloaded: localStatus[game.id]?.downloaded || false,
-        localPath: localStatus[game.id]?.path || null,
+        isDownloaded: localStatus[game.game_id]?.downloaded || false,
+        localPath: localStatus[game.game_id]?.path || null,
       }));
 
       setGames(merged);
@@ -91,7 +91,7 @@ export default function GamesModal({ active, setActive }) {
   const handleViewDetails = async (game) => {
     setSelectedGame(game);
     try {
-      await api.put(`/published-games/${game.id}/view`);
+      await api.post(`/games/${game.game_id}/install`);
     } catch (err) {
       console.error("View increment failed");
     }
@@ -105,7 +105,7 @@ export default function GamesModal({ active, setActive }) {
       if (!result.success) throw new Error(result.error || "Delete failed");
       toast.success("Local file removed.", { id: toastId });
       // If we're in the detail view for this game, go back to grid first
-      if (selectedGame?.id === gameId) setSelectedGame(null);
+      if (selectedGame?.game_id === gameId) setSelectedGame(null);
       await fetchAndSyncGames(); // re-sync to flip isDownloaded → false
     } catch (err: any) {
       toast.error(err.message || "Failed to delete file.", { id: toastId });
@@ -151,7 +151,7 @@ export default function GamesModal({ active, setActive }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {games.map((game) => (
                 <GameCard
-                  key={game.id}
+                  key={game.game_id}
                   game={game}
                   isDarkMode={isDarkMode}
                   onViewDetails={handleViewDetails}
@@ -188,13 +188,13 @@ const GameCard = ({
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const cardBgClass = isDarkMode ? "bg-[#1C1041]" : "bg-[#F0F0F0]";
-  const thumbnail = `https://app.cobox.co${game.thumbnail}`;
+  const thumbnail = game.thumbnail_url;
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation(); // don't bubble to card click
     if (!window.confirm(`Remove "${game.title}" from your device?`)) return;
     setIsDeleting(true);
-    await onDeleteDownload(game.id);
+    await onDeleteDownload(game.game_id);
     setIsDeleting(false);
   };
 
@@ -302,7 +302,7 @@ const GameDetailsView = ({ game, onBack, onRefresh, onDeleteDownload }) => {
   const { isDarkMode } = useDarkMode();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const thumbnail = `https://app.cobox.co${game.thumbnail}`;
+  const thumbnail = game.thumbnail_url;
 
   const launchWithSecret = async (
     currentMode: string,
@@ -322,7 +322,7 @@ const GameDetailsView = ({ game, onBack, onRefresh, onDeleteDownload }) => {
           mode: currentMode,
           type: type,
           currentGamePath: finalPath,
-          activeGameId: game.id,
+          activeGameId: game.game_id,
         },
       });
       if (!workerResult.success)
@@ -346,13 +346,13 @@ const GameDetailsView = ({ game, onBack, onRefresh, onDeleteDownload }) => {
       if (isFirstTimeDownload) {
         toast.loading("Downloading game files...", { id: "game-action" });
         const result = await window.electronAPI.downloadLiveGame({
-          url: `https://app.cobox.co${game.file_path}`,
-          gameId: game.id,
+          url:game.file_url ,
+          gameId: game.game_id,
           title: game.title,
         });
         if (!result.success) throw new Error(result.error);
         currentLocalPath = result.path;
-        await api.put(`/published-games/${game.id}/install`);
+        await api.post(`/games/${game.game_id}/install`);
         toast.success("Download complete!", { id: "game-action" });
       }
       await launchWithSecret("play", "playgame", true, currentLocalPath);
@@ -375,7 +375,7 @@ const GameDetailsView = ({ game, onBack, onRefresh, onDeleteDownload }) => {
     )
       return;
     setIsDeleting(true);
-    await onDeleteDownload(game.id);
+    await onDeleteDownload(game.game_id);
     // onDeleteDownload will navigate back to grid via GamesModal handler
     setIsDeleting(false);
   };
