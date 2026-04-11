@@ -78,9 +78,9 @@ export default function PublishModal({ active, setActive }) {
       const serverGames = res.data.data || [];
       setPublishedGames(serverGames);
 
-      const publishedIds = new Set(serverGames.map((pg: any) => pg.id));
+      const publishedIds = new Set(serverGames.map((pg: any) => pg.game_id));
       const localGames = await fetchLocalGames();
-      const filteredLocal = localGames.filter((g) => !publishedIds.has(g.id));
+      const filteredLocal = localGames.filter((g) => !publishedIds.has(g.game_id));
       setLocalGames(filteredLocal);
     } catch (err) {
       console.error("Error fetching published games:", err);
@@ -195,7 +195,7 @@ export default function PublishModal({ active, setActive }) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {localGames.map((game) => (
                       <SavedItem
-                        key={game.id}
+                        key={game.game_id}
                         game={game}
                         isDarkMode={isDarkMode}
                         onPublish={setSelectedGame}
@@ -212,7 +212,7 @@ export default function PublishModal({ active, setActive }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {publishedGames.map((game) => (
                     <PublishedItem
-                      key={game.id}
+                      key={game.game_id}
                       game={game}
                       isDarkMode={isDarkMode}
                       onEdit={setEditingGame} // ← NEW
@@ -271,11 +271,11 @@ const SavedItem = ({ isDarkMode, game, onPublish }) => {
 const PublishedItem = ({ isDarkMode, game, onEdit, onDelete }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const cardBgClass = isDarkMode ? "bg-[#1C1041]/60" : "bg-[#F0F0F0]";
-  const thumbnail = `https://app.cobox.co${game.thumbnail}`;
+  const thumbnail = game.thumbnail_url;
 
   const handleDeleteClick = async () => {
     setIsDeleting(true);
-    await onDelete(game.id);
+    await onDelete(game.game_id);
     setIsDeleting(false);
   };
 
@@ -357,7 +357,7 @@ const EditPublishedGame = ({ game, onBack, onSuccess }) => {
   const [author, setAuthor] = useState(game.author_name || "");
   const [description, setDescription] = useState(game.description || "");
   const [previewUrl, setPreviewUrl] = useState<string | null>(
-    `https://app.cobox.co${game.thumbnail}`,
+   game.thumbnail_url,
   );
   const [newThumbFile, setNewThumbFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
