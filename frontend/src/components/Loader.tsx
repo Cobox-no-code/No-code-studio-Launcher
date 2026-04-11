@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function ImageFrameAnimationLoader() {
   const [currentVideo, setCurrentVideo] = useState<1 | 2 | null>(1);
@@ -11,31 +11,37 @@ export default function ImageFrameAnimationLoader() {
   const [updateStatus, setUpdateStatus] = useState<
     "idle" | "downloading" | "downloaded" | "error"
   >("idle");
-  const [downloadProgress, setDownloadProgress] = useState(0);
+  // FIX: always number, never string
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const router = useRouter();
+  const videosFinished = useRef(false);
 
-  // ─── EMERGENCY UPDATE CHECK ───────────────────────────────────────────────
-  // This runs BEFORE login, BEFORE any API call.
-  // Old users with broken login will still reach this screen and get the update.
+  // ─── UPDATE CHECK ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!window.electronAPI) return;
 
-    // Listen for update events from main process
     window.electronAPI.onUpdateEvent((channel: string, data: any) => {
       switch (channel) {
         case "update-available":
           setUpdateInfo({ version: data?.version || "latest" });
           setShowUpdateModal(true);
           break;
+
         case "download-progress":
           setUpdateStatus("downloading");
-          setDownloadProgress(data?.percent || 0);
+          // FIX: electron-updater sends { percent, bytesPerSecond, total, transferred }
+          // percent can arrive as string — force parse to number
+          const raw = typeof data === "object" ? data?.percent : data;
+          const percent = parseFloat(String(raw ?? 0));
+          setDownloadProgress(isNaN(percent) ? 0 : percent);
           break;
+
         case "update-downloaded":
           setUpdateStatus("downloaded");
           setDownloadProgress(100);
           break;
+
         case "update-error":
           setUpdateStatus("error");
           setUpdateError(data?.message || "Update failed");
@@ -43,25 +49,24 @@ export default function ImageFrameAnimationLoader() {
       }
     });
 
-    // Trigger the check immediately on splash screen
-    window.electronAPI.checkForUpdates().catch(() => {
-      // silently ignore — don't block splash if update check fails
-    });
+    window.electronAPI.checkForUpdates?.().catch(() => {});
   }, []);
   // ─────────────────────────────────────────────────────────────────────────
 
-  const handleVideoEnd = () => {
+  const navigateAfterSplash = () => {
     const auth = localStorage.getItem("auth_token");
+    router.push(auth ? "/home" : "/login");
+  };
+
+  const handleVideoEnd = () => {
     if (currentVideo === 1) {
       setCurrentVideo(null);
       setTimeout(() => setCurrentVideo(2), 1000);
     } else if (currentVideo === 2) {
-      // If update modal is open, don't navigate — let user handle update first
-      if (showUpdateModal) return;
-      if (auth) {
-        router.push("/home");
-      } else {
-        router.push("/login");
+      videosFinished.current = true;
+      // Don't navigate if update modal is open — wait for user action
+      if (!showUpdateModal) {
+        navigateAfterSplash();
       }
     }
   };
@@ -69,6 +74,7 @@ export default function ImageFrameAnimationLoader() {
   const handleDownloadUpdate = async () => {
     try {
       setUpdateStatus("downloading");
+      setDownloadProgress(0);
       await window.electronAPI?.downloadUpdate?.();
     } catch {
       setUpdateStatus("error");
@@ -85,28 +91,30 @@ export default function ImageFrameAnimationLoader() {
     }
   };
 
+  // FIX: skip properly closes modal AND always navigates
   const handleSkipUpdate = () => {
-    // Allow user to skip and continue to login even on old version
     setShowUpdateModal(false);
-    const auth = localStorage.getItem("auth_token");
-    if (auth) {
-      router.push("/home");
-    } else {
-      router.push("/login");
-    }
+    navigateAfterSplash();
   };
 
-  // Fallback timeout in case videos don't load
+  // Fallback: navigate if videos never fire onEnded
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (!showUpdateModal) router.push("/login");
+      if (!showUpdateModal) navigateAfterSplash();
     }, 8000);
     return () => clearTimeout(timeout);
-  }, [router, showUpdateModal]);
+  }, [showUpdateModal]);
+
+  // If modal closes after videos finished (e.g. install triggered), navigate
+  useEffect(() => {
+    if (!showUpdateModal && videosFinished.current) {
+      navigateAfterSplash();
+    }
+  }, [showUpdateModal]);
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
-      {/* ─── VIDEO SPLASH ─────────────────────────────────────────────────── */}
+      {/* ─── VIDEO ──────────────────────────────────────────────────────── */}
       <div className="absolute inset-0 z-50 flex items-center justify-center bg-black">
         {currentVideo === 1 && (
           <video
@@ -130,20 +138,17 @@ export default function ImageFrameAnimationLoader() {
         )}
       </div>
 
-      {/* ─── EMERGENCY UPDATE MODAL ───────────────────────────────────────── */}
-      {/* Sits above everything, including the video. z-[100] beats z-50. */}
+      {/* ─── UPDATE MODAL ───────────────────────────────────────────────── */}
       {showUpdateModal && (
         <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/70">
           <div
             className="relative w-[500px] h-[300px]"
             style={{ filter: "drop-shadow(0 25px 50px rgba(0,0,0,0.6))" }}
           >
-            {/* Modal background shape */}
             <svg
               className="absolute inset-0 w-full h-full"
               viewBox="0 0 847 445"
               fill="none"
-              xmlns="http://www.w3.org/2000/svg"
             >
               <path
                 d="M101 0H808.5L846.5 35.5L738 444.5H25.5L0 404L101 0Z"
@@ -153,7 +158,6 @@ export default function ImageFrameAnimationLoader() {
             </svg>
 
             <div className="absolute inset-0 flex flex-col items-center justify-between p-8">
-              {/* Status text */}
               <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
                 {updateStatus === "idle" && (
                   <>
@@ -161,27 +165,32 @@ export default function ImageFrameAnimationLoader() {
                       Update Available
                     </div>
                     <div className="text-gray-400 text-sm">
-                      Version {updateInfo?.version} is ready. Please update
-                      before logging in.
+                      Version {updateInfo?.version} is ready. Update before
+                      logging in.
                     </div>
                   </>
                 )}
+
                 {updateStatus === "downloading" && (
                   <>
                     <div className="text-white font-bold text-xl">
                       Downloading Update...
                     </div>
+                    {/* FIX: Math.round on guaranteed number — no more toFixed crash */}
                     <div className="text-gray-400 text-sm">
                       {Math.round(downloadProgress)}% complete
                     </div>
                     <div className="w-64 bg-gray-700 rounded-full h-2 mt-2">
                       <div
                         className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${downloadProgress}%` }}
+                        style={{
+                          width: `${Math.min(100, Math.round(downloadProgress))}%`,
+                        }}
                       />
                     </div>
                   </>
                 )}
+
                 {updateStatus === "downloaded" && (
                   <>
                     <div className="text-white font-bold text-xl">
@@ -192,6 +201,7 @@ export default function ImageFrameAnimationLoader() {
                     </div>
                   </>
                 )}
+
                 {updateStatus === "error" && (
                   <>
                     <div className="text-red-400 font-bold text-xl">
@@ -202,9 +212,14 @@ export default function ImageFrameAnimationLoader() {
                 )}
               </div>
 
-              {/* Buttons */}
-              <div className="flex gap-4 mb-2">
-                {/* Primary action button */}
+              {/* Buttons row */}
+              <div className="flex gap-4 mb-2 items-center">
+                {/* Spinner during download */}
+                {updateStatus === "downloading" && (
+                  <div className="w-8 h-8 border-2 border-gray-500 border-t-white rounded-full animate-spin" />
+                )}
+
+                {/* Primary button — hidden while downloading */}
                 {updateStatus !== "downloading" && (
                   <button
                     onClick={
@@ -235,16 +250,15 @@ export default function ImageFrameAnimationLoader() {
                   </button>
                 )}
 
-                {/* Skip button — always visible so user is never fully blocked */}
-                {updateStatus !== "downloading" &&
-                  updateStatus !== "downloaded" && (
-                    <button
-                      onClick={handleSkipUpdate}
-                      className="text-gray-500 hover:text-gray-300 text-sm underline transition-colors"
-                    >
-                      Skip for now
-                    </button>
-                  )}
+                {/* Skip — only when idle or error, not when downloading or ready to install */}
+                {(updateStatus === "idle" || updateStatus === "error") && (
+                  <button
+                    onClick={handleSkipUpdate}
+                    className="text-gray-500 hover:text-gray-300 text-sm underline transition-colors"
+                  >
+                    Skip for now
+                  </button>
+                )}
               </div>
             </div>
           </div>
