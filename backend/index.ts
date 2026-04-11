@@ -13,6 +13,7 @@ import os from "os";
 import path from "path";
 import semver from "semver";
 import { initLogs, isDev, prepareNext } from "./utils";
+import { v4 as uuidv4 } from "uuid"; // already in your dependencies
 // ✅ Replace with
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "https://api.cobox.games/api";
@@ -198,9 +199,11 @@ function saveWorkerConfig(data: Record<string, any>) {
   fs.writeFileSync(secretFile, JSON.stringify(newData, null, 2));
   return newData;
 }
+
 // ─── REPLACE the publish-game-full ipcMain.handle in main.ts ────────────────
-// FIX: field names now match backend API exactly:
-//   title, description, genre, thumbnail (file), game_file (file)
+// FIX 1: generate game_id UUID client-side and send it
+// FIX 2: backend column is "display_name" not "title" — send both to be safe
+// FIX 3: better error logging so you always see what backend rejected
 // ─────────────────────────────────────────────────────────────────────────────
 
 ipcMain.handle("publish-game-full", async (event, payload) => {
@@ -210,25 +213,31 @@ ipcMain.handle("publish-game-full", async (event, payload) => {
   try {
     const form = new FormData();
 
-    // FIX: backend expects "game_file" not "gameFile"
+    // FIX 1: generate and send game_id — backend doesn't auto-generate it
+    const gameId = uuidv4();
+    form.append("game_id", gameId);
+
+    // FIX 2: backend column is "display_name" — send under both names
+    form.append("display_name", metadata.title); // ← what DB column needs
+    form.append("title", metadata.title); // ← keep for safety
+
+    form.append("description", metadata.description || "");
+    form.append("genre", metadata.genre || "");
+
+    // Game file — backend expects "game_file"
     if (fs.existsSync(filePath)) {
       form.append("game_file", fs.createReadStream(filePath));
     } else {
       throw new Error("Game file not found at the provided path.");
     }
 
-    // FIX: backend expects "thumbnail" as the field name
+    // Thumbnail — backend expects "thumbnail"
     const base64Data = thumbnailBase64.replace(/^data:image\/\w+;base64,/, "");
     const thumbBuffer = Buffer.from(base64Data, "base64");
     form.append("thumbnail", thumbBuffer, {
       filename: `${metadata.title}.png`,
       contentType: "image/png",
     });
-
-    // FIX: correct text fields matching backend API spec
-    form.append("title", metadata.title);
-    form.append("description", metadata.description || "");
-    form.append("genre", metadata.genre || "");
 
     const response = await axios.post(BACKEND_URL + "/published-games", form, {
       headers: {
@@ -239,15 +248,19 @@ ipcMain.handle("publish-game-full", async (event, payload) => {
       maxBodyLength: Infinity,
     });
 
+    console.log("Publish success:", response.data);
     return { success: true, data: response.data };
   } catch (error: any) {
+    // Full backend error logged so you see exactly what's missing next time
+    const backendError = error?.response?.data;
     console.error(
-      "publish-game-full error:",
-      error?.response?.data || error.message,
+      "publish-game-full backend error:",
+      JSON.stringify(backendError, null, 2),
     );
+    console.error("publish-game-full message:", error.message);
     return {
       success: false,
-      error: error?.response?.data?.message || error.message,
+      error: backendError?.message || error.message,
     };
   }
 });
