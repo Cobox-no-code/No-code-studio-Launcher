@@ -31,7 +31,7 @@ export interface PublishGamePayload {
     id: string | number;
     userId: string | number;
     title: string;
-    authorName: string;
+    genre: string;
     description: string;
     token?: string; // JWT for API authentication
   };

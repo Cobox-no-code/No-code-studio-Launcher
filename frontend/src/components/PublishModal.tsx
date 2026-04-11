@@ -14,7 +14,6 @@ import {
   Pencil,
   Trash2,
   Upload,
-  User,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -46,7 +45,7 @@ export default function PublishModal({ active, setActive }) {
     "unpublished",
   );
   const [selectedGame, setSelectedGame] = useState(null);
-  const [editingGame, setEditingGame] = useState(null); // ← NEW
+  const [editingGame, setEditingGame] = useState(null);
   const divref = useRef<HTMLDivElement | null>(null);
   const { isDarkMode } = useDarkMode();
 
@@ -54,7 +53,6 @@ export default function PublishModal({ active, setActive }) {
   const [publishedGames, setPublishedGames] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Close modal only when neither detail view nor edit view is open
   const handleOutside = useCallback(() => {
     if (!selectedGame && !editingGame) setActive(false);
   }, [setActive, selectedGame, editingGame]);
@@ -74,16 +72,22 @@ export default function PublishModal({ active, setActive }) {
   const refreshData = async () => {
     setIsLoading(true);
     try {
+      // FIX: GET /published-games/my returns array directly, not wrapped in .data
       const res = await api.get("/published-games/my");
-      const serverGames = res.data.data || [];
+      // API returns array directly (not paginated for "my" endpoint)
+      const serverGames = Array.isArray(res.data)
+        ? res.data
+        : res.data.data || [];
       setPublishedGames(serverGames);
 
+      // Filter out already published games from local drafts
       const publishedIds = new Set(serverGames.map((pg: any) => pg.game_id));
-      const localGames = await fetchLocalGames();
-      const filteredLocal = localGames.filter((g) => !publishedIds.has(g.game_id));
-      setLocalGames(filteredLocal);
+      const local = await fetchLocalGames();
+      // FIX: local games use generated id, not game_id — don't filter by game_id
+      setLocalGames(local);
     } catch (err) {
       console.error("Error fetching published games:", err);
+      toast.error("Failed to load games.");
     } finally {
       setIsLoading(false);
     }
@@ -93,7 +97,6 @@ export default function PublishModal({ active, setActive }) {
     if (active) refreshData();
   }, [active]);
 
-  // ─── Delete handler (passed down to PublishedItem) ───────────────────────
   const handleDelete = async (gameId: string) => {
     const confirmed = window.confirm(
       "Are you sure you want to remove this game from the live server? This cannot be undone.",
@@ -102,6 +105,7 @@ export default function PublishModal({ active, setActive }) {
 
     const toastId = toast.loading("Removing game...");
     try {
+      // FIX: DELETE /published-games/:id — uses game_id
       await api.delete(`/published-games/${gameId}`);
       toast.success("Game removed successfully.", { id: toastId });
       refreshData();
@@ -127,7 +131,6 @@ export default function PublishModal({ active, setActive }) {
         ref={divref}
         className={`rounded-3xl shadow-2xl min-w-6xl w-[60vw] max-w-6xl h-[75vh] py-6 px-8 transition-colors duration-300 flex flex-col ${modalBgClass}`}
       >
-        {/* Header — hidden while in publish-detail or edit view */}
         {!isInSubView && (
           <div className="flex items-center justify-between mb-6">
             <h2
@@ -168,7 +171,6 @@ export default function PublishModal({ active, setActive }) {
               ))}
             </div>
           ) : editingGame ? (
-            /* ── EDIT VIEW ─────────────────────────────────────────────── */
             <EditPublishedGame
               game={editingGame}
               onBack={() => setEditingGame(null)}
@@ -178,7 +180,6 @@ export default function PublishModal({ active, setActive }) {
               }}
             />
           ) : selectedGame ? (
-            /* ── PUBLISH DETAIL VIEW ───────────────────────────────────── */
             <PublishDetails
               game={selectedGame}
               onBack={() => setSelectedGame(null)}
@@ -188,14 +189,13 @@ export default function PublishModal({ active, setActive }) {
               }}
             />
           ) : (
-            /* ── GRID VIEW ─────────────────────────────────────────────── */
             <>
               {activeTab === "unpublished" ? (
                 localGames.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {localGames.map((game) => (
                       <SavedItem
-                        key={game.game_id}
+                        key={game.id}
                         game={game}
                         isDarkMode={isDarkMode}
                         onPublish={setSelectedGame}
@@ -215,8 +215,8 @@ export default function PublishModal({ active, setActive }) {
                       key={game.game_id}
                       game={game}
                       isDarkMode={isDarkMode}
-                      onEdit={setEditingGame} // ← NEW
-                      onDelete={handleDelete} // ← NEW
+                      onEdit={setEditingGame}
+                      onDelete={handleDelete}
                     />
                   ))}
                 </div>
@@ -235,7 +235,7 @@ export default function PublishModal({ active, setActive }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SavedItem (unchanged)
+// SavedItem
 // ─────────────────────────────────────────────────────────────────────────────
 const SavedItem = ({ isDarkMode, game, onPublish }) => {
   const cardBgClass = isDarkMode ? "bg-[#1C1041]" : "bg-[#EAEAEA]";
@@ -266,15 +266,15 @@ const SavedItem = ({ isDarkMode, game, onPublish }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PublishedItem — now has Edit & Delete buttons
+// PublishedItem
 // ─────────────────────────────────────────────────────────────────────────────
 const PublishedItem = ({ isDarkMode, game, onEdit, onDelete }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const cardBgClass = isDarkMode ? "bg-[#1C1041]/60" : "bg-[#F0F0F0]";
-  const thumbnail = game.thumbnail_url;
 
   const handleDeleteClick = async () => {
     setIsDeleting(true);
+    // FIX: pass game_id not game.id
     await onDelete(game.game_id);
     setIsDeleting(false);
   };
@@ -285,19 +285,29 @@ const PublishedItem = ({ isDarkMode, game, onEdit, onDelete }) => {
         isDarkMode ? "border-white/5" : "border-black/5"
       } ${cardBgClass}`}
     >
-      {/* Thumbnail */}
       <div className="relative">
         <img
-          src={thumbnail}
+          src={game.thumbnail_url}
           alt={game.title}
           className="w-full h-32 object-cover opacity-80"
         />
         <div className="absolute top-2 right-2 bg-green-500 text-white p-1 rounded-full shadow-lg">
           <CheckCircle size={14} />
         </div>
+        {/* Status badge */}
+        <div
+          className={`absolute top-2 left-2 text-white text-[9px] font-bold px-2 py-0.5 rounded-full ${
+            game.status === "live"
+              ? "bg-green-600"
+              : game.status === "pending_review"
+                ? "bg-yellow-500"
+                : "bg-gray-500"
+          }`}
+        >
+          {game.status?.replace("_", " ").toUpperCase()}
+        </div>
       </div>
 
-      {/* Info */}
       <div className="p-3">
         <h4
           className={`font-semibold truncate ${
@@ -307,11 +317,10 @@ const PublishedItem = ({ isDarkMode, game, onEdit, onDelete }) => {
           {game.title}
         </h4>
         <div className="flex justify-between items-center mt-1 text-[10px] text-gray-400">
-          <span>Views: {game.view_count || 0}</span>
+          <span>Installs: {game.install_count || 0}</span>
           <span>{new Date(game.created_at).toLocaleDateString()}</span>
         </div>
 
-        {/* ── Action buttons ───────────────────────────────────────── */}
         <div className="flex gap-2 mt-3">
           <button
             onClick={() => onEdit(game)}
@@ -347,17 +356,17 @@ const PublishedItem = ({ isDarkMode, game, onEdit, onDelete }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EditPublishedGame — PUT /published-games/:id with optional new thumbnail
+// EditPublishedGame
+// FIX: PUT /published-games/:id uses game_id, correct field names
 // ─────────────────────────────────────────────────────────────────────────────
 const EditPublishedGame = ({ game, onBack, onSuccess }) => {
   const { isDarkMode } = useDarkMode();
   const thumbInputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState(game.title || "");
-  const [author, setAuthor] = useState(game.author_name || "");
   const [description, setDescription] = useState(game.description || "");
   const [previewUrl, setPreviewUrl] = useState<string | null>(
-   game.thumbnail_url,
+    game.thumbnail_url,
   );
   const [newThumbFile, setNewThumbFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -381,29 +390,32 @@ const EditPublishedGame = ({ game, onBack, onSuccess }) => {
 
   const handleSave = async () => {
     if (!title.trim()) return toast.error("Title is required.");
-    if (!author.trim()) return toast.error("Author name is required.");
 
     setIsSubmitting(true);
     const toastId = toast.loading("Saving changes...");
 
     try {
       const formData = new FormData();
+      // FIX: correct field names matching backend API spec
       formData.append("title", title);
-      formData.append("authorName", author);
       formData.append("description", description);
       if (newThumbFile) {
+        // FIX: backend expects "thumbnail" not other names
         formData.append("thumbnail", newThumbFile);
       }
 
-      await api.put(`/published-games/${game.id}`, formData, {
+      // FIX: use game.game_id not game.id — backend uses game_id as the identifier
+      await api.put(`/published-games/${game.game_id}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
       toast.success("Game updated successfully!", { id: toastId });
       onSuccess();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Update error:", err);
-      toast.error("Failed to save changes.", { id: toastId });
+      toast.error(err?.response?.data?.message || "Failed to save changes.", {
+        id: toastId,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -411,7 +423,6 @@ const EditPublishedGame = ({ game, onBack, onSuccess }) => {
 
   return (
     <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <button
@@ -428,13 +439,13 @@ const EditPublishedGame = ({ game, onBack, onSuccess }) => {
             Edit <span className="text-[#8267D2]">Game</span>
           </h2>
           <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest font-bold">
-            Project ID: {game.id}
+            Game ID: {game.game_id}
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-        {/* Left — Thumbnail */}
+        {/* Thumbnail */}
         <div className="md:col-span-5 space-y-4">
           <div className="flex items-center gap-2 mb-1">
             <ImageIcon size={14} className="text-[#8267D2]" />
@@ -486,60 +497,34 @@ const EditPublishedGame = ({ game, onBack, onSuccess }) => {
           />
           {newThumbFile && (
             <p className="text-[10px] text-[#8267D2] font-semibold text-center">
-              ✓ New thumbnail selected — will be uploaded on save
+              ✓ New thumbnail selected
             </p>
           )}
         </div>
 
-        {/* Right — Metadata */}
+        {/* Metadata */}
         <div className="md:col-span-7 flex flex-col gap-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Title */}
-            <div className="space-y-2">
-              <label
-                className={`text-xs font-bold flex items-center gap-2 ${labelClass}`}
-              >
-                <Gamepad2 size={14} /> Title{" "}
-                <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Gamepad2
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
-                />
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Game title"
-                  className={`${inputBase} ${inputTheme}`}
-                />
-              </div>
-            </div>
-
-            {/* Author */}
-            <div className="space-y-2">
-              <label
-                className={`text-xs font-bold flex items-center gap-2 ${labelClass}`}
-              >
-                <User size={14} /> Creator{" "}
-                <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <User
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
-                />
-                <input
-                  value={author}
-                  onChange={(e) => setAuthor(e.target.value)}
-                  placeholder="Author display name"
-                  className={`${inputBase} ${inputTheme}`}
-                />
-              </div>
+          <div className="space-y-2">
+            <label
+              className={`text-xs font-bold flex items-center gap-2 ${labelClass}`}
+            >
+              <Gamepad2 size={14} /> Title{" "}
+              <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Gamepad2
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+              />
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Game title"
+                className={`${inputBase} ${inputTheme}`}
+              />
             </div>
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
             <label
               className={`text-xs font-bold flex items-center gap-2 ${labelClass}`}
@@ -555,7 +540,6 @@ const EditPublishedGame = ({ game, onBack, onSuccess }) => {
             />
           </div>
 
-          {/* Save button */}
           <button
             onClick={handleSave}
             disabled={isSubmitting}
@@ -577,15 +561,17 @@ const EditPublishedGame = ({ game, onBack, onSuccess }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PublishDetails (unchanged — for publishing new games from drafts)
+// PublishDetails
+// FIX: correct form fields — backend expects: title, description, genre,
+//      thumbnail (file), game_file (file)
 // ─────────────────────────────────────────────────────────────────────────────
 const PublishDetails = ({ game, onBack, onSuccess }) => {
   const { isDarkMode } = useDarkMode();
   const thumbInputRef = useRef<HTMLInputElement>(null);
 
-  const [name, setName] = useState(game.name);
-  const [author, setAuthor] = useState("");
+  const [name, setName] = useState(game.name || "");
   const [description, setDescription] = useState("");
+  const [genre, setGenre] = useState("");
   const [consent, setConsent] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -610,13 +596,14 @@ const PublishDetails = ({ game, onBack, onSuccess }) => {
   const handleSubmit = async () => {
     if (!name.trim()) return toast.error("Game title is required.");
     if (!previewUrl) return toast.error("Thumbnail is required.");
-    if (!author.trim()) return toast.error("Author name is required.");
     if (!consent) return toast.error("Please accept the legal terms.");
 
     setIsSubmitting(true);
     const loadingToast = toast.loading("Uploading game...");
 
     try {
+      // FIX: use correct field names matching backend API:
+      // title, description, genre, thumbnail (file), game_file (file)
       const result = await window.electronAPI.publishGameFull({
         filePath: game.path,
         thumbnailBase64: previewUrl,
@@ -624,14 +611,16 @@ const PublishDetails = ({ game, onBack, onSuccess }) => {
           id: game.id,
           userId: "current",
           title: name,
-          authorName: author,
           description: description,
+          genre: genre,
           token: localStorage.getItem("auth_token"),
         },
       });
 
       if (result.success) {
-        toast.success("Success! Game is now live.", { id: loadingToast });
+        toast.success("Success! Game is now submitted for review.", {
+          id: loadingToast,
+        });
         onSuccess();
       } else {
         toast.error(result.error || "Failed to publish.", { id: loadingToast });
@@ -661,7 +650,7 @@ const PublishDetails = ({ game, onBack, onSuccess }) => {
             Finalize <span className="text-[#8267D2]">Publication</span>
           </h2>
           <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest font-bold">
-            Project ID: {game.id}
+            File: {game.name}
           </p>
         </div>
       </div>
@@ -718,50 +707,51 @@ const PublishDetails = ({ game, onBack, onSuccess }) => {
           />
         </div>
 
-        <div className="md:col-span-7 flex flex-col gap-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label
-                className={`text-xs font-bold flex items-center gap-2 ${labelClass}`}
-              >
-                <Gamepad2 size={14} /> Title{" "}
-                <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Gamepad2
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
-                />
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="The name of your masterpiece"
-                  className={`${inputBase} ${inputTheme}`}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label
-                className={`text-xs font-bold flex items-center gap-2 ${labelClass}`}
-              >
-                <User size={14} /> Creator{" "}
-                <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <User
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
-                />
-                <input
-                  value={author}
-                  onChange={(e) => setAuthor(e.target.value)}
-                  placeholder="Author display name"
-                  className={`${inputBase} ${inputTheme}`}
-                />
-              </div>
+        <div className="md:col-span-7 flex flex-col gap-5">
+          {/* Title */}
+          <div className="space-y-2">
+            <label
+              className={`text-xs font-bold flex items-center gap-2 ${labelClass}`}
+            >
+              <Gamepad2 size={14} /> Title{" "}
+              <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Gamepad2
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+              />
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="The name of your masterpiece"
+                className={`${inputBase} ${inputTheme}`}
+              />
             </div>
           </div>
 
+          {/* Genre */}
+          <div className="space-y-2">
+            <label
+              className={`text-xs font-bold flex items-center gap-2 ${labelClass}`}
+            >
+              <Globe size={14} /> Genre
+            </label>
+            <div className="relative">
+              <Globe
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+              />
+              <input
+                value={genre}
+                onChange={(e) => setGenre(e.target.value)}
+                placeholder="e.g. action, puzzle, racing"
+                className={`${inputBase} ${inputTheme}`}
+              />
+            </div>
+          </div>
+
+          {/* Description */}
           <div className="space-y-2">
             <label
               className={`text-xs font-bold flex items-center gap-2 ${labelClass}`}
@@ -769,7 +759,7 @@ const PublishDetails = ({ game, onBack, onSuccess }) => {
               <FileText size={14} /> Description
             </label>
             <textarea
-              rows={4}
+              rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Tell the world what your game is about..."
@@ -777,6 +767,7 @@ const PublishDetails = ({ game, onBack, onSuccess }) => {
             />
           </div>
 
+          {/* Consent */}
           <div
             className={`p-4 rounded-xl border flex items-start gap-4 cursor-pointer transition-colors ${
               consent
@@ -796,17 +787,14 @@ const PublishDetails = ({ game, onBack, onSuccess }) => {
             </div>
             <div className="space-y-1">
               <p
-                className={`text-[11px] font-bold uppercase tracking-tight ${
-                  isDarkMode ? "text-white" : "text-gray-900"
-                }`}
+                className={`text-[11px] font-bold uppercase tracking-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}
               >
                 Legal Declaration & Consent
               </p>
               <p className="text-[10px] leading-relaxed text-gray-500">
-                I hereby declare that I am the legal owner of this content or
-                possess all necessary rights to publish it. I understand that
-                any copyright violations may lead to immediate removal and
-                account restriction.
+                I declare that I am the legal owner of this content. Any
+                copyright violations may lead to immediate removal and account
+                restriction.
               </p>
             </div>
           </div>
@@ -831,9 +819,6 @@ const PublishDetails = ({ game, onBack, onSuccess }) => {
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Misc helpers
-// ─────────────────────────────────────────────────────────────────────────────
 const EmptyState = ({ message, isDarkMode }) => (
   <div className="flex flex-col items-center justify-center h-[50vh] opacity-40">
     <Folder size={48} className={isDarkMode ? "text-white" : "text-gray-900"} />
@@ -845,8 +830,6 @@ const EmptyState = ({ message, isDarkMode }) => (
 
 const SkeletonCard = ({ isDarkMode }) => (
   <div
-    className={`h-48 rounded-xl animate-pulse ${
-      isDarkMode ? "bg-[#1C1041]/50" : "bg-gray-200"
-    }`}
+    className={`h-48 rounded-xl animate-pulse ${isDarkMode ? "bg-[#1C1041]/50" : "bg-gray-200"}`}
   />
 );
