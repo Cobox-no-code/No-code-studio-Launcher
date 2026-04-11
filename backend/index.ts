@@ -198,36 +198,41 @@ function saveWorkerConfig(data: Record<string, any>) {
   fs.writeFileSync(secretFile, JSON.stringify(newData, null, 2));
   return newData;
 }
+// ─── REPLACE the publish-game-full ipcMain.handle in main.ts ────────────────
+// FIX: field names now match backend API exactly:
+//   title, description, genre, thumbnail (file), game_file (file)
+// ─────────────────────────────────────────────────────────────────────────────
+
 ipcMain.handle("publish-game-full", async (event, payload) => {
   const { filePath, thumbnailBase64, metadata } = payload;
-  console.log("Publishing game with payload:", payload);
+  console.log("Publishing game:", metadata.title);
+
   try {
     const form = new FormData();
 
-    // 1. Handle the Game File from System Path
+    // FIX: backend expects "game_file" not "gameFile"
     if (fs.existsSync(filePath)) {
-      form.append("gameFile", fs.createReadStream(filePath));
+      form.append("game_file", fs.createReadStream(filePath));
     } else {
       throw new Error("Game file not found at the provided path.");
     }
 
-    // 2. Handle Thumbnail (Base64 to Buffer)
-    // Remove the data:image/png;base64, prefix
+    // FIX: backend expects "thumbnail" as the field name
     const base64Data = thumbnailBase64.replace(/^data:image\/\w+;base64,/, "");
     const thumbBuffer = Buffer.from(base64Data, "base64");
     form.append("thumbnail", thumbBuffer, {
       filename: `${metadata.title}.png`,
+      contentType: "image/png",
     });
-    form.append("id", metadata.id);
-    form.append("title", metadata.title);
-    form.append("authorName", metadata.authorName);
-    form.append("description", metadata.description);
 
-    // 4. Send to your EC2 API
+    // FIX: correct text fields matching backend API spec
+    form.append("title", metadata.title);
+    form.append("description", metadata.description || "");
+    form.append("genre", metadata.genre || "");
+
     const response = await axios.post(BACKEND_URL + "/published-games", form, {
       headers: {
         ...form.getHeaders(),
-        // Add your JWT here if required
         Authorization: `Bearer ${metadata.token}`,
       },
       maxContentLength: Infinity,
@@ -235,9 +240,15 @@ ipcMain.handle("publish-game-full", async (event, payload) => {
     });
 
     return { success: true, data: response.data };
-  } catch (error) {
-    console.error("IPC Main Error:", error);
-    return { success: false, error: error.message };
+  } catch (error: any) {
+    console.error(
+      "publish-game-full error:",
+      error?.response?.data || error.message,
+    );
+    return {
+      success: false,
+      error: error?.response?.data?.message || error.message,
+    };
   }
 });
 // ==================== NEW IPC HANDLERS FOR FLOW ====================

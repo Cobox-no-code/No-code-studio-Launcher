@@ -62,14 +62,25 @@ export default function GamesModal({ active, setActive }) {
   const fetchAndSyncGames = useCallback(async () => {
     setIsLoading(true);
     try {
+      // FIX: GET /published-games returns array directly (not paginated)
+      // GET /games returns { total, page, limit, games: [] } — use published-games
+      // for the launcher game library since it has file_url for download
       const response = await api.get("/published-games");
-      const serverGames = response.data;
+      // Response is array of game objects directly
+      const serverGames = Array.isArray(response.data)
+        ? response.data
+        : response.data.games || response.data.data || [];
 
-      const serverIds = serverGames.map((g: any) => g.game_id);
+      // Only show live games
+      const liveGames = serverGames.filter(
+        (g: any) => !g.status || g.status === "live",
+      );
+
+      const serverIds = liveGames.map((g: any) => g.game_id);
       const localStatus =
         await window.electronAPI.checkDownloadStatus(serverIds);
 
-      const merged = serverGames.map((game: any) => ({
+      const merged = liveGames.map((game: any) => ({
         ...game,
         isDownloaded: localStatus[game.game_id]?.downloaded || false,
         localPath: localStatus[game.game_id]?.path || null,
@@ -88,25 +99,28 @@ export default function GamesModal({ active, setActive }) {
     if (active) fetchAndSyncGames();
   }, [active, fetchAndSyncGames]);
 
-  const handleViewDetails = async (game) => {
+  const handleViewDetails = (game) => {
     setSelectedGame(game);
+  };
+
+  // FIX: track install via POST /games/:id/install (requires JWT)
+  const trackInstall = async (gameId: string) => {
     try {
-      await api.post(`/games/${game.game_id}/install`);
+      await api.post(`/games/${gameId}/install`);
     } catch (err) {
-      console.error("View increment failed");
+      // non-critical — don't block the user
+      console.error("Install tracking failed:", err);
     }
   };
 
-  // ── Delete downloaded file from disk ──────────────────────────────────────
   const handleDeleteDownload = async (gameId: any) => {
     const toastId = toast.loading("Deleting local file...");
     try {
       const result = await window.electronAPI.deleteLiveGame({ gameId });
       if (!result.success) throw new Error(result.error || "Delete failed");
       toast.success("Local file removed.", { id: toastId });
-      // If we're in the detail view for this game, go back to grid first
       if (selectedGame?.game_id === gameId) setSelectedGame(null);
-      await fetchAndSyncGames(); // re-sync to flip isDownloaded → false
+      await fetchAndSyncGames();
     } catch (err: any) {
       toast.error(err.message || "Failed to delete file.", { id: toastId });
     }
@@ -122,7 +136,6 @@ export default function GamesModal({ active, setActive }) {
         ref={divref}
         className={`rounded-3xl shadow-2xl w-[85vw] max-w-7xl h-[78vh] py-6 px-8 flex flex-col ${modalBgClass}`}
       >
-        {/* Header */}
         {!selectedGame && (
           <div className="flex items-center justify-between mb-6">
             <h2
@@ -146,6 +159,7 @@ export default function GamesModal({ active, setActive }) {
               onBack={() => setSelectedGame(null)}
               onRefresh={fetchAndSyncGames}
               onDeleteDownload={handleDeleteDownload}
+              onTrackInstall={trackInstall}
             />
           ) : games.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -155,10 +169,7 @@ export default function GamesModal({ active, setActive }) {
                   game={game}
                   isDarkMode={isDarkMode}
                   onViewDetails={handleViewDetails}
-                  onPlayAction={async (g) => {
-                    // Quick play from card — opens detail to handle download+launch
-                    handleViewDetails(g);
-                  }}
+                  onPlayAction={handleViewDetails}
                   onDeleteDownload={handleDeleteDownload}
                 />
               ))}
@@ -177,7 +188,7 @@ export default function GamesModal({ active, setActive }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GameCard — grid item with optional "Delete from disk" button
+// GameCard
 // ─────────────────────────────────────────────────────────────────────────────
 const GameCard = ({
   game,
@@ -188,10 +199,9 @@ const GameCard = ({
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const cardBgClass = isDarkMode ? "bg-[#1C1041]" : "bg-[#F0F0F0]";
-  const thumbnail = game.thumbnail_url;
 
   const handleDelete = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // don't bubble to card click
+    e.stopPropagation();
     if (!window.confirm(`Remove "${game.title}" from your device?`)) return;
     setIsDeleting(true);
     await onDeleteDownload(game.game_id);
@@ -202,26 +212,24 @@ const GameCard = ({
     <div
       className={`flex flex-col rounded-xl overflow-hidden pb-4 shadow-sm hover:shadow-md transition-all ${cardBgClass} h-[260px] relative`}
     >
-      {/* "ON DISK" badge */}
       {game.isDownloaded && (
         <div className="absolute top-2 left-2 z-10 bg-green-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-lg">
           <CheckCircle size={10} /> ON DISK
         </div>
       )}
 
-      {/* Thumbnail */}
       <div className="relative h-32 w-full shrink-0">
         <img
-          src={thumbnail}
+          src={game.thumbnail_url}
           alt={game.title}
           className="w-full h-full object-cover"
         />
         <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1">
-          <Eye size={10} /> {game.view_count || 0}
+          {/* FIX: backend returns install_count not view_count for published-games */}
+          <Download size={10} /> {game.install_count || 0}
         </div>
       </div>
 
-      {/* Info */}
       <div className="p-3 flex flex-col flex-1 justify-between">
         <div className="space-y-0.5">
           <h4
@@ -229,8 +237,9 @@ const GameCard = ({
           >
             {game.title}
           </h4>
+          {/* FIX: backend returns creator_name not author_name in published-games */}
           <p className="text-[10px] text-[#8267D2] font-bold uppercase tracking-tight">
-            By {game.author_name}
+            By {game.creator_name || game.author_name || "Unknown"}
           </p>
           <p
             className={`text-[11px] line-clamp-2 mt-1 leading-snug ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
@@ -239,9 +248,7 @@ const GameCard = ({
           </p>
         </div>
 
-        {/* Action row */}
         <div className="flex gap-1.5 mt-2">
-          {/* Play / Download */}
           <button
             onClick={() => onPlayAction(game)}
             className={`flex-1 py-3 cursor-pointer rounded-lg font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all text-white ${
@@ -258,7 +265,6 @@ const GameCard = ({
             {game.isDownloaded ? "Play" : "Download"}
           </button>
 
-          {/* Info */}
           <button
             onClick={() => onViewDetails(game)}
             className={`px-3 py-3 rounded-lg border transition-all flex items-center cursor-pointer justify-center ${
@@ -270,7 +276,6 @@ const GameCard = ({
             <Info size={14} />
           </button>
 
-          {/* Delete from disk — only when downloaded */}
           {game.isDownloaded && (
             <button
               onClick={handleDelete}
@@ -296,13 +301,18 @@ const GameCard = ({
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GameDetailsView — full detail page with delete button
+// GameDetailsView
 // ─────────────────────────────────────────────────────────────────────────────
-const GameDetailsView = ({ game, onBack, onRefresh, onDeleteDownload }) => {
+const GameDetailsView = ({
+  game,
+  onBack,
+  onRefresh,
+  onDeleteDownload,
+  onTrackInstall,
+}) => {
   const { isDarkMode } = useDarkMode();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const thumbnail = game.thumbnail_url;
 
   const launchWithSecret = async (
     currentMode: string,
@@ -346,13 +356,14 @@ const GameDetailsView = ({ game, onBack, onRefresh, onDeleteDownload }) => {
       if (isFirstTimeDownload) {
         toast.loading("Downloading game files...", { id: "game-action" });
         const result = await window.electronAPI.downloadLiveGame({
-          url:game.file_url ,
+          url: game.file_url,
           gameId: game.game_id,
           title: game.title,
         });
         if (!result.success) throw new Error(result.error);
         currentLocalPath = result.path;
-        await api.post(`/games/${game.game_id}/install`);
+        // FIX: track install after successful download
+        await onTrackInstall(game.game_id);
         toast.success("Download complete!", { id: "game-action" });
       }
       await launchWithSecret("play", "playgame", true, currentLocalPath);
@@ -376,7 +387,6 @@ const GameDetailsView = ({ game, onBack, onRefresh, onDeleteDownload }) => {
       return;
     setIsDeleting(true);
     await onDeleteDownload(game.game_id);
-    // onDeleteDownload will navigate back to grid via GamesModal handler
     setIsDeleting(false);
   };
 
@@ -397,11 +407,10 @@ const GameDetailsView = ({ game, onBack, onRefresh, onDeleteDownload }) => {
       </button>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
-        {/* Left — image + primary actions */}
         <div className="md:col-span-5">
           <div className="relative">
             <img
-              src={thumbnail}
+              src={game.thumbnail_url}
               alt={game.title}
               className="w-full aspect-video rounded-3xl object-cover shadow-2xl border-4 border-[#8267D2]/20"
             />
@@ -412,7 +421,6 @@ const GameDetailsView = ({ game, onBack, onRefresh, onDeleteDownload }) => {
             )}
           </div>
 
-          {/* Play / Download button */}
           <button
             onClick={handlePlayAction}
             disabled={isProcessing || isDeleting}
@@ -426,7 +434,6 @@ const GameDetailsView = ({ game, onBack, onRefresh, onDeleteDownload }) => {
             {game.isDownloaded ? "PLAY NOW" : "DOWNLOAD & PLAY"}
           </button>
 
-          {/* ── Delete from disk button — only when downloaded ── */}
           {game.isDownloaded && (
             <button
               onClick={handleDeleteDownload}
@@ -447,14 +454,14 @@ const GameDetailsView = ({ game, onBack, onRefresh, onDeleteDownload }) => {
           )}
         </div>
 
-        {/* Right — metadata */}
         <div className="md:col-span-7 space-y-6">
           <div>
             <h1 className={`text-4xl font-black ${headingClass}`}>
               {game.title}
             </h1>
+            {/* FIX: use creator_name (from published-games API response) */}
             <p className="text-[#8267D2] font-bold mt-1">
-              by {game.author_name}
+              by {game.creator_name || game.author_name || "Unknown"}
             </p>
           </div>
 
@@ -464,22 +471,36 @@ const GameDetailsView = ({ game, onBack, onRefresh, onDeleteDownload }) => {
 
           <div className={`grid grid-cols-2 gap-4 text-sm ${subClass}`}>
             <div className="flex items-center gap-2">
-              <Eye size={16} className="text-[#8267D2]" />
-              <span>{game.view_count || 0} views</span>
+              <Download size={16} className="text-[#8267D2]" />
+              {/* FIX: install_count is the correct field from backend */}
+              <span>{game.install_count || 0} installs</span>
             </div>
             <div className="flex items-center gap-2">
-              <Download size={16} className="text-[#8267D2]" />
-              <span>{game.install_count || 0} downloads</span>
+              <Eye size={16} className="text-[#8267D2]" />
+              <span>
+                {game.rating_avg
+                  ? `${game.rating_avg} rating`
+                  : "No ratings yet"}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <User size={16} className="text-[#8267D2]" />
-              <span>{game.creator_name || game.author_name}</span>
+              <span>{game.creator_name || game.author_name || "Unknown"}</span>
             </div>
             <div className="flex items-center gap-2">
               <Calendar size={16} className="text-[#8267D2]" />
               <span>{new Date(game.created_at).toLocaleDateString()}</span>
             </div>
           </div>
+
+          {/* Genre tag */}
+          {game.genre && (
+            <div className="flex gap-2 flex-wrap">
+              <span className="bg-[#8267D2]/20 text-[#8267D2] text-xs font-bold px-3 py-1 rounded-full capitalize">
+                {game.genre}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>
