@@ -18,7 +18,7 @@ const CheckIcon = ({ className }) => (
 
 function useOnClickOutside(
   ref: React.RefObject<HTMLElement>,
-  handler: () => void
+  handler: () => void,
 ) {
   useEffect(() => {
     const listener = (event: MouseEvent | TouchEvent) => {
@@ -77,8 +77,8 @@ export default function Settings() {
                       ? "bg-[#2A1B5A] text-white"
                       : "text-[#A0A0A0] hover:bg-[#1C1041]"
                     : tab === item
-                    ? "bg-[#E0E0E0] text-black"
-                    : "text-[#9F9F9F] hover:bg-[#EEEEEE]"
+                      ? "bg-[#E0E0E0] text-black"
+                      : "text-[#9F9F9F] hover:bg-[#EEEEEE]"
                 }`}
               >
                 {item}
@@ -94,11 +94,11 @@ export default function Settings() {
                     ? "bg-[#2A1B5A] text-white"
                     : "text-[#A0A0A0] hover:bg-[#1C1041]"
                   : tab === "Logout"
-                  ? "bg-[#E0E0E0] text-black"
-                  : "text-[#9F9F9F] hover:bg-[#EEEEEE]"
+                    ? "bg-[#E0E0E0] text-black"
+                    : "text-[#9F9F9F] hover:bg-[#EEEEEE]"
               }`}
             >
-              SignOut
+              Logout
             </button>
           </div>
 
@@ -292,8 +292,8 @@ const Setting = ({ isDarkMode, toggleDarkMode }) => {
               ? "bg-[#4A3F78] border-[#4A3F78]"
               : "border-gray-500"
             : checked
-            ? "bg-gray-600 border-gray-600"
-            : "border-gray-400"
+              ? "bg-gray-600 border-gray-600"
+              : "border-gray-400"
         }`}
       >
         {checked && <CheckIcon className="w-4 h-4 text-white" />}
@@ -396,7 +396,9 @@ const About = ({ isDarkMode }) => {
         </p>
       </div>
 
-      <p className="text-sm">© 2025 COBOX Games Inc. All Rights Reserved.</p>
+      <p className="text-sm">
+        © {new Date().getFullYear()} COBOX Games Inc. All Rights Reserved.
+      </p>
     </div>
   );
 };
