@@ -12,30 +12,71 @@ import { join } from "node:path";
 import os from "os";
 import path from "path";
 import semver from "semver";
+import { v4 as uuidv4 } from "uuid";
 import { initLogs, isDev, prepareNext } from "./utils";
-import { v4 as uuidv4 } from "uuid"; // already in your dependencies
-// ✅ Replace with
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UPDATE STATE — owned entirely by main process
+// Renderer polls this via get-update-state IPC (immune to timing race)
+// ─────────────────────────────────────────────────────────────────────────────
+type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "downloading"
+  | "downloaded"
+  | "error";
+
+interface UpdateStateShape {
+  status: UpdateStatus;
+  version: string | null;
+  percent: number;
+  error: string | null;
+}
+
+let updateState: UpdateStateShape = {
+  status: "idle",
+  version: null,
+  percent: 0,
+  error: null,
+};
+
+// Track whether checkForUpdates has successfully found an update.
+// Prevents downloadUpdate() being called before a valid update is confirmed.
+let updateAvailableConfirmed = false;
+
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "https://api.cobox.games/api";
 
-const appDataPath = app.getPath("userData");
+// FIX 1: appDataPath lazy-initialised inside app.whenReady() — never at
+// module load time, which can throw on some Windows setups.
+let appDataPath = "";
+
 let mainWindow: BrowserWindow | null = null;
 let activeGameProcess: ChildProcess | null = null;
-// main.ts — add these lines before any autoUpdater usage
-autoUpdater.autoDownload = false; // don't download without user consent
-autoUpdater.allowDowngrade = false;
-autoUpdater.allowPrerelease = false; // only stable releases
 
-// Force it to always check GitHub even in edge cases
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTO-UPDATER CONFIG
+// ─────────────────────────────────────────────────────────────────────────────
+autoUpdater.autoDownload = false; // user must explicitly trigger download
+autoUpdater.allowDowngrade = false;
+autoUpdater.allowPrerelease = false;
+
 autoUpdater.setFeedURL({
   provider: "github",
   owner: "Cobox-no-code",
   repo: "No-code-studio-Launcher",
 });
+
+autoUpdater.logger = log;
+(autoUpdater.logger as any).transports.file.level = "info";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WINDOW
+// ─────────────────────────────────────────────────────────────────────────────
 function createWindow(): BrowserWindow {
   const preloadPath = join(__dirname, "preload.js");
-  console.log("Preload script path:", preloadPath);
-  console.log("Preload script exists:", fs.existsSync(preloadPath));
+  log.info("Preload path:", preloadPath, "exists:", fs.existsSync(preloadPath));
 
   const win = new BrowserWindow({
     width: 1250,
@@ -50,32 +91,25 @@ function createWindow(): BrowserWindow {
       nodeIntegration: false,
       contextIsolation: true,
       preload: preloadPath,
-      webSecurity: !isDev, // Only disable in dev mode
+      webSecurity: !isDev,
     },
   });
 
-  // Store reference to main window
   mainWindow = win;
 
   if (isDev) {
     win.loadURL("http://localhost:3000/");
   } else {
-    // Use app.getAppPath() instead of __dirname — survives asar updates
     const indexPath = join(app.getAppPath(), "frontend", "out", "index.html");
     win.loadFile(indexPath);
   }
 
-  win.webContents.on("did-finish-load", () => {
-    console.log("Page finished loading");
-  });
-
-  win.webContents.on(
-    "console-message",
-    (event, level, message, line, sourceId) => {
-      console.log(`Renderer console [${level}]: ${message}`);
-    },
+  win.webContents.on("did-finish-load", () =>
+    log.info("Page finished loading"),
   );
-
+  win.webContents.on("console-message", (_e, level, message) => {
+    log.info(`Renderer [${level}]: ${message}`);
+  });
   win.on("closed", () => {
     mainWindow = null;
   });
@@ -84,12 +118,13 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(async () => {
+  // FIX 1: initialise appDataPath only after app is ready
+  appDataPath = app.getPath("userData");
+  ensureDirectoryExists(appDataPath);
+
   await prepareNext("./frontend", 3000);
   await initLogs();
   createWindow();
-
-  // Don't auto-check for updates on startup - let user trigger it
-  // autoUpdater.checkForUpdates();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -100,69 +135,197 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-// Configure auto-updater logging
-autoUpdater.logger = log;
-(autoUpdater.logger as any).transports.file.level = "info";
+app.on("certificate-error", (event, _wc, _url, _err, _cert, callback) => {
+  if (isDev) {
+    event.preventDefault();
+    callback(true);
+  } else callback(false);
+});
 
-// Helper function to send update events to renderer
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPER — safe IPC send (checks window is alive before sending)
+// ─────────────────────────────────────────────────────────────────────────────
 function sendUpdateEvent(channel: string, data?: any) {
-  if (mainWindow && mainWindow.webContents) {
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
     mainWindow.webContents.send(channel, data);
   }
 }
 
-// Listen for update events and forward them to renderer
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTO-UPDATER EVENTS
+// ─────────────────────────────────────────────────────────────────────────────
 autoUpdater.on("checking-for-update", () => {
   log.info("Checking for update...");
-  sendUpdateEvent("checking-for-update");
+  updateAvailableConfirmed = false;
+  updateState = { status: "checking", version: null, percent: 0, error: null };
+  sendUpdateEvent("update-state-changed", updateState);
 });
 
 autoUpdater.on("update-available", (info) => {
-  log.info("Update available:", info);
-  sendUpdateEvent("update-available", info);
+  log.info("Update available:", info.version);
+  updateAvailableConfirmed = true; // now safe to call downloadUpdate()
+  updateState = {
+    status: "available",
+    version: info.version,
+    percent: 0,
+    error: null,
+  };
+  sendUpdateEvent("update-state-changed", updateState);
 });
 
-autoUpdater.on("update-not-available", (info) => {
-  log.info("No updates available:", info);
-  sendUpdateEvent("update-not-available", info);
+autoUpdater.on("update-not-available", () => {
+  log.info("No update available");
+  updateAvailableConfirmed = false;
+  updateState = { status: "idle", version: null, percent: 0, error: null };
+  sendUpdateEvent("update-state-changed", updateState);
 });
 
 autoUpdater.on("error", (err) => {
-  log.error("Error in auto-updater:", err);
-  sendUpdateEvent("update-error", { message: err.message });
+  log.error("Auto-updater error:", err);
+  // Reset confirmation — user must re-check before downloading
+  updateAvailableConfirmed = false;
+  updateState = {
+    status: "error",
+    version: updateState.version,
+    percent: 0,
+    error: err?.message ?? "Unknown updater error",
+  };
+  sendUpdateEvent("update-state-changed", updateState);
 });
 
 autoUpdater.on("download-progress", (progressObj) => {
-  log.info(`Download speed: ${progressObj.bytesPerSecond}`);
-  log.info(`Downloaded ${progressObj.percent}%`);
-  sendUpdateEvent("download-progress", progressObj);
+  // FIX: electron-updater percent can arrive as string or be absent entirely
+  const raw =
+    typeof progressObj?.percent === "number"
+      ? progressObj.percent
+      : parseFloat(String(progressObj?.percent ?? "0"));
+  const percent = isNaN(raw) ? 0 : Math.min(100, Math.max(0, raw));
+
+  log.info(`Download progress: ${percent.toFixed(1)}%`);
+  updateState = {
+    status: "downloading",
+    version: updateState.version,
+    percent,
+    error: null,
+  };
+  sendUpdateEvent("update-state-changed", updateState);
 });
 
 autoUpdater.on("update-downloaded", () => {
-  log.info("Update downloaded. Ready to install.");
-  sendUpdateEvent("update-downloaded");
+  log.info("Update downloaded — ready to install");
+  updateState = {
+    status: "downloaded",
+    version: updateState.version,
+    percent: 100,
+    error: null,
+  };
+  sendUpdateEvent("update-state-changed", updateState);
 });
-ipcMain.handle("download-update", async () => {
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UPDATE IPC HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Polling endpoint — renderer calls every 800ms as a reliable fallback
+ipcMain.handle("get-update-state", () => updateState);
+
+// Check for updates — handles offline / network errors gracefully
+ipcMain.handle("check-for-updates", async () => {
   try {
+    const result = await autoUpdater.checkForUpdates();
+
+    if (!result?.updateInfo) {
+      return { success: true, updateInfo: null };
+    }
+
+    const currentVersion = app.getVersion();
+    const latestVersion = result.updateInfo.version;
+
+    if (!semver.gt(latestVersion, currentVersion)) {
+      return { success: true, updateInfo: null };
+    }
+
+    return { success: true, updateInfo: { version: latestVersion } };
+  } catch (error: any) {
+    log.error("check-for-updates failed:", error);
+    // Don't let the updater sit in a broken state
+    updateState = {
+      status: "error",
+      version: null,
+      percent: 0,
+      error: error?.message ?? "Network error — could not check for updates",
+    };
+    sendUpdateEvent("update-state-changed", updateState);
+    return { success: false, message: updateState.error };
+  }
+});
+
+// Download update — FIX 2: guard against calling before update is confirmed
+ipcMain.handle("download-update", async () => {
+  // FIX 2: if no update was confirmed, silently bail instead of throwing
+  if (!updateAvailableConfirmed) {
+    log.warn(
+      "download-update called but no update has been confirmed. Ignoring.",
+    );
+    return { success: false, message: "No update available to download." };
+  }
+
+  // Already downloading or downloaded — don't start a second download
+  if (
+    updateState.status === "downloading" ||
+    updateState.status === "downloaded"
+  ) {
+    log.info(
+      "download-update: already in progress or complete, ignoring duplicate call.",
+    );
+    return { success: true };
+  }
+
+  try {
+    // Set state immediately so polling catches it before the first event fires
+    updateState = {
+      status: "downloading",
+      version: updateState.version,
+      percent: 0,
+      error: null,
+    };
+    sendUpdateEvent("update-state-changed", updateState);
+
     await autoUpdater.downloadUpdate();
     return { success: true };
   } catch (error: any) {
-    log.error("Download update error:", error);
-    return { success: false, message: error.message };
+    log.error("download-update failed:", error);
+    updateAvailableConfirmed = false;
+    updateState = {
+      status: "error",
+      version: updateState.version,
+      percent: 0,
+      error: error?.message ?? "Download failed",
+    };
+    sendUpdateEvent("update-state-changed", updateState);
+    return { success: false, message: updateState.error };
   }
 });
-app.on(
-  "certificate-error",
-  (event, webContents, url, error, certificate, callback) => {
-    if (isDev) {
-      event.preventDefault();
-      callback(true);
-    } else {
-      callback(false);
-    }
-  },
-);
 
+// Install update — only valid when status === "downloaded"
+ipcMain.handle("install-update", async () => {
+  if (updateState.status !== "downloaded") {
+    log.warn("install-update called but update is not downloaded yet.");
+    return { success: false, message: "Update not ready to install." };
+  }
+  try {
+    log.info("Quitting and installing update...");
+    autoUpdater.quitAndInstall();
+    return { success: true };
+  } catch (error: any) {
+    log.error("install-update failed:", error);
+    return { success: false, message: error?.message };
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILITY HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 function ensureDirectoryExists(dirPath: string): void {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
@@ -171,67 +334,66 @@ function ensureDirectoryExists(dirPath: string): void {
 
 function isValidPath(filePath: string): boolean {
   try {
-    const normalizedPath = path.normalize(filePath);
-    return !normalizedPath.includes("..");
+    return !path.normalize(filePath).includes("..");
   } catch {
     return false;
   }
 }
 
+// FIX 5 + 6: Atomic write pattern — write to temp file then rename.
+// This prevents corrupt reads if the process crashes mid-write.
+// Also acts as a soft file lock since rename() is atomic on most OS.
 function readWorkerConfig(): Record<string, any> {
-  const secretFile = path.join(appDataPath, "worker.json");
-  let currentData = {};
-  if (fs.existsSync(secretFile)) {
+  const file = path.join(appDataPath, "worker.json");
+  if (!fs.existsSync(file)) return {};
+  try {
+    const raw = fs.readFileSync(file, "utf-8").trim();
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch (err) {
+    log.warn(
+      "worker.json parse failed — backing up corrupt file and resetting.",
+    );
+    // Back up the corrupt file so it can be inspected; don't silently discard
     try {
-      currentData = JSON.parse(fs.readFileSync(secretFile, "utf-8"));
-    } catch (err) {
-      console.warn("Failed to parse existing worker.json.");
+      fs.copyFileSync(file, file + ".corrupt." + Date.now());
+    } catch {
+      /* best-effort */
     }
+    return {};
   }
-  return currentData;
 }
 
-function saveWorkerConfig(data: Record<string, any>) {
-  const secretFile = path.join(appDataPath, "worker.json");
+function saveWorkerConfig(data: Record<string, any>): Record<string, any> {
+  const file = path.join(appDataPath, "worker.json");
+  const tmp = file + ".tmp";
   const current = readWorkerConfig();
-  const newData = { ...current, ...data };
+  const merged = { ...current, ...data };
   ensureDirectoryExists(appDataPath);
-  fs.writeFileSync(secretFile, JSON.stringify(newData, null, 2));
-  return newData;
+  // Atomic write: write tmp then rename (rename is atomic on Windows + POSIX)
+  fs.writeFileSync(tmp, JSON.stringify(merged, null, 2), "utf-8");
+  fs.renameSync(tmp, file);
+  return merged;
 }
 
-// ─── REPLACE the publish-game-full ipcMain.handle in main.ts ────────────────
-// FIX 1: generate game_id UUID client-side and send it
-// FIX 2: backend column is "display_name" not "title" — send both to be safe
-// FIX 3: better error logging so you always see what backend rejected
 // ─────────────────────────────────────────────────────────────────────────────
-
-ipcMain.handle("publish-game-full", async (event, payload) => {
+// GAME IPC HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+ipcMain.handle("publish-game-full", async (_event, payload) => {
   const { filePath, thumbnailBase64, metadata } = payload;
-  console.log("Publishing game:", metadata.title);
-
+  log.info("Publishing game:", metadata?.title);
   try {
     const form = new FormData();
-
-    // FIX 1: generate and send game_id — backend doesn't auto-generate it
     const gameId = uuidv4();
     form.append("game_id", gameId);
+    form.append("display_name", metadata.title ?? "");
+    form.append("title", metadata.title ?? "");
+    form.append("description", metadata.description ?? "");
+    form.append("genre", metadata.genre ?? "");
 
-    // FIX 2: backend column is "display_name" — send under both names
-    form.append("display_name", metadata.title); // ← what DB column needs
-    form.append("title", metadata.title); // ← keep for safety
+    if (!fs.existsSync(filePath)) throw new Error("Game file not found.");
+    form.append("game_file", fs.createReadStream(filePath));
 
-    form.append("description", metadata.description || "");
-    form.append("genre", metadata.genre || "");
-
-    // Game file — backend expects "game_file"
-    if (fs.existsSync(filePath)) {
-      form.append("game_file", fs.createReadStream(filePath));
-    } else {
-      throw new Error("Game file not found at the provided path.");
-    }
-
-    // Thumbnail — backend expects "thumbnail"
     const base64Data = thumbnailBase64.replace(/^data:image\/\w+;base64,/, "");
     const thumbBuffer = Buffer.from(base64Data, "base64");
     form.append("thumbnail", thumbBuffer, {
@@ -248,71 +410,70 @@ ipcMain.handle("publish-game-full", async (event, payload) => {
       maxBodyLength: Infinity,
     });
 
-    console.log("Publish success:", response.data);
+    log.info("Publish success:", response.data);
     return { success: true, data: response.data };
   } catch (error: any) {
-    // Full backend error logged so you see exactly what's missing next time
     const backendError = error?.response?.data;
-    console.error(
-      "publish-game-full backend error:",
-      JSON.stringify(backendError, null, 2),
+    log.error(
+      "publish-game-full error:",
+      JSON.stringify(backendError ?? error.message),
     );
-    console.error("publish-game-full message:", error.message);
-    return {
-      success: false,
-      error: backendError?.message || error.message,
-    };
+    return { success: false, error: backendError?.message ?? error.message };
   }
 });
-// ==================== NEW IPC HANDLERS FOR FLOW ====================
 
-// 1. Get Server Version (Called first on click)
 ipcMain.handle("get-server-version", async () => {
-  return new Promise((resolve, reject) => {
-    // Replace with your actual API endpoint
+  return new Promise((resolve) => {
     const url = "https://api.cobox.games/api/game-version/1";
-
     https
       .get(url, (res) => {
         let data = "";
         res.on("data", (chunk) => (data += chunk));
         res.on("end", () => {
           try {
-            const parsed = JSON.parse(data);
-            resolve(parsed.version);
-            console.log("Server version data:", parsed.version);
-          } catch (e) {
-            // If JSON parse fails, return null or mock for dev
+            resolve(JSON.parse(data).version ?? null);
+          } catch {
             resolve(null);
           }
         });
       })
       .on("error", (err) => {
-        console.error("API Fetch Error:", err);
+        log.error("get-server-version network error:", err);
         resolve(null);
       });
   });
 });
 
-// 2. Download Game
+// FIX 4: properly close the write stream on all reject paths
 ipcMain.handle("download-game", async (event, params) => {
-  const url = params?.url;
-  const targetDir = params?.targetDir;
-
-  if (!url || !targetDir) throw new Error("Invalid arguments");
+  const { url, targetDir } = params ?? {};
+  if (!url || !targetDir)
+    throw new Error("download-game: missing url or targetDir");
 
   const zipPath = path.join(targetDir, "Archive.zip");
   const extractPath = path.join(targetDir, "GameFiles");
-
   ensureDirectoryExists(targetDir);
 
-  return new Promise((resolve, reject) => {
+  return new Promise<string>((resolve, reject) => {
     const file = fs.createWriteStream(zipPath);
+
+    // FIX 4: centralised cleanup — always destroys stream and removes partial file
+    const cleanup = (err?: Error) => {
+      file.destroy();
+      try {
+        if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+      } catch {
+        /* best-effort */
+      }
+      if (err) reject(err);
+    };
+
     const request = https.get(url, (res) => {
       if (res.statusCode !== 200) {
-        reject(new Error(`Download status: ${res.statusCode}`));
+        cleanup(new Error(`Download failed with HTTP ${res.statusCode}`));
         return;
       }
+
       const totalSize = parseInt(res.headers["content-length"] || "0", 10);
       let downloadedSize = 0;
 
@@ -325,203 +486,139 @@ ipcMain.handle("download-game", async (event, params) => {
       res.pipe(file);
 
       file.on("finish", async () => {
-        file.close();
-        try {
-          // Extract
-          await extract(zipPath, { dir: extractPath });
-          fs.unlinkSync(zipPath);
-
-          // Find EXE
-          const findExe = (dir: string): string | null => {
-            const files = fs.readdirSync(dir, { withFileTypes: true });
-            for (const file of files) {
-              const full = path.join(dir, file.name);
-              if (file.isDirectory()) {
-                const found = findExe(full);
-                if (found) return found;
-              } else if (file.name === "NoCodeStudio.exe") {
-                return full;
-              }
+        file.close(async (closeErr) => {
+          if (closeErr) {
+            cleanup(closeErr);
+            return;
+          }
+          try {
+            await extract(zipPath, { dir: extractPath });
+            try {
+              fs.unlinkSync(zipPath);
+            } catch {
+              /* best-effort */
             }
-            return null;
-          };
 
-          const exePath = findExe(extractPath);
-          if (!exePath) throw new Error("NoCodeStudio.exe not found");
+            const findExe = (dir: string): string | null => {
+              for (const f of fs.readdirSync(dir, { withFileTypes: true })) {
+                const full = path.join(dir, f.name);
+                if (f.isDirectory()) {
+                  const r = findExe(full);
+                  if (r) return r;
+                } else if (f.name === "NoCodeStudio.exe") return full;
+              }
+              return null;
+            };
 
-          // ✅ AUTOMATICALLY SAVE PATH TO WORKER.JSON
-          saveWorkerConfig({ gamePath: exePath });
-          console.log("Game installed and path saved:", exePath);
+            const exePath = findExe(extractPath);
+            if (!exePath)
+              throw new Error("NoCodeStudio.exe not found after extraction");
 
-          resolve(exePath);
-        } catch (err) {
-          reject(err);
-        }
+            saveWorkerConfig({ gamePath: exePath });
+            log.info("Game installed at:", exePath);
+            resolve(exePath);
+          } catch (err: any) {
+            cleanup(err);
+          }
+        });
       });
+
+      file.on("error", (err) => cleanup(err));
+      res.on("error", (err) => cleanup(err));
     });
 
-    request.on("error", (err) => {
-      if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-      reject(err);
-    });
+    request.on("error", (err) => cleanup(err));
   });
 });
 
-// ─── ADD THIS BLOCK right after the "check-download-status" ipcMain.handle ───
-// Place it between check-download-status and get-local-library-games
-
-ipcMain.handle(
-  "delete-live-game",
-  async (_event, { gameId }: { gameId: string }) => {
-    ensureLiveGamesDir();
-
-    try {
-      const files = fs.readdirSync(liveGamesDir);
-
-      // Find the file that starts with this gameId (format: gameId_safeTitle.sav)
-      const targetFile = files.find((file) => file.startsWith(`${gameId}_`));
-
-      if (!targetFile) {
-        // File not found on disk — treat as already deleted, return success
-        return { success: true };
-      }
-
-      const targetPath = path.join(liveGamesDir, targetFile);
-      fs.unlinkSync(targetPath);
-      console.log("Deleted live game file:", targetPath);
-
-      return { success: true };
-    } catch (err: any) {
-      console.error("delete-live-game error:", err);
-      return { success: false, error: err.message };
-    }
-  },
-);
-// 3. Launch Game (No Arguments - Reads worker.json)
-// main.ts
-
 ipcMain.handle("launch-game", async () => {
   try {
-    // 2️⃣ CHECK IF ALREADY RUNNING
     if (activeGameProcess && !activeGameProcess.killed) {
-      console.log("⚠️ Blocked launch: Game is already running.");
       return { success: false, error: "Game is already running" };
     }
 
     const config = readWorkerConfig();
     let exePath = config.gamePath;
+    if (!exePath) throw new Error("Game path not found in configuration.");
 
-    if (!exePath) {
-      throw new Error("Game path not found in configuration.");
-    }
-
-    // 1️⃣.5️⃣ NORMALIZE PATH (The Fix)
-    // This fixes "C:/Games//Build/Game.exe" -> "C:\Games\Build\Game.exe"
     exePath = path.normalize(exePath);
-
-    if (!fs.existsSync(exePath)) {
-      throw new Error(`Game file missing at path: ${exePath}`);
-    }
-
-    const exeDir = path.dirname(exePath);
-
-    console.log(`Launching game from: ${exePath}`);
+    if (!fs.existsSync(exePath))
+      throw new Error(`Game file missing: ${exePath}`);
 
     const child = spawn(exePath, [], {
-      cwd: exeDir,
+      cwd: path.dirname(exePath),
       detached: true,
       stdio: "ignore",
       shell: false,
     });
 
-    // 3️⃣ STORE THE PROCESS REFERENCE
     activeGameProcess = child;
-
-    // 4️⃣ LISTEN FOR EXIT
-    child.on("close", (code) => {
-      console.log(`Game process closed with code ${code}`);
+    child.on("close", () => {
       activeGameProcess = null;
     });
-
     child.on("error", (err) => {
-      console.error("Game process error:", err);
+      log.error("Game process error:", err);
       activeGameProcess = null;
     });
-
     child.unref();
+
     return { success: true };
   } catch (error: any) {
-    console.error("Launch error:", error);
+    log.error("launch-game error:", error);
     activeGameProcess = null;
     return { success: false, error: error.message };
   }
 });
 
-// ==================== UTILITY HANDLERS ====================
-
 ipcMain.handle("choose-install-path", async () => {
   const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
-  return result.filePaths?.[0] || null;
+  return result.filePaths?.[0] ?? null;
 });
 
 ipcMain.handle("get-game-status", async () => {
-  const config = readWorkerConfig();
-
-  // Check if path exists AND file exists
-  if (config.gamePath && fs.existsSync(config.gamePath)) {
-    return {
-      installed: true,
-      path: config.gamePath,
-      // 👇 ADD THIS: Return the local version so frontend can compare
-      version: config.version || "0.0.0",
-    };
+  try {
+    const config = readWorkerConfig();
+    if (config.gamePath && fs.existsSync(config.gamePath)) {
+      return {
+        installed: true,
+        path: config.gamePath,
+        version: config.version ?? "0.0.0",
+      };
+    }
+    return { installed: false, path: null, version: null };
+  } catch {
+    return { installed: false, path: null, version: null };
   }
-  return { installed: false, path: null, version: null };
 });
 
 ipcMain.handle("update-worker", async (_, data) => {
   try {
-    const res = saveWorkerConfig(data.updates); // Merges updates
-    return { success: true, data: res };
+    return { success: true, data: saveWorkerConfig(data.updates) };
   } catch (e: any) {
     return { success: false, error: e.message };
   }
 });
 
+// FIX 7: create-secret now UPSERTS instead of throwing on existing file.
+// Users who reinstall the app no longer get stuck at login.
 ipcMain.handle("create-secret", async (_, content: Record<string, any>) => {
   try {
     const secretFile = path.join(appDataPath, "secret.json");
-
-    if (fs.existsSync(secretFile)) {
-      throw new Error(`secret.json already exists at ${secretFile}`);
-    }
-
     ensureDirectoryExists(appDataPath);
-    fs.writeFileSync(secretFile, JSON.stringify(content, null, 2));
-    return { success: true, filePath: secretFile };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-});
-ipcMain.handle("update-secret", async (_, updates: Record<string, any>) => {
-  try {
-    const secretFile = path.join(appDataPath, "secret.json");
 
-    let currentData = {};
+    let existing: Record<string, any> = {};
     if (fs.existsSync(secretFile)) {
       try {
-        currentData = JSON.parse(fs.readFileSync(secretFile, "utf-8"));
-      } catch (err) {
-        console.warn(
-          "Failed to parse existing secret.json, it will be overwritten.",
-        );
+        existing = JSON.parse(fs.readFileSync(secretFile, "utf-8"));
+      } catch {
+        /* corrupt — overwrite */
       }
     }
 
-    const newData = { ...currentData, ...updates };
-
-    ensureDirectoryExists(appDataPath);
-    fs.writeFileSync(secretFile, JSON.stringify(newData, null, 2));
+    const merged = { ...existing, ...content };
+    const tmp = secretFile + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(merged, null, 2), "utf-8");
+    fs.renameSync(tmp, secretFile);
 
     return { success: true, filePath: secretFile };
   } catch (error: any) {
@@ -529,91 +626,62 @@ ipcMain.handle("update-secret", async (_, updates: Record<string, any>) => {
   }
 });
 
-ipcMain.handle("open-external", async (_, url) => {
-  console.log("Main process: opening external URL:", url);
+ipcMain.handle("update-secret", async (_, updates: Record<string, any>) => {
   try {
-    // Basic URL validation
-    if (!url || typeof url !== "string") {
-      throw new Error("Invalid URL provided");
+    const secretFile = path.join(appDataPath, "secret.json");
+    ensureDirectoryExists(appDataPath);
+
+    let current: Record<string, any> = {};
+    if (fs.existsSync(secretFile)) {
+      try {
+        current = JSON.parse(fs.readFileSync(secretFile, "utf-8"));
+      } catch {
+        /* corrupt — overwrite */
+      }
     }
 
-    // Only allow http/https URLs
-    const urlObj = new URL(url);
-    if (!["http:", "https:"].includes(urlObj.protocol)) {
-      throw new Error("Only HTTP/HTTPS URLs are allowed");
-    }
+    const merged = { ...current, ...updates };
+    const tmp = secretFile + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(merged, null, 2), "utf-8");
+    fs.renameSync(tmp, secretFile);
 
-    await shell.openExternal(url);
-    console.log("Successfully opened external URL");
-    return { success: true };
-  } catch (error) {
-    console.error("Error opening external URL:", error);
+    return { success: true, filePath: secretFile };
+  } catch (error: any) {
     return { success: false, error: error.message };
   }
 });
 
-ipcMain.handle("check-game-installation", async (_, gamePath) => {
+ipcMain.handle("open-external", async (_, url: string) => {
   try {
-    if (!gamePath || !isValidPath(gamePath)) {
-      return { installed: false };
-    }
+    if (!url || typeof url !== "string") throw new Error("Invalid URL");
+    const u = new URL(url);
+    if (!["http:", "https:"].includes(u.protocol))
+      throw new Error("Only HTTP/HTTPS allowed");
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (error: any) {
+    log.error("open-external error:", error);
+    return { success: false, error: error.message };
+  }
+});
 
-    const executable = path.join(gamePath, "NoCodeStudio.exe");
-    const exists = fs.existsSync(executable);
-
-    return { installed: exists, path: gamePath };
-  } catch (error) {
-    console.error("Error checking game installation:", error);
+ipcMain.handle("check-game-installation", async (_, gamePath: string) => {
+  try {
+    if (!gamePath || !isValidPath(gamePath)) return { installed: false };
+    const exe = path.join(gamePath, "NoCodeStudio.exe");
+    return { installed: fs.existsSync(exe), path: gamePath };
+  } catch {
     return { installed: false };
   }
 });
 
-ipcMain.handle("get-default-install-path", async () => {
-  const defaultPath = path.join(os.homedir(), "GameLauncher", "CyberAdventure");
-  return defaultPath;
-});
+ipcMain.handle("get-default-install-path", async () =>
+  path.join(os.homedir(), "GameLauncher", "CyberAdventure"),
+);
 
-// ==================== NEW UPDATE IPC HANDLERS ====================
-
-ipcMain.handle("check-for-updates", async () => {
-  try {
-    const result = await autoUpdater.checkForUpdates();
-
-    if (!result || !result.updateInfo) {
-      return { success: true, updateInfo: null };
-    }
-
-    const currentVersion = app.getVersion();
-    const latestVersion = result.updateInfo.version;
-
-    // 🔥 Check if latest version is greater than current version
-    if (!semver.gt(latestVersion, currentVersion)) {
-      return { success: true, updateInfo: null }; // Not higher → No update
-    }
-
-    return {
-      success: true,
-      updateInfo: {
-        version: latestVersion,
-      },
-    };
-  } catch (error) {
-    return { success: false, message: error.message };
-  }
-});
-
-ipcMain.handle("install-update", async () => {
-  try {
-    log.info("Manual update installation triggered");
-    autoUpdater.quitAndInstall();
-    return { success: true };
-  } catch (error) {
-    log.error("Error installing update:", error);
-    throw error;
-  }
-});
-
-// Live games logic
+// ─────────────────────────────────────────────────────────────────────────────
+// LIVE GAMES
+// ─────────────────────────────────────────────────────────────────────────────
 const LOCAL_SAVE_PATH = path.join(
   process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"),
   "NoCodeStudio",
@@ -622,31 +690,25 @@ const LOCAL_SAVE_PATH = path.join(
 );
 const liveGamesDir = path.join(LOCAL_SAVE_PATH, "live_games");
 
-// Helper function to ensure directory exists
 function ensureLiveGamesDir() {
-  if (!fs.existsSync(liveGamesDir)) {
+  if (!fs.existsSync(liveGamesDir))
     fs.mkdirSync(liveGamesDir, { recursive: true });
-    console.log("Created directory:", liveGamesDir);
-  }
 }
 
-ipcMain.handle("download-live-game", async (event, { url, gameId, title }) => {
-  ensureLiveGamesDir(); // Safety check
-
-  const safeTitle = title.replace(/[^a-z0-9]/gi, "_").toLowerCase();
-  const fileName = `${gameId}_${safeTitle}.sav`;
-  const filePath = path.join(liveGamesDir, fileName);
-
+ipcMain.handle("download-live-game", async (_event, { url, gameId, title }) => {
+  ensureLiveGamesDir();
+  const safeTitle = String(title ?? "game")
+    .replace(/[^a-z0-9]/gi, "_")
+    .toLowerCase();
+  const filePath = path.join(liveGamesDir, `${gameId}_${safeTitle}.sav`);
   try {
     const response = await axios({
       method: "get",
-      url: url,
+      url,
       responseType: "stream",
     });
-
     const writer = fs.createWriteStream(filePath);
     response.data.pipe(writer);
-
     return new Promise((resolve, reject) => {
       writer.on("finish", () => resolve({ success: true, path: filePath }));
       writer.on("error", (err) =>
@@ -657,82 +719,68 @@ ipcMain.handle("download-live-game", async (event, { url, gameId, title }) => {
     return { success: false, error: error.message };
   }
 });
-ipcMain.handle("check-download-status", async (event, gameIds: string[]) => {
-  ensureLiveGamesDir(); // Safety check
 
+ipcMain.handle("check-download-status", async (_event, gameIds: string[]) => {
+  ensureLiveGamesDir();
   const statusMap: Record<
     string,
     { downloaded: boolean; path: string | null }
   > = {};
-
   try {
     const files = fs.readdirSync(liveGamesDir);
-
-    gameIds.forEach((id) => {
-      // Find file starting with the specific ID
-      const foundFile = files.find((file) => file.startsWith(`${id}_`));
-
-      if (foundFile) {
-        statusMap[id] = {
-          downloaded: true,
-          path: path.join(liveGamesDir, foundFile),
-        };
-      } else {
-        statusMap[id] = { downloaded: false, path: null };
-      }
-    });
-
-    return statusMap;
-  } catch (err) {
-    return {};
+    for (const id of gameIds) {
+      const found = files.find((f) => f.startsWith(`${id}_`));
+      statusMap[id] = found
+        ? { downloaded: true, path: path.join(liveGamesDir, found) }
+        : { downloaded: false, path: null };
+    }
+  } catch {
+    /* return empty map on fs error */
   }
+  return statusMap;
 });
+
+ipcMain.handle(
+  "delete-live-game",
+  async (_event, { gameId }: { gameId: string }) => {
+    ensureLiveGamesDir();
+    try {
+      const target = fs
+        .readdirSync(liveGamesDir)
+        .find((f) => f.startsWith(`${gameId}_`));
+      if (target) fs.unlinkSync(path.join(liveGamesDir, target));
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  },
+);
 
 ipcMain.handle("get-local-library-games", async () => {
   try {
-    if (!fs.existsSync(LOCAL_SAVE_PATH)) {
-      fs.mkdirSync(LOCAL_SAVE_PATH, { recursive: true });
-      return [];
-    }
-
-    const files = fs.readdirSync(LOCAL_SAVE_PATH);
-
-    const localGames = files
-      .filter((file) => file.endsWith(".sav"))
+    ensureDirectoryExists(LOCAL_SAVE_PATH);
+    const games = fs
+      .readdirSync(LOCAL_SAVE_PATH)
+      .filter((f) => f.endsWith(".sav"))
       .map((file) => {
         const fullPath = path.join(LOCAL_SAVE_PATH, file);
         const stats = fs.statSync(fullPath);
-
-        const nameWithoutExt = file.replace(".sav", "");
-
-        // --- IMPROVED ID GENERATION ---
-        // We use the filename + the unix timestamp of creation
-        // Format: "MyGame_1734556800000"
-        const timestamp = stats.birthtime.getTime();
-        const generatedId = `${nameWithoutExt}_${timestamp}`;
-
-        // If your files already use the "ID_Name" format, we can still parse the name
-        const parts = nameWithoutExt.split("_");
-        const displayName =
-          parts.length > 1 ? parts.slice(1).join(" ") : nameWithoutExt;
-
+        const base = file.replace(".sav", "");
+        const parts = base.split("_");
         return {
-          id: generatedId, // Unique combined ID
-          name: displayName, // Clean display name
-          fileName: file, // Original filename for system operations
+          id: `${base}_${stats.birthtime.getTime()}`,
+          name: parts.length > 1 ? parts.slice(1).join(" ") : base,
+          fileName: file,
           path: fullPath,
           createdAt: stats.birthtime,
           size: stats.size,
         };
       });
-
-    // Sort by newest first using the date object
-    return localGames.sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
-    );
+    return games.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   } catch (error) {
-    console.error("Failed to read local library:", error);
+    log.error("get-local-library-games error:", error);
     return [];
   }
 });
+
 export { createWindow };

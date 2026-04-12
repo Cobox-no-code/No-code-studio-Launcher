@@ -98,7 +98,7 @@ export default function Settings() {
                     : "text-[#9F9F9F] hover:bg-[#EEEEEE]"
               }`}
             >
-              Logout
+              Signout
             </button>
           </div>
 
