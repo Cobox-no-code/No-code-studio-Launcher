@@ -1,7 +1,7 @@
 {
   "name": "COBOX",
   "displayName": "Cobox Launcher",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "A modern game launcher for Cobox games",
   "private": false,
   "license": "MIT",
