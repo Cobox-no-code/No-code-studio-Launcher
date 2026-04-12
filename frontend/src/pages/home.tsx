@@ -97,6 +97,18 @@ interface ElectronAPI {
     }>
   >;
   downloadUpdate: () => Promise<{ success: boolean; message?: string }>;
+  getUpdateState: () => Promise<{
+    status:
+      | "idle"
+      | "checking"
+      | "available"
+      | "downloading"
+      | "downloaded"
+      | "error";
+    version: string | null;
+    percent: number;
+    error: string | null;
+  }>;
 }
 
 declare global {

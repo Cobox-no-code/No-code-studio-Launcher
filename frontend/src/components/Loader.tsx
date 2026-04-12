@@ -2,83 +2,230 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "downloading"
+  | "downloaded"
+  | "error";
+
+interface UpdateState {
+  status: UpdateStatus;
+  version: string | null;
+  percent: number;
+  error: string | null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// safePercent — NEVER call .toFixed() on raw data from electron-updater.
+// percent can be: number, stringified number, undefined, null, or a whole object.
+// ─────────────────────────────────────────────────────────────────────────────
+function safePercent(val: unknown): number {
+  if (typeof val === "number") {
+    return isNaN(val) ? 0 : Math.min(100, Math.max(0, val));
+  }
+  const parsed = parseFloat(String(val ?? "0"));
+  return isNaN(parsed) ? 0 : Math.min(100, Math.max(0, parsed));
+}
+
+function sanitizeState(raw: any): UpdateState {
+  return {
+    status: raw?.status ?? "idle",
+    version: raw?.version ?? null,
+    percent: safePercent(raw?.percent),
+    error: raw?.error ?? null,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────────────────────
 export default function ImageFrameAnimationLoader() {
   const [currentVideo, setCurrentVideo] = useState<1 | 2 | null>(1);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [updateInfo, setUpdateInfo] = useState<{ version: string } | null>(
-    null,
-  );
-  const [updateStatus, setUpdateStatus] = useState<
-    "idle" | "downloading" | "downloaded" | "error"
-  >("idle");
-  // FIX: always number, never string
-  const [downloadProgress, setDownloadProgress] = useState<number>(0);
-  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [updateState, setUpdateState] = useState<UpdateState>({
+    status: "idle",
+    version: null,
+    percent: 0,
+    error: null,
+  });
+
   const router = useRouter();
+
+  // ── Refs (not state — no re-renders) ────────────────────────────────────
+  const isMounted = useRef(true); // FIX 8: guard all setState calls
+  const hasNavigated = useRef(false); // prevent double navigation
   const videosFinished = useRef(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // FIX 9: one stable fallback timer — registered once, never re-registered
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ─── UPDATE CHECK ─────────────────────────────────────────────────────────
+  // ── Cleanup on unmount ───────────────────────────────────────────────────
   useEffect(() => {
-    if (!window.electronAPI) return;
-
-    window.electronAPI.onUpdateEvent((channel: string, data: any) => {
-      switch (channel) {
-        case "update-available":
-          setUpdateInfo({ version: data?.version || "latest" });
-          setShowUpdateModal(true);
-          break;
-
-        case "download-progress":
-          setUpdateStatus("downloading");
-          // FIX: electron-updater sends { percent, bytesPerSecond, total, transferred }
-          // percent can arrive as string — force parse to number
-          const raw = typeof data === "object" ? data?.percent : data;
-          const percent = parseFloat(String(raw ?? 0));
-          setDownloadProgress(isNaN(percent) ? 0 : percent);
-          break;
-
-        case "update-downloaded":
-          setUpdateStatus("downloaded");
-          setDownloadProgress(100);
-          break;
-
-        case "update-error":
-          setUpdateStatus("error");
-          setUpdateError(data?.message || "Update failed");
-          break;
-      }
-    });
-
-    window.electronAPI.checkForUpdates?.().catch(() => {});
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      stopPolling();
+      if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+    };
   }, []);
-  // ─────────────────────────────────────────────────────────────────────────
 
+  // ── Safe state setter — never fires on unmounted component ───────────────
+  const safeSetUpdateState = (s: UpdateState) => {
+    if (isMounted.current) setUpdateState(s);
+  };
+  const safeSetShowModal = (v: boolean) => {
+    if (isMounted.current) setShowUpdateModal(v);
+  };
+
+  // ── Navigation — idempotent ───────────────────────────────────────────────
   const navigateAfterSplash = () => {
-    const auth = localStorage.getItem("auth_token");
+    if (hasNavigated.current || !isMounted.current) return;
+    hasNavigated.current = true;
+    stopPolling();
+    const auth =
+      typeof window !== "undefined" && localStorage.getItem("auth_token");
     router.push(auth ? "/home" : "/login");
   };
 
-  const handleVideoEnd = () => {
-    if (currentVideo === 1) {
-      setCurrentVideo(null);
-      setTimeout(() => setCurrentVideo(2), 1000);
-    } else if (currentVideo === 2) {
-      videosFinished.current = true;
-      // Don't navigate if update modal is open — wait for user action
-      if (!showUpdateModal) {
-        navigateAfterSplash();
-      }
+  // ── Polling ───────────────────────────────────────────────────────────────
+  // Asks main process directly every 800ms.
+  // This is the FALLBACK that works even when push events fire before React mounts.
+  const stopPolling = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
     }
   };
 
+  const startPolling = () => {
+    // FIX 10 (also applies here): never start a second interval
+    if (pollingRef.current) return;
+    pollingRef.current = setInterval(async () => {
+      if (!isMounted.current) {
+        stopPolling();
+        return;
+      }
+      if (!window.electronAPI?.getUpdateState) return;
+
+      try {
+        const raw = await window.electronAPI.getUpdateState();
+        const state = sanitizeState(raw);
+
+        safeSetUpdateState(state);
+
+        if (
+          state.status === "available" ||
+          state.status === "downloading" ||
+          state.status === "downloaded"
+        ) {
+          safeSetShowModal(true);
+        }
+
+        // Terminal states — stop polling
+        if (
+          state.status === "downloaded" ||
+          state.status === "error" ||
+          state.status === "idle"
+        ) {
+          stopPolling();
+        }
+      } catch {
+        // Ignore poll errors — main may not be ready yet
+      }
+    }, 800);
+  };
+
+  // ── Update event setup (push + polling, registered ONCE) ────────────────
+  useEffect(() => {
+    if (!window.electronAPI) return;
+
+    // FIX 11 + 12: Use a dedicated per-component listener via onUpdateEvent.
+    // We pass a stable callback — preload de-dupes per-channel per registration.
+    const handlePushEvent = (channel: string, data: any) => {
+      if (channel !== "update-state-changed" || !isMounted.current) return;
+      const state = sanitizeState(data);
+      safeSetUpdateState(state);
+
+      if (
+        state.status === "available" ||
+        state.status === "downloading" ||
+        state.status === "downloaded"
+      ) {
+        safeSetShowModal(true);
+      }
+
+      // Push told us the final state — stop polling
+      if (state.status === "downloaded" || state.status === "error") {
+        stopPolling();
+      }
+    };
+
+    window.electronAPI.onUpdateEvent(handlePushEvent);
+
+    // Start polling immediately — catches state that fired before mount
+    startPolling();
+
+    // Trigger the update check (errors are swallowed — UI handles state)
+    window.electronAPI.checkForUpdates?.().catch(() => {});
+
+    // FIX 9: Fallback navigation — registered ONCE here, never in a
+    // dependency-driven useEffect that resets the timer on state changes.
+    fallbackTimerRef.current = setTimeout(() => {
+      if (!isMounted.current) return;
+      if (!showUpdateModal) navigateAfterSplash();
+    }, 9000);
+
+    return () => {
+      stopPolling();
+      if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty — run once on mount
+
+  // Navigate after modal closes IF videos are done
+  // (separate from the fallback timer — this handles the "install" path)
+  useEffect(() => {
+    if (!showUpdateModal && videosFinished.current) {
+      navigateAfterSplash();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showUpdateModal]);
+
+  // ── Video handlers ────────────────────────────────────────────────────────
+  const handleVideoEnd = () => {
+    if (currentVideo === 1) {
+      if (isMounted.current) setCurrentVideo(null);
+      setTimeout(() => {
+        if (isMounted.current) setCurrentVideo(2);
+      }, 1000);
+    } else if (currentVideo === 2) {
+      videosFinished.current = true;
+      if (!showUpdateModal) navigateAfterSplash();
+    }
+  };
+
+  // ── Update action handlers ─────────────────────────────────────────────────
   const handleDownloadUpdate = async () => {
+    if (!isMounted.current) return;
+    // Optimistic UI — show downloading state immediately
+    safeSetUpdateState({ ...updateState, status: "downloading", percent: 0 });
+    // Restart polling to catch progress immediately
+    stopPolling();
+    startPolling();
     try {
-      setUpdateStatus("downloading");
-      setDownloadProgress(0);
       await window.electronAPI?.downloadUpdate?.();
     } catch {
-      setUpdateStatus("error");
-      setUpdateError("Failed to start download");
+      safeSetUpdateState({
+        status: "error",
+        version: updateState.version,
+        percent: 0,
+        error: "Failed to start download",
+      });
     }
   };
 
@@ -86,35 +233,27 @@ export default function ImageFrameAnimationLoader() {
     try {
       await window.electronAPI?.installUpdate?.();
     } catch {
-      setUpdateStatus("error");
-      setUpdateError("Failed to install update");
+      safeSetUpdateState({
+        ...updateState,
+        status: "error",
+        error: "Failed to install update",
+      });
     }
   };
 
-  // FIX: skip properly closes modal AND always navigates
   const handleSkipUpdate = () => {
-    setShowUpdateModal(false);
+    stopPolling();
+    safeSetShowModal(false);
     navigateAfterSplash();
   };
 
-  // Fallback: navigate if videos never fire onEnded
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (!showUpdateModal) navigateAfterSplash();
-    }, 8000);
-    return () => clearTimeout(timeout);
-  }, [showUpdateModal]);
-
-  // If modal closes after videos finished (e.g. install triggered), navigate
-  useEffect(() => {
-    if (!showUpdateModal && videosFinished.current) {
-      navigateAfterSplash();
-    }
-  }, [showUpdateModal]);
+  // ── Render ─────────────────────────────────────────────────────────────────
+  const pct = safePercent(updateState.percent);
+  const { status, version, error } = updateState;
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
-      {/* ─── VIDEO ──────────────────────────────────────────────────────── */}
+      {/* ── VIDEO ──────────────────────────────────────────────────────────── */}
       <div className="absolute inset-0 z-50 flex items-center justify-center bg-black">
         {currentVideo === 1 && (
           <video
@@ -138,7 +277,7 @@ export default function ImageFrameAnimationLoader() {
         )}
       </div>
 
-      {/* ─── UPDATE MODAL ───────────────────────────────────────────────── */}
+      {/* ── UPDATE MODAL ────────────────────────────────────────────────────── */}
       {showUpdateModal && (
         <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/70">
           <div
@@ -158,40 +297,37 @@ export default function ImageFrameAnimationLoader() {
             </svg>
 
             <div className="absolute inset-0 flex flex-col items-center justify-between p-8">
+              {/* Status */}
               <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
-                {updateStatus === "idle" && (
+                {(status === "idle" || status === "available") && (
                   <>
                     <div className="text-white font-bold text-xl">
                       Update Available
                     </div>
                     <div className="text-gray-400 text-sm">
-                      Version {updateInfo?.version} is ready. Update before
-                      logging in.
+                      Version {version ?? "latest"} is ready to download.
                     </div>
                   </>
                 )}
-
-                {updateStatus === "downloading" && (
+                {status === "downloading" && (
                   <>
                     <div className="text-white font-bold text-xl">
                       Downloading Update...
                     </div>
-                    {/* FIX: Math.round on guaranteed number — no more toFixed crash */}
                     <div className="text-gray-400 text-sm">
-                      {Math.round(downloadProgress)}% complete
+                      {pct === 0
+                        ? "Preparing download..."
+                        : `${Math.round(pct)}% complete`}
                     </div>
-                    <div className="w-64 bg-gray-700 rounded-full h-2 mt-2">
+                    <div className="w-64 bg-gray-700 rounded-full h-2 mt-2 overflow-hidden">
                       <div
-                        className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                        style={{
-                          width: `${Math.min(100, Math.round(downloadProgress))}%`,
-                        }}
+                        className="bg-blue-500 h-2 rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${Math.round(pct)}%` }}
                       />
                     </div>
                   </>
                 )}
-
-                {updateStatus === "downloaded" && (
+                {status === "downloaded" && (
                   <>
                     <div className="text-white font-bold text-xl">
                       Update Ready!
@@ -201,29 +337,28 @@ export default function ImageFrameAnimationLoader() {
                     </div>
                   </>
                 )}
-
-                {updateStatus === "error" && (
+                {status === "error" && (
                   <>
                     <div className="text-red-400 font-bold text-xl">
                       Update Failed
                     </div>
-                    <div className="text-gray-400 text-sm">{updateError}</div>
+                    <div className="text-gray-400 text-sm">
+                      {error ?? "An unexpected error occurred."}
+                    </div>
                   </>
                 )}
               </div>
 
-              {/* Buttons row */}
+              {/* Buttons */}
               <div className="flex gap-4 mb-2 items-center">
-                {/* Spinner during download */}
-                {updateStatus === "downloading" && (
+                {status === "downloading" && (
                   <div className="w-8 h-8 border-2 border-gray-500 border-t-white rounded-full animate-spin" />
                 )}
 
-                {/* Primary button — hidden while downloading */}
-                {updateStatus !== "downloading" && (
+                {status !== "downloading" && (
                   <button
                     onClick={
-                      updateStatus === "downloaded"
+                      status === "downloaded"
                         ? handleInstallUpdate
                         : handleDownloadUpdate
                     }
@@ -243,15 +378,14 @@ export default function ImageFrameAnimationLoader() {
                       />
                     </svg>
                     <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-base z-10">
-                      {updateStatus === "downloaded"
+                      {status === "downloaded"
                         ? "Install & Restart"
                         : "Download Update"}
                     </span>
                   </button>
                 )}
 
-                {/* Skip — only when idle or error, not when downloading or ready to install */}
-                {(updateStatus === "idle" || updateStatus === "error") && (
+                {status !== "downloading" && status !== "downloaded" && (
                   <button
                     onClick={handleSkipUpdate}
                     className="text-gray-500 hover:text-gray-300 text-sm underline transition-colors"
