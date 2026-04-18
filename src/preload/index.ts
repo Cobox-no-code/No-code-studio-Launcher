@@ -1,15 +1,21 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
-import type { IpcResponse } from "../shared/types/ipc";
 import { IPC } from "../shared/types/ipc-contract";
 import type {
-  UpdateCheckResult,
   UpdateStatePayload,
+  UpdateCheckResult,
 } from "../shared/types/update";
+import type { IpcResponse } from "../shared/types/ipc";
+import type {
+  GameStatus,
+  DownloadGameParams,
+  DownloadLiveGameParams,
+  LiveGameDownloadStatus,
+  LiveGameDownloadResult,
+  DeleteLiveGameResult,
+  LocalLibraryGame,
+  LaunchResult,
+} from "../shared/types/game";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// _listenerMap lives at module scope — NOT inside the exposed object.
-// contextBridge can't reliably clone a Map on older Electron versions.
-// ─────────────────────────────────────────────────────────────────────────────
 const _listenerMap = new Map<
   string,
   (event: IpcRendererEvent, ...args: unknown[]) => void
@@ -43,9 +49,40 @@ const api = {
     getState: (): Promise<UpdateStatePayload> =>
       ipcRenderer.invoke(IPC.updater.getState),
     onStateChanged: (cb: (s: UpdateStatePayload) => void): (() => void) =>
-      subscribe(IPC.updater.stateChanged, (data) =>
-        cb(data as UpdateStatePayload),
-      ),
+      subscribe(IPC.updater.stateChanged, (d) => cb(d as UpdateStatePayload)),
+  },
+
+  games: {
+    getServerVersion: (): Promise<string | null> =>
+      ipcRenderer.invoke(IPC.games.getServerVersion),
+    getDefaultInstallPath: (): Promise<string> =>
+      ipcRenderer.invoke(IPC.games.getDefaultInstallPath),
+    chooseInstallPath: (): Promise<string | null> =>
+      ipcRenderer.invoke(IPC.games.chooseInstallPath),
+
+    download: (params: DownloadGameParams): Promise<string> =>
+      ipcRenderer.invoke(IPC.games.download, params),
+    onDownloadProgress: (cb: (percent: number) => void): (() => void) =>
+      subscribe(IPC.games.downloadProgress, (d) => cb(d as number)),
+
+    launch: (): Promise<LaunchResult> => ipcRenderer.invoke(IPC.games.launch),
+    getStatus: (): Promise<GameStatus> =>
+      ipcRenderer.invoke(IPC.games.getStatus),
+    checkInstallation: (gamePath: string): Promise<GameStatus> =>
+      ipcRenderer.invoke(IPC.games.checkInstallation, gamePath),
+
+    downloadLive: (
+      params: DownloadLiveGameParams,
+    ): Promise<LiveGameDownloadResult> =>
+      ipcRenderer.invoke(IPC.games.downloadLive, params),
+    checkDownloadStatus: (
+      ids: string[],
+    ): Promise<Record<string, LiveGameDownloadStatus>> =>
+      ipcRenderer.invoke(IPC.games.checkDownloadStatus, ids),
+    deleteLive: (gameId: string): Promise<DeleteLiveGameResult> =>
+      ipcRenderer.invoke(IPC.games.deleteLive, { gameId }),
+    getLocalLibrary: (): Promise<LocalLibraryGame[]> =>
+      ipcRenderer.invoke(IPC.games.getLocalLibrary),
   },
 };
 
@@ -53,7 +90,7 @@ export type CoboxAPI = typeof api;
 
 try {
   contextBridge.exposeInMainWorld("cobox", api);
-  console.log("cobox API exposed");
+  console.log("cobox API exposed (updater + games)");
 } catch (err) {
   console.error("FATAL: preload exposure failed:", err);
 }

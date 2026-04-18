@@ -35,7 +35,7 @@ function createWindow() {
 app.whenReady().then(() => {
   initLogger();
   getAppDataPath(); // warms the lazy init + ensures dir exists
-  registerAllHandlers();
+  registerAllHandlers(getMainWindow);
   initUpdaterService(getMainWindow);
   createWindow();
   log.info(`Launcher v${app.getVersion()} started`);

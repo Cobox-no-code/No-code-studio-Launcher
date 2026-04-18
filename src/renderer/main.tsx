@@ -1,72 +1,153 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
+import type { GameStatus, LocalLibraryGame } from "../shared/types/game";
 import type { UpdateStatePayload } from "../shared/types/update";
 import "./electron.d";
 
 function App() {
-  const [state, setState] = useState<UpdateStatePayload | null>(null);
-  const [checking, setChecking] = useState(false);
+  const [updateState, setUpdateState] = useState<UpdateStatePayload | null>(
+    null,
+  );
+  const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
+  const [serverVersion, setServerVersion] = useState<string | null>(null);
+  const [defaultPath, setDefaultPath] = useState<string>("");
+  const [dlProgress, setDlProgress] = useState<number>(0);
+  const [library, setLibrary] = useState<LocalLibraryGame[]>([]);
 
-  // Polling + push hybrid — same pattern as before
   useEffect(() => {
     let mounted = true;
 
-    const pull = async () => {
+    const pullUpdater = async () => {
       const s = await window.cobox.updater.getState();
-      if (mounted) setState(s);
+      if (mounted) setUpdateState(s);
+    };
+    const pullGame = async () => {
+      const s = await window.cobox.games.getStatus();
+      if (mounted) setGameStatus(s);
     };
 
-    pull();
-    const interval = setInterval(pull, 800);
-    const unsubscribe = window.cobox.updater.onStateChanged((s) => {
-      if (mounted) setState(s);
+    pullUpdater();
+    pullGame();
+    window.cobox.games
+      .getDefaultInstallPath()
+      .then((p) => mounted && setDefaultPath(p));
+    window.cobox.games.getLocalLibrary().then((l) => mounted && setLibrary(l));
+
+    const interval = setInterval(() => {
+      pullUpdater();
+      pullGame();
+    }, 1000);
+
+    const unsubUpdater = window.cobox.updater.onStateChanged((s) => {
+      if (mounted) setUpdateState(s);
+    });
+    const unsubDl = window.cobox.games.onDownloadProgress((p) => {
+      if (mounted) setDlProgress(p);
     });
 
     return () => {
       mounted = false;
       clearInterval(interval);
-      unsubscribe();
+      unsubUpdater();
+      unsubDl();
     };
   }, []);
 
+  const block: React.CSSProperties = {
+    background: "#f3f4f6",
+    padding: 12,
+    borderRadius: 6,
+    fontSize: 12,
+    fontFamily: "ui-monospace, monospace",
+    marginTop: 8,
+  };
+
   return (
-    <div style={{ padding: 40, fontFamily: "ui-sans-serif, sans-serif" }}>
-      <h1>Cobox Launcher v2.0 — Updater Test</h1>
-      <pre
-        style={{
-          background: "#f3f4f6",
-          padding: 16,
-          borderRadius: 8,
-          fontSize: 13,
-        }}
-      >
-        {JSON.stringify(state, null, 2)}
-      </pre>
-      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-        <button
-          disabled={checking}
-          onClick={async () => {
-            setChecking(true);
-            const r = await window.cobox.updater.check();
-            console.log("check result:", r);
-            setChecking(false);
-          }}
+    <div
+      style={{
+        padding: 32,
+        fontFamily: "ui-sans-serif, sans-serif",
+        maxWidth: 900,
+      }}
+    >
+      <h1 style={{ marginBottom: 4 }}>
+        Cobox Launcher v2.0 — IPC Test Harness
+      </h1>
+      <p style={{ color: "#6b7280", marginTop: 0 }}>
+        Updater + Games services wired through the new layered architecture.
+      </p>
+
+      <section style={{ marginTop: 24 }}>
+        <h3>Updater</h3>
+        <pre style={block}>{JSON.stringify(updateState, null, 2)}</pre>
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <button onClick={() => window.cobox.updater.check()}>Check</button>
+          <button
+            disabled={updateState?.status !== "available"}
+            onClick={() => window.cobox.updater.download()}
+          >
+            Download
+          </button>
+          <button
+            disabled={updateState?.status !== "downloaded"}
+            onClick={() => window.cobox.updater.install()}
+          >
+            Install
+          </button>
+        </div>
+      </section>
+
+      <section style={{ marginTop: 32 }}>
+        <h3>Games — status</h3>
+        <pre style={block}>{JSON.stringify(gameStatus, null, 2)}</pre>
+        <div
+          style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}
         >
-          {checking ? "Checking..." : "Check for updates"}
-        </button>
+          <button
+            onClick={async () =>
+              setServerVersion(await window.cobox.games.getServerVersion())
+            }
+          >
+            Get server version
+          </button>
+          <button
+            disabled={!gameStatus?.installed}
+            onClick={async () => {
+              const r = await window.cobox.games.launch();
+              console.log("launch:", r);
+            }}
+          >
+            Launch game
+          </button>
+          <button
+            onClick={async () => {
+              const p = await window.cobox.games.chooseInstallPath();
+              console.log("chosen:", p);
+            }}
+          >
+            Choose install dir
+          </button>
+        </div>
+        <div style={{ marginTop: 8, fontSize: 13 }}>
+          Server version: <code>{serverVersion ?? "not fetched"}</code>
+          <br />
+          Default install path: <code>{defaultPath}</code>
+          <br />
+          Last download progress: <code>{dlProgress.toFixed(1)}%</code>
+        </div>
+      </section>
+
+      <section style={{ marginTop: 32 }}>
+        <h3>Live games — local library ({library.length})</h3>
+        <pre style={block}>{JSON.stringify(library.slice(0, 3), null, 2)}</pre>
         <button
-          disabled={state?.status !== "available"}
-          onClick={() => window.cobox.updater.download()}
+          onClick={async () =>
+            setLibrary(await window.cobox.games.getLocalLibrary())
+          }
         >
-          Download
+          Refresh
         </button>
-        <button
-          disabled={state?.status !== "downloaded"}
-          onClick={() => window.cobox.updater.install()}
-        >
-          Install & Restart
-        </button>
-      </div>
+      </section>
     </div>
   );
 }
