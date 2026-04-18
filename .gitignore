@@ -1,16 +1,96 @@
-# Node modules
-/node_modules
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependencies
+# ─────────────────────────────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
 
-# Frontend build outputs
-/frontend/out
-/frontend/.next
+# ─────────────────────────────────────────────────────────────────────────────
+# Build output — electron-vite writes here
+# ─────────────────────────────────────────────────────────────────────────────
+out/
+dist/
+release/
+build/
+.vite/
 
-# General build and distribution folders
-/dist
-/out
+# Legacy Next.js build output (pre-migration — remove when legacy folders go)
+.next/
+frontend/out/
+frontend/.next/
+backend_legacy/dist/
 
-frontend/.env.production
-frontend/.env.local
-
-# TanStack Router generated file
+# ─────────────────────────────────────────────────────────────────────────────
+# TanStack Router — generated on every dev run
+# ─────────────────────────────────────────────────────────────────────────────
 src/renderer/routeTree.gen.ts
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Environment — NEVER commit
+# ─────────────────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
+frontend/.env
+frontend/.env.*
+!.env.example
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Logs
+# ─────────────────────────────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Editor + OS
+# ─────────────────────────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+*.sublime-workspace
+*.sublime-project
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TypeScript incremental
+# ─────────────────────────────────────────────────────────────────────────────
+*.tsbuildinfo
+.tsbuildinfo
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Electron builder extras
+# ─────────────────────────────────────────────────────────────────────────────
+*.blockmap
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.snap
+*.pkg
+*.zip.blockmap
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Native build artefacts (rebuilt per machine via `postinstall`)
+# ─────────────────────────────────────────────────────────────────────────────
+*.node
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Misc
+# ─────────────────────────────────────────────────────────────────────────────
+coverage/
+.cache/
+.parcel-cache/
+.eslintcache
