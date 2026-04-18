@@ -14,6 +14,7 @@ import type {
   DeleteLiveGameResult,
   LocalLibraryGame,
   LaunchResult,
+  ServerVersionData,
 } from "../shared/types/game";
 
 const _listenerMap = new Map<
@@ -53,7 +54,7 @@ const api = {
   },
 
   games: {
-    getServerVersion: (): Promise<string | null> =>
+    getServerVersion: (): Promise<ServerVersionData | null> =>
       ipcRenderer.invoke(IPC.games.getServerVersion),
     getDefaultInstallPath: (): Promise<string> =>
       ipcRenderer.invoke(IPC.games.getDefaultInstallPath),

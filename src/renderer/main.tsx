@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
-import type { GameStatus, LocalLibraryGame } from "../shared/types/game";
+import type {
+  GameStatus,
+  LocalLibraryGame,
+  ServerVersionData,
+} from "../shared/types/game";
 import type { UpdateStatePayload } from "../shared/types/update";
 import "./electron.d";
 
@@ -9,7 +13,9 @@ function App() {
     null,
   );
   const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
-  const [serverVersion, setServerVersion] = useState<string | null>(null);
+  const [serverVersion, setServerVersion] = useState<ServerVersionData | null>(
+    null,
+  );
   const [defaultPath, setDefaultPath] = useState<string>("");
   const [dlProgress, setDlProgress] = useState<number>(0);
   const [library, setLibrary] = useState<LocalLibraryGame[]>([]);
@@ -129,7 +135,12 @@ function App() {
           </button>
         </div>
         <div style={{ marginTop: 8, fontSize: 13 }}>
-          Server version: <code>{serverVersion ?? "not fetched"}</code>
+          Server version:{" "}
+          <code>
+            {serverVersion
+              ? `${serverVersion.version} (${serverVersion.link})`
+              : "not fetched"}
+          </code>
           <br />
           Default install path: <code>{defaultPath}</code>
           <br />

@@ -44,3 +44,11 @@ export interface DeleteLiveGameResult {
   success: boolean;
   error?: string;
 }
+
+export interface ServerVersionData {
+  id?: number;
+  title?: string;
+  version: string;
+  link: string;
+  created_at?: string;
+}
