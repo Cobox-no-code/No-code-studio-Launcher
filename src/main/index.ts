@@ -1,7 +1,13 @@
 import { app, BrowserWindow } from "electron";
 import { join } from "path";
 
+import { registerAllHandlers } from "@main/ipc";
+import { getAppDataPath } from "@main/persistence/paths";
+import { initUpdaterService } from "@main/services/updater/updater.service";
+import { initLogger, log } from "@main/utils/logger";
+
 let mainWindow: BrowserWindow | null = null;
+export const getMainWindow = () => mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -17,7 +23,7 @@ function createWindow() {
     },
   });
 
-  if (import.meta.env.DEV && process.env["ELECTRON_RENDERER_URL"]) {
+  if (process.env["ELECTRON_RENDERER_URL"]) {
     mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
     mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
@@ -27,7 +33,13 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  initLogger();
+  getAppDataPath(); // warms the lazy init + ensures dir exists
+  registerAllHandlers();
+  initUpdaterService(getMainWindow);
   createWindow();
+  log.info(`Launcher v${app.getVersion()} started`);
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

@@ -12,3 +12,9 @@ export interface UpdateStatePayload {
   percent: number;
   error: string | null;
 }
+
+export interface UpdateCheckResult {
+  success: boolean;
+  updateInfo: { version: string } | null;
+  message?: string;
+}
