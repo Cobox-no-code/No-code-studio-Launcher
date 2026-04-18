@@ -33,4 +33,27 @@ export const IPC = {
     logout: "auth:logout",
     openExternal: "auth:open-external", // util: opens system browser
   },
+
+  publish: {
+    // Listing
+    listMine: "publish:list-mine",
+
+    // Direct (small files)
+    publishDirect: "publish:publish-direct",
+
+    // Presigned flow (large files)
+    presign: "publish:presign",
+    uploadToS3: "publish:upload-to-s3",
+    publishPresigned: "publish:publish-presigned",
+
+    // CRUD
+    update: "publish:update",
+    delete: "publish:delete",
+
+    // Versions
+    createVersion: "publish:create-version",
+
+    // Push channel
+    uploadProgress: "publish:upload-progress",
+  },
 } as const;

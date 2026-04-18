@@ -14,6 +14,19 @@ import type {
 } from "../shared/types/game";
 import type { IpcResponse } from "../shared/types/ipc";
 import type {
+  PresignParams,
+  PresignResponse,
+  PublishDirectParams,
+  PublishedGame,
+  PublishPresignedParams,
+  PublishResult,
+  PublishVersionParams,
+  UpdatePublishedGameParams,
+  UploadProgressEvent,
+  UploadToS3Params,
+  UploadToS3Result,
+} from "../shared/types/publish";
+import type {
   UpdateCheckResult,
   UpdateStatePayload,
 } from "../shared/types/update";
@@ -101,13 +114,48 @@ const api = {
     openExternal: (url: string): Promise<IpcResponse> =>
       ipcRenderer.invoke(IPC.auth.openExternal, url),
   },
+
+  publish: {
+    listMine: (): Promise<PublishedGame[]> =>
+      ipcRenderer.invoke(IPC.publish.listMine),
+
+    publishDirect: (params: PublishDirectParams): Promise<PublishResult> =>
+      ipcRenderer.invoke(IPC.publish.publishDirect, params),
+
+    presign: (params: PresignParams): Promise<PresignResponse> =>
+      ipcRenderer.invoke(IPC.publish.presign, params),
+
+    uploadToS3: (
+      params: UploadToS3Params & { kind: UploadProgressEvent["kind"] },
+    ): Promise<UploadToS3Result> =>
+      ipcRenderer.invoke(IPC.publish.uploadToS3, params),
+
+    publishPresigned: (
+      params: PublishPresignedParams,
+    ): Promise<PublishResult> =>
+      ipcRenderer.invoke(IPC.publish.publishPresigned, params),
+
+    update: (params: UpdatePublishedGameParams): Promise<PublishResult> =>
+      ipcRenderer.invoke(IPC.publish.update, params),
+
+    delete: (gameId: string): Promise<PublishResult> =>
+      ipcRenderer.invoke(IPC.publish.delete, gameId),
+
+    createVersion: (params: PublishVersionParams): Promise<PublishResult> =>
+      ipcRenderer.invoke(IPC.publish.createVersion, params),
+
+    onUploadProgress: (cb: (e: UploadProgressEvent) => void): (() => void) =>
+      subscribe(IPC.publish.uploadProgress, (d) =>
+        cb(d as UploadProgressEvent),
+      ),
+  },
 };
 
 export type CoboxAPI = typeof api;
 
 try {
   contextBridge.exposeInMainWorld("cobox", api);
-  console.log("cobox API exposed (updater + games + auth)");
+  console.log("cobox API exposed (updater + games + auth + publish)");
 } catch (err) {
   console.error("FATAL: preload exposure failed:", err);
 }

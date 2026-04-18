@@ -8,6 +8,10 @@ import type {
 } from "../shared/types/game";
 import type { UpdateStatePayload } from "../shared/types/update";
 import "./electron.d";
+import type {
+  PublishedGame,
+  UploadProgressEvent,
+} from "../shared/types/publish";
 function App() {
   const [updateState, setUpdateState] = useState<UpdateStatePayload | null>(
     null,
@@ -20,6 +24,10 @@ function App() {
   const [defaultPath, setDefaultPath] = useState<string>("");
   const [dlProgress, setDlProgress] = useState<number>(0);
   const [library, setLibrary] = useState<LocalLibraryGame[]>([]);
+  const [myGames, setMyGames] = useState<PublishedGame[]>([]);
+  const [uploadProgress, setUploadProgress] =
+    useState<UploadProgressEvent | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -40,6 +48,9 @@ function App() {
 
     const unsubAuth = window.cobox.auth.onStateChanged((s) => {
       if (mounted) setAuthStatus(s);
+    });
+    const unsubUpload = window.cobox.publish.onUploadProgress((e) => {
+      if (mounted) setUploadProgress(e);
     });
 
     pullUpdater();
@@ -68,6 +79,7 @@ function App() {
       unsubUpdater();
       unsubDl();
       unsubAuth();
+      unsubUpload();
     };
   }, []);
 
@@ -204,6 +216,55 @@ function App() {
             onClick={() => window.cobox.auth.logout()}
           >
             Logout
+          </button>
+        </div>
+      </section>
+
+      <section style={{ marginTop: 32 }}>
+        <h3>Publish</h3>
+        <div style={{ fontSize: 13, marginBottom: 8 }}>
+          My games: <code>{myGames.length}</code>
+          {uploadProgress && (
+            <span style={{ marginLeft: 12 }}>
+              Upload ({uploadProgress.kind}):{" "}
+              <code>{uploadProgress.percent.toFixed(1)}%</code>
+            </span>
+          )}
+        </div>
+
+        <pre style={block}>{JSON.stringify(myGames.slice(0, 3), null, 2)}</pre>
+
+        <div
+          style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}
+        >
+          <button
+            disabled={busy || authStatus?.status !== "signed-in"}
+            onClick={async () => {
+              setBusy(true);
+              const list = await window.cobox.publish.listMine();
+              setMyGames(list);
+              setBusy(false);
+            }}
+          >
+            Refresh my games
+          </button>
+
+          <button
+            disabled={busy || authStatus?.status !== "signed-in"}
+            onClick={async () => {
+              setBusy(true);
+              // Just exercises the presign endpoint with a dummy filename.
+              // Real flow: user picks a file, we call presign, then uploadToS3.
+              const res = await window.cobox.publish.presign({
+                folder: "thumbnails",
+                filename: "test-thumb.png",
+                mime_type: "image/png",
+              });
+              console.log("presign result:", res);
+              setBusy(false);
+            }}
+          >
+            Test presign endpoint
           </button>
         </div>
       </section>
