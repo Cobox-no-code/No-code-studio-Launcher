@@ -1,0 +1,33 @@
+productName: cobox
+appId: com.cobox.coboxlauncher
+electronVersion: 34.2.0
+asar: true
+compression: normal
+directories:
+  buildResources: resources
+  output: release
+files:
+  - "out/**/*"
+  - "package.json"
+publish:
+  provider: github
+  owner: Cobox-no-code
+  repo: No-code-studio-Launcher
+win:
+  target: [nsis]
+  icon: resources/icon.png
+  artifactName: "${name}-${version}-windows-${arch}.${ext}"
+nsis:
+  artifactName: "${name}-${version}-windows-${arch}-nsis-installer.${ext}"
+  allowToChangeInstallationDirectory: true
+  oneClick: false
+  perMachine: true
+mac:
+  target: dmg
+  icon: resources/icon.png
+  artifactName: "${productName}-Setup-${version}.${ext}"
+  darkModeSupport: true
+linux:
+  target: [AppImage, deb]
+  icon: resources/icon.png
+  artifactName: "${productName}-Setup-${version}.${ext}"
