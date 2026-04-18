@@ -24,26 +24,17 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Create frontend/.env.production
+      - name: Create .env.production for Vite
         shell: bash
         run: |
-          echo "NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }}" > frontend/.env.production
-          echo "NEXT_PUBLIC_APP_ENV=production" >> frontend/.env.production
-
-      - name: Build frontend
-        run: npm run build:frontend
-        env:
-          NEXT_PUBLIC_BACKEND_URL: ${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
-          NEXT_PUBLIC_APP_ENV: production
-
-      - name: Build backend
-        run: npm run build:backend
+          echo "VITE_BACKEND_URL=${{ secrets.VITE_BACKEND_URL }}" > .env.production
+          echo "VITE_APP_ENV=production" >> .env.production
 
       - name: Build and publish Electron installer
-        run: npx electron-builder --win --publish always
+        run: npm run dist:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEXT_PUBLIC_BACKEND_URL: ${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
-          NEXT_PUBLIC_APP_ENV: production
-          EP_DRAFT: false # ← add this
-          EP_PRE_RELEASE: false # ← and this
+          VITE_BACKEND_URL: ${{ secrets.VITE_BACKEND_URL }}
+          VITE_APP_ENV: production
+          EP_DRAFT: false
+          EP_PRE_RELEASE: true # auto-flip to false on stable v2.0.0+
