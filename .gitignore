@@ -11,3 +11,6 @@
 
 frontend/.env.production
 frontend/.env.local
+
+# TanStack Router generated file
+src/renderer/routeTree.gen.ts

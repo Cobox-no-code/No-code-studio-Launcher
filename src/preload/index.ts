@@ -1,6 +1,7 @@
 import { AuthState, StartLoginResult } from "@shared/types/auth";
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 import { IPC } from "../shared/ipc-contract";
+import type { CoboxAPI } from "../shared/types/cobox-api";
 import type {
   DeleteLiveGameResult,
   DownloadGameParams,
@@ -52,7 +53,7 @@ function subscribe(
   };
 }
 
-const api = {
+const api: CoboxAPI = {
   updater: {
     check: (): Promise<UpdateCheckResult> =>
       ipcRenderer.invoke(IPC.updater.check),
@@ -150,8 +151,6 @@ const api = {
       ),
   },
 };
-
-export type CoboxAPI = typeof api;
 
 try {
   contextBridge.exposeInMainWorld("cobox", api);

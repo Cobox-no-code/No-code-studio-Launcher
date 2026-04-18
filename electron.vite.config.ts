@@ -18,9 +18,7 @@ export default defineConfig({
     },
   },
   preload: {
-    resolve: {
-      alias: { "@shared": resolve("src/shared") },
-    },
+    resolve: { alias: { "@shared": resolve("src/shared") } },
     build: {
       outDir: "out/preload",
       lib: { entry: "src/preload/index.ts" },
@@ -29,7 +27,12 @@ export default defineConfig({
   renderer: {
     root: "src/renderer",
     plugins: [
-      TanStackRouterVite({ routesDirectory: "src/renderer/routes" }),
+      TanStackRouterVite({
+        target: "react",
+        routesDirectory: resolve("src/renderer/routes"),
+        generatedRouteTree: resolve("src/renderer/routeTree.gen.ts"),
+        autoCodeSplitting: true,
+      }),
       react(),
       tailwindcss(),
     ],
@@ -41,9 +44,7 @@ export default defineConfig({
     },
     build: {
       outDir: "out/renderer",
-      rollupOptions: {
-        input: resolve("src/renderer/index.html"),
-      },
+      rollupOptions: { input: resolve("src/renderer/index.html") },
     },
   },
 });
