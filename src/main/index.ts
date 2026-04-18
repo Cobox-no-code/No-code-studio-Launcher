@@ -3,9 +3,9 @@ import { join } from "path";
 
 import { registerAllHandlers } from "@main/ipc";
 import { getAppDataPath } from "@main/persistence/paths";
+import { initAuthService } from "@main/services/auth/auth.service";
 import { initUpdaterService } from "@main/services/updater/updater.service";
 import { initLogger, log } from "@main/utils/logger";
-
 let mainWindow: BrowserWindow | null = null;
 export const getMainWindow = () => mainWindow;
 
@@ -32,12 +32,14 @@ function createWindow() {
   mainWindow.on("closed", () => (mainWindow = null));
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   initLogger();
   getAppDataPath(); // warms the lazy init + ensures dir exists
   registerAllHandlers(getMainWindow);
   initUpdaterService(getMainWindow);
   createWindow();
+
+  await initAuthService(getMainWindow);
   log.info(`Launcher v${app.getVersion()} started`);
 
   app.on("activate", () => {

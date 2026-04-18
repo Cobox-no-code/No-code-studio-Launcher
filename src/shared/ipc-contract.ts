@@ -23,4 +23,14 @@ export const IPC = {
     deleteLive: "games:delete-live",
     getLocalLibrary: "games:get-local-library",
   },
+
+  auth: {
+    getState: "auth:get-state",
+    stateChanged: "auth:state-changed", // push channel
+    startLogin: "auth:start-login",
+    cancelLogin: "auth:cancel-login",
+    refresh: "auth:refresh",
+    logout: "auth:logout",
+    openExternal: "auth:open-external", // util: opens system browser
+  },
 } as const;

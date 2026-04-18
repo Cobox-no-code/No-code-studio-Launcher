@@ -1,11 +1,11 @@
-import { ipcMain } from "electron";
-import { IPC } from "@shared/types/ipc-contract";
 import {
   cmdCheck,
   cmdDownload,
-  cmdInstall,
   cmdGetState,
+  cmdInstall,
 } from "@main/services/updater/updater.service";
+import { IPC } from "@shared/ipc-contract";
+import { ipcMain } from "electron";
 
 export function registerUpdaterHandlers() {
   ipcMain.handle(IPC.updater.check, cmdCheck);

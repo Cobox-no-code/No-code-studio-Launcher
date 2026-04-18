@@ -1,21 +1,21 @@
-import { ipcMain, BrowserWindow } from "electron";
-import { IPC } from "@shared/types/ipc-contract";
+import { IPC } from "@shared/ipc-contract";
+import { BrowserWindow, ipcMain } from "electron";
 
-import { getServerVersion } from "@main/services/games/version.service";
 import { downloadAndExtractGame } from "@main/services/games/download.service";
 import {
+  checkInstallationAt,
   chooseInstallPath,
   getDefaultInstallPath,
   getGameStatus,
-  checkInstallationAt,
 } from "@main/services/games/install.service";
 import { launchGame } from "@main/services/games/launch.service";
 import {
-  downloadLiveGame,
   checkDownloadStatus,
   deleteLiveGame,
+  downloadLiveGame,
   getLocalLibrary,
 } from "@main/services/games/live-games.service";
+import { getServerVersion } from "@main/services/games/version.service";
 
 export function registerGamesHandlers(getWin: () => BrowserWindow | null) {
   ipcMain.handle(IPC.games.getServerVersion, () => getServerVersion());

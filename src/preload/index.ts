@@ -1,22 +1,22 @@
+import { AuthState, StartLoginResult } from "@shared/types/auth";
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
-import { IPC } from "../shared/types/ipc-contract";
+import { IPC } from "../shared/ipc-contract";
 import type {
-  UpdateStatePayload,
-  UpdateCheckResult,
-} from "../shared/types/update";
-import type { IpcResponse } from "../shared/types/ipc";
-import type {
-  GameStatus,
+  DeleteLiveGameResult,
   DownloadGameParams,
   DownloadLiveGameParams,
-  LiveGameDownloadStatus,
-  LiveGameDownloadResult,
-  DeleteLiveGameResult,
-  LocalLibraryGame,
+  GameStatus,
   LaunchResult,
+  LiveGameDownloadResult,
+  LiveGameDownloadStatus,
+  LocalLibraryGame,
   ServerVersionData,
 } from "../shared/types/game";
-
+import type { IpcResponse } from "../shared/types/ipc";
+import type {
+  UpdateCheckResult,
+  UpdateStatePayload,
+} from "../shared/types/update";
 const _listenerMap = new Map<
   string,
   (event: IpcRendererEvent, ...args: unknown[]) => void
@@ -85,13 +85,29 @@ const api = {
     getLocalLibrary: (): Promise<LocalLibraryGame[]> =>
       ipcRenderer.invoke(IPC.games.getLocalLibrary),
   },
+
+  auth: {
+    getState: (): Promise<AuthState> => ipcRenderer.invoke(IPC.auth.getState),
+    onStateChanged: (cb: (s: AuthState) => void): (() => void) =>
+      subscribe(IPC.auth.stateChanged, (d) => cb(d as AuthState)),
+
+    startLogin: (): Promise<StartLoginResult> =>
+      ipcRenderer.invoke(IPC.auth.startLogin),
+    cancelLogin: (): Promise<IpcResponse> =>
+      ipcRenderer.invoke(IPC.auth.cancelLogin),
+    refresh: (): Promise<IpcResponse> => ipcRenderer.invoke(IPC.auth.refresh),
+    logout: (): Promise<IpcResponse> => ipcRenderer.invoke(IPC.auth.logout),
+
+    openExternal: (url: string): Promise<IpcResponse> =>
+      ipcRenderer.invoke(IPC.auth.openExternal, url),
+  },
 };
 
 export type CoboxAPI = typeof api;
 
 try {
   contextBridge.exposeInMainWorld("cobox", api);
-  console.log("cobox API exposed (updater + games)");
+  console.log("cobox API exposed (updater + games + auth)");
 } catch (err) {
   console.error("FATAL: preload exposure failed:", err);
 }

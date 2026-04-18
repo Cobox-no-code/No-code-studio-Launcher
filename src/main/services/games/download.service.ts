@@ -8,7 +8,7 @@ import { ensureDir } from "@main/persistence/paths";
 import { workerStore } from "@main/persistence/worker.store";
 import { log } from "@main/utils/logger";
 import { safeSend } from "@main/utils/safe-send";
-import { IPC } from "@shared/types/ipc-contract";
+import { IPC } from "@shared/ipc-contract";
 
 const EXE_NAME = "NoCodeStudio.exe";
 

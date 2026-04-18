@@ -2,16 +2,16 @@ import { app, BrowserWindow } from "electron";
 import { autoUpdater } from "electron-updater";
 import semver from "semver";
 
-import { IPC } from "@shared/types/ipc-contract";
-import type { UpdateCheckResult } from "@shared/types/update";
+import { IPC } from "@shared/ipc-contract";
 import type { IpcResponse } from "@shared/types/ipc";
+import type { UpdateCheckResult } from "@shared/types/update";
 
+import { GITHUB_OWNER, GITHUB_REPO } from "@main/utils/env";
 import { log } from "@main/utils/logger";
 import { safeSend } from "@main/utils/safe-send";
-import { GITHUB_OWNER, GITHUB_REPO } from "@main/utils/env";
 
-import { updaterState } from "./state";
 import { safePercent } from "./safe-percent";
+import { updaterState } from "./state";
 
 let _mainWindowRef: () => BrowserWindow | null = () => null;
 

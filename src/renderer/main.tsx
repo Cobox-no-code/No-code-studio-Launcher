@@ -1,3 +1,4 @@
+import { AuthState } from "@shared/types/auth";
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import type {
@@ -7,7 +8,6 @@ import type {
 } from "../shared/types/game";
 import type { UpdateStatePayload } from "../shared/types/update";
 import "./electron.d";
-
 function App() {
   const [updateState, setUpdateState] = useState<UpdateStatePayload | null>(
     null,
@@ -16,6 +16,7 @@ function App() {
   const [serverVersion, setServerVersion] = useState<ServerVersionData | null>(
     null,
   );
+  const [authStatus, setAuthStatus] = useState<AuthState | null>(null);
   const [defaultPath, setDefaultPath] = useState<string>("");
   const [dlProgress, setDlProgress] = useState<number>(0);
   const [library, setLibrary] = useState<LocalLibraryGame[]>([]);
@@ -31,6 +32,15 @@ function App() {
       const s = await window.cobox.games.getStatus();
       if (mounted) setGameStatus(s);
     };
+    const pullAuth = async () => {
+      const s = await window.cobox.auth.getState();
+      if (mounted) setAuthStatus(s);
+    };
+    pullAuth();
+
+    const unsubAuth = window.cobox.auth.onStateChanged((s) => {
+      if (mounted) setAuthStatus(s);
+    });
 
     pullUpdater();
     pullGame();
@@ -42,6 +52,7 @@ function App() {
     const interval = setInterval(() => {
       pullUpdater();
       pullGame();
+      pullAuth();
     }, 1000);
 
     const unsubUpdater = window.cobox.updater.onStateChanged((s) => {
@@ -56,6 +67,7 @@ function App() {
       clearInterval(interval);
       unsubUpdater();
       unsubDl();
+      unsubAuth();
     };
   }, []);
 
@@ -158,6 +170,42 @@ function App() {
         >
           Refresh
         </button>
+      </section>
+
+      <section style={{ marginTop: 32 }}>
+        <h3>Auth</h3>
+        <pre style={block}>{JSON.stringify(authStatus, null, 2)}</pre>
+        <div
+          style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}
+        >
+          <button
+            disabled={authStatus?.status === "awaiting-browser"}
+            onClick={async () => {
+              const r = await window.cobox.auth.startLogin();
+              console.log("startLogin:", r);
+            }}
+          >
+            Sign in
+          </button>
+          <button
+            disabled={authStatus?.status !== "awaiting-browser"}
+            onClick={() => window.cobox.auth.cancelLogin()}
+          >
+            Cancel login
+          </button>
+          <button
+            disabled={authStatus?.status !== "signed-in"}
+            onClick={() => window.cobox.auth.refresh()}
+          >
+            Refresh token
+          </button>
+          <button
+            disabled={authStatus?.status !== "signed-in"}
+            onClick={() => window.cobox.auth.logout()}
+          >
+            Logout
+          </button>
+        </div>
       </section>
     </div>
   );
