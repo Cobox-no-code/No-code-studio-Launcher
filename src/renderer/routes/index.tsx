@@ -1,68 +1,103 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
-import { motion } from "motion/react";
 import { Loader2 } from "lucide-react";
+import { motion } from "motion/react";
+import { useEffect } from "react";
 
+import { BootstrapScreen } from "@renderer/components/bootstrap/BootstrapScreen";
+import { IntroVideos } from "@renderer/components/bootstrap/IntroVideos";
 import { useAuthState } from "@renderer/hooks/useAuthState";
-import { useUpdateState } from "@renderer/hooks/useUpdateState";
+import { useBootstrapState } from "@renderer/hooks/useBootstrapState";
 import { cobox } from "@renderer/lib/electron";
 
 export const Route = createFileRoute("/")({
-  component: SplashPage,
+  component: BootstrapRoute,
 });
 
-function SplashPage() {
+function BootstrapRoute() {
+  const boot = useBootstrapState();
   const auth = useAuthState();
-  const update = useUpdateState();
   const navigate = useNavigate();
 
-  // Kick an update check as soon as we mount.
+  // When bootstrap reaches "ready", route forward based on auth state
   useEffect(() => {
-    cobox.updater.check().catch(() => {});
-  }, []);
+    if (!boot || !auth) return;
+    if (boot.phase !== "ready") return;
+    if (auth.status === "signed-in") navigate({ to: "/home" });
+    else if (auth.status === "signed-out") navigate({ to: "/login" });
+  }, [boot, auth, navigate]);
 
-  // Route decision logic:
-  //  - if an update is available / downloading → stay here, show progress
-  //  - else if no auth session → /login
-  //  - else → /home
-  useEffect(() => {
-    if (!auth || !update) return;
-    const blockingUpdate =
-      update.status === "available" ||
-      update.status === "downloading" ||
-      update.status === "downloaded";
-    if (blockingUpdate) return;
+  // Nothing to render yet — state not loaded
+  if (!boot) return <MiniSplash />;
 
-    if (auth.status === "signed-in") {
-      navigate({ to: "/home" });
-    } else if (auth.status === "signed-out") {
-      navigate({ to: "/login" });
-    }
-  }, [auth, update, navigate]);
+  // First-run intro videos
+  if (boot.phase === "intro-videos") {
+    return <IntroVideos onComplete={() => cobox.bootstrap.markIntroDone()} />;
+  }
 
+  // Error state — offer retry
+  if (boot.phase === "error") {
+    return (
+      <div className="fixed inset-0 bg-login-gradient flex items-center justify-center p-8">
+        <div className="max-w-md text-center space-y-4">
+          <div className="font-display font-bold text-2xl">
+            Something went wrong
+          </div>
+          <div className="text-sm text-text-muted">
+            {boot.error ?? boot.gameDownload.error}
+          </div>
+          <button
+            onClick={() => cobox.bootstrap.retry()}
+            className="inline-flex h-10 px-6 rounded-pill bg-cta hover:bg-cta-hover text-white font-bold text-sm"
+            data-no-drag
+          >
+            Retry
+          </button>
+          <button
+            onClick={() => cobox.bootstrap.skipToLogin()}
+            className="block mx-auto text-xs text-text-muted underline"
+            data-no-drag
+          >
+            Continue anyway
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Everything else that needs the loading screen
+  if (
+    boot.phase === "checking" ||
+    boot.phase === "game-downloading" ||
+    boot.phase === "game-installing" ||
+    boot.phase === "launcher-updating"
+  ) {
+    return <BootstrapScreen state={boot} />;
+  }
+
+  // Initializing or ready-and-about-to-route
+  return <MiniSplash />;
+}
+
+function MiniSplash() {
   return (
-    <div className="h-full flex flex-col items-center justify-center gap-6 text-surface-900">
+    <div className="h-screen bg-login-gradient flex flex-col items-center justify-center gap-4">
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex flex-col items-center gap-3"
+        className="size-20 rounded-xl bg-white flex items-center justify-center shadow-lg"
       >
-        <div className="size-20 rounded-2xl bg-brand-500 flex items-center justify-center shadow-lg">
-          <span className="text-white text-3xl font-bold">C</span>
-        </div>
-        <div className="text-2xl font-semibold">Cobox Launcher</div>
-        <div className="flex items-center gap-2 text-sm text-surface-900/60">
-          <Loader2 className="animate-spin" size={14} />
-          <span>
-            {update?.status === "downloading"
-              ? `Downloading update ${update.percent.toFixed(0)}%`
-              : update?.status === "checking"
-                ? "Checking for updates…"
-                : "Preparing your launcher…"}
-          </span>
-        </div>
+        <span className="font-display font-black text-[11px] text-bg leading-[1.1] text-center">
+          NO
+          <br />
+          CODE
+          <br />
+          STUDIO
+        </span>
       </motion.div>
+      <div className="flex items-center gap-2 text-sm text-text-muted">
+        <Loader2 className="animate-spin" size={14} />
+        <span>Preparing…</span>
+      </div>
     </div>
   );
 }

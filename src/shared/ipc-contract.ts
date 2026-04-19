@@ -56,4 +56,12 @@ export const IPC = {
     // Push channel
     uploadProgress: "publish:upload-progress",
   },
+  bootstrap: {
+    getState: "bootstrap:get-state",
+    stateChanged: "bootstrap:state-changed", // push channel
+    start: "bootstrap:start",
+    markIntroDone: "bootstrap:mark-intro-done",
+    skipToLogin: "bootstrap:skip-to-login",
+    retry: "bootstrap:retry",
+  },
 } as const;

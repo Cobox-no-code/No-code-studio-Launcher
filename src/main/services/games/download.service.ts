@@ -9,6 +9,7 @@ import { workerStore } from "@main/persistence/worker.store";
 import { log } from "@main/utils/logger";
 import { safeSend } from "@main/utils/safe-send";
 import { IPC } from "@shared/ipc-contract";
+import { reportGameDownloadProgress } from "../bootstrap/bootstrap.service";
 
 const EXE_NAME = "NoCodeStudio.exe";
 
@@ -72,6 +73,8 @@ export function downloadAndExtractGame(
         downloaded += chunk.length;
         const pct = total > 0 ? (downloaded / total) * 100 : 0;
         safeSend(getWin(), IPC.games.downloadProgress, pct);
+        // Mirror into bootstrap state so the splash progress bar updates
+        reportGameDownloadProgress(pct);
       });
 
       res.pipe(file);

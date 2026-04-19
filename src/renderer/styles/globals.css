@@ -1,40 +1,130 @@
-@import "tailwindcss";
+/* ─────────────────────────────────────────────────────────────────────────
+   Transducer Test — 2 families wired
+   - Transducer:      Regular width (body, UI)
+   - Transducer Ext:  Extended width (display headings)
+   Other widths (Condensed, Hairline, Oblique) intentionally unwired.
+   ───────────────────────────────────────────────────────────────────────── */
 
-/* Design tokens — keep this minimal, expand as we build components */
-@theme {
-  --color-brand-50: #eef4ff;
-  --color-brand-100: #dbe6ff;
-  --color-brand-500: #4f6bff;
-  --color-brand-600: #3a55e6;
-  --color-brand-700: #2d44b8;
-
-  --color-surface-0: #ffffff;
-  --color-surface-50: #f8fafc;
-  --color-surface-100: #f1f5f9;
-  --color-surface-200: #e2e8f0;
-  --color-surface-900: #0f172a;
-
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+@font-face {
+  font-family: "Transducer";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/TransducerTest-Regular-BF645c3dd843c3b.otf")
+    format("opentype");
+}
+@font-face {
+  font-family: "Transducer";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/TransducerTest-Medium-BF645c3dd896377.otf")
+    format("opentype");
+}
+@font-face {
+  font-family: "Transducer";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/TransducerTest-Bold-BF645c3dd70a4f5.otf")
+    format("opentype");
+}
+@font-face {
+  font-family: "Transducer";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url("../fonts/TransducerTest-Black-BF645c3dd71b125.otf")
+    format("opentype");
 }
 
+@font-face {
+  font-family: "Transducer Ext";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/TransducerTest-ExtendedBold-BF645c3dd848b2a.otf")
+    format("opentype");
+}
+@font-face {
+  font-family: "Transducer Ext";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url("../fonts/TransducerTest-ExtendedBlack-BF645c3dd83ebe0.otf")
+    format("opentype");
+}
+
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Design tokens — Tailwind v4 @theme
+   Extracted from the Figma color panel you shared.
+   ───────────────────────────────────────────────────────────────────────── */
+@theme {
+  /* Surface — window/sidebar/card layers */
+  --color-bg: #0f0116;
+  --color-surface-1: #1a0020;
+  --color-surface-2: #26084a;
+  --color-surface-3: #2a1050;
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-border-strong: rgba(255, 255, 255, 0.12);
+
+  /* Brand */
+  --color-brand-900: #26084a; /* deep purple — gradient dark stop */
+  --color-brand-700: #51119d; /* main purple — sidebar pill, accents */
+  --color-brand-500: #5a13b0; /* gradient light stop */
+  --color-brand-300: #907ab7; /* soft lilac — muted labels, inactive nav */
+
+  /* CTA (buttons like Login, Publish now, Save changes) */
+  --color-cta: #5c6aff;
+  --color-cta-hover: #4858f0;
+  --color-cta-press: #3a48cc;
+
+  /* Text */
+  --color-text: #ffffff;
+  --color-text-secondary: #d9d9d9;
+  --color-text-muted: #868686;
+
+  /* Semantic */
+  --color-success: #25de00;
+  --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  /* Fonts */
+  --font-sans:
+    "Transducer", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Transducer Ext", "Transducer", ui-sans-serif, sans-serif;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-cta: 0 6px 24px rgba(92, 106, 255, 0.35);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Base + Electron
+   ───────────────────────────────────────────────────────────────────────── */
 html,
 body,
 #root {
   height: 100%;
   margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  color: var(--color-surface-900);
-  background: var(--color-surface-50);
-  user-select: none; /* launcher feel — text not selectable by default */
+  user-select: none;
 }
 
-/* Allow selection in specific zones (inputs, code, etc) */
 input,
 textarea,
 code,
@@ -43,10 +133,41 @@ pre,
   user-select: text;
 }
 
-/* Electron drag region helpers — add `data-drag` to a header to drag window */
+/* Electron window drag regions */
 [data-drag] {
   -webkit-app-region: drag;
 }
 [data-no-drag] {
   -webkit-app-region: no-drag;
+}
+
+/* Custom scrollbar — thin purple */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-brand-700);
+  border-radius: 999px;
+  opacity: 0.5;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-500);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Utilities — gradients
+   ───────────────────────────────────────────────────────────────────────── */
+@utility bg-login-gradient {
+  background: radial-gradient(ellipse at center, #5a13b0 3%, #26084a 71%);
+}
+
+@utility bg-sidebar-gradient {
+  background: linear-gradient(180deg, #1a0020 0%, #0f0116 100%);
+}
+@utility bg-layout-gradient {
+  background: linear-gradient(109.12deg, #0f0116 24.6%, #300860 145.5%);
 }

@@ -3,7 +3,10 @@ import { workerFilePath } from "./paths";
 
 export interface WorkerConfig {
   gamePath?: string;
+  gameVersion?: string; // what's installed locally
   version?: string;
+  firstRunCompleted?: boolean;
+  lastBootstrapAt?: string;
   [key: string]: unknown;
 }
 
@@ -12,10 +15,20 @@ export const workerStore = {
     return readJsonOrEmpty<WorkerConfig>(workerFilePath());
   },
 
-  /** Merge-write — preserves keys not in `updates`. */
   update(updates: Partial<WorkerConfig>): WorkerConfig {
     const merged = { ...this.read(), ...updates };
     atomicWriteJson(workerFilePath(), merged);
     return merged;
+  },
+
+  isFirstRun(): boolean {
+    return !this.read().firstRunCompleted;
+  },
+
+  markFirstRunComplete(): void {
+    this.update({
+      firstRunCompleted: true,
+      lastBootstrapAt: new Date().toISOString(),
+    });
   },
 };

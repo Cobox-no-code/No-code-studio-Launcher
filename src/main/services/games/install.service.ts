@@ -1,10 +1,10 @@
+import { dialog } from "electron";
 import fs from "fs";
 import path from "path";
-import { dialog } from "electron";
 
-import type { GameStatus } from "@shared/types/game";
-import { workerStore } from "@main/persistence/worker.store";
 import { defaultGameInstallDir, isPathSafe } from "@main/persistence/paths";
+import { workerStore } from "@main/persistence/worker.store";
+import type { GameStatus } from "@shared/types/game";
 
 const EXE_NAME = "NoCodeStudio.exe";
 
@@ -26,7 +26,7 @@ export function getGameStatus(): GameStatus {
       return {
         installed: true,
         path: config.gamePath,
-        version: config.version ?? "0.0.0",
+        version: (config.gameVersion ?? config.version ?? "0.0.0") as string,
       };
     }
   } catch {

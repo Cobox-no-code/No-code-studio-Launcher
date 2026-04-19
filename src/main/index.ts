@@ -6,6 +6,7 @@ import { getAppDataPath } from "@main/persistence/paths";
 import { initAuthService } from "@main/services/auth/auth.service";
 import { initUpdaterService } from "@main/services/updater/updater.service";
 import { initLogger, log } from "@main/utils/logger";
+import { initBootstrapService } from "@main/services/bootstrap/bootstrap.service";
 let mainWindow: BrowserWindow | null = null;
 export const getMainWindow = () => mainWindow;
 
@@ -37,6 +38,7 @@ app.whenReady().then(async () => {
   getAppDataPath(); // warms the lazy init + ensures dir exists
   registerAllHandlers(getMainWindow);
   initUpdaterService(getMainWindow);
+  await initBootstrapService(getMainWindow);
   createWindow();
 
   await initAuthService(getMainWindow);

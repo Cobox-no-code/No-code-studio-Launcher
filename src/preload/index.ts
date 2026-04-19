@@ -31,6 +31,7 @@ import type {
   UpdateCheckResult,
   UpdateStatePayload,
 } from "../shared/types/update";
+import { BootstrapState } from "@shared/types/bootstrap";
 const _listenerMap = new Map<
   string,
   (event: IpcRendererEvent, ...args: unknown[]) => void
@@ -149,6 +150,17 @@ const api: CoboxAPI = {
       subscribe(IPC.publish.uploadProgress, (d) =>
         cb(d as UploadProgressEvent),
       ),
+  },
+  bootstrap: {
+    getState: (): Promise<BootstrapState> =>
+      ipcRenderer.invoke(IPC.bootstrap.getState),
+    onStateChanged: (cb) =>
+      subscribe(IPC.bootstrap.stateChanged, (d) => cb(d as BootstrapState)),
+    markIntroDone: () => ipcRenderer.invoke(IPC.bootstrap.markIntroDone),
+    skipToLogin: () => ipcRenderer.invoke(IPC.bootstrap.skipToLogin),
+    retry: () => ipcRenderer.invoke(IPC.bootstrap.retry),
+    markFirstRunComplete: () =>
+      ipcRenderer.invoke("bootstrap:mark-first-run-complete"),
   },
 };
 

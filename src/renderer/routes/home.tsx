@@ -1,11 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { LogOut, User } from "lucide-react";
 
+import { AuthedShell } from "@renderer/components/layout/AuthedShell";
 import { useAuthState } from "@renderer/hooks/useAuthState";
-import { useGameStatus } from "@renderer/hooks/useGameStatus";
-import { cobox } from "@renderer/lib/electron";
-import { Button } from "@renderer/components/ui/Button";
+import { useMode } from "@renderer/stores/mode.store";
 
 export const Route = createFileRoute("/home")({
   component: HomePage,
@@ -13,7 +11,7 @@ export const Route = createFileRoute("/home")({
 
 function HomePage() {
   const auth = useAuthState();
-  const game = useGameStatus();
+  const [mode] = useMode();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,33 +21,25 @@ function HomePage() {
   if (auth?.status !== "signed-in") return null;
 
   return (
-    <div className="h-full p-8 flex flex-col gap-6">
-      <header className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="size-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-700">
-            <User size={18} />
+    <AuthedShell>
+      <div className="h-full flex items-center justify-center p-10">
+        <div className="text-center space-y-3">
+          <div className="font-display font-black text-5xl leading-none">
+            {mode === "creator" ? "NO CODE STUDIO" : "COBOX PLAYER"}
           </div>
-          <div>
-            <div className="text-sm text-surface-900/60">Signed in as</div>
-            <div className="font-medium">
+          <p className="text-sm text-text-muted max-w-md">
+            {mode === "creator"
+              ? "Unleash your imagination. Create stunning 3D environments and immersive single-player experiences in under 5 minutes without writing code."
+              : "Discover games built by the Cobox community. Library coming in the next phase."}
+          </p>
+          <p className="text-xs text-text-muted pt-4">
+            Signed in as{" "}
+            <span className="text-text">
               {auth.user?.name ?? auth.user?.email}
-            </div>
-          </div>
+            </span>
+          </p>
         </div>
-        <Button variant="ghost" onClick={() => cobox.auth.logout()}>
-          <LogOut size={14} />
-          Logout
-        </Button>
-      </header>
-
-      <section className="flex-1 flex items-center justify-center text-surface-900/50 text-sm">
-        <div className="text-center">
-          <div>Home is a placeholder.</div>
-          <div className="text-xs mt-1">
-            Game installed: <code>{String(game?.installed ?? false)}</code>
-          </div>
-        </div>
-      </section>
-    </div>
+      </div>
+    </AuthedShell>
   );
 }

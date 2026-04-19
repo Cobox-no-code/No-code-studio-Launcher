@@ -25,6 +25,7 @@ import type {
   PublishResult,
   UploadProgressEvent,
 } from "./publish";
+import { BootstrapState } from "./bootstrap";
 
 /**
  * The full shape of `window.cobox` — the single source of truth for what
@@ -91,5 +92,13 @@ export interface CoboxAPI {
     createVersion(params: PublishVersionParams): Promise<PublishResult>;
 
     onUploadProgress(cb: (e: UploadProgressEvent) => void): () => void;
+  };
+  bootstrap: {
+    getState(): Promise<BootstrapState>;
+    onStateChanged(cb: (s: BootstrapState) => void): () => void;
+    markIntroDone(): Promise<IpcResponse>;
+    skipToLogin(): Promise<IpcResponse>;
+    retry(): Promise<IpcResponse>;
+    markFirstRunComplete(): Promise<IpcResponse>;
   };
 }
