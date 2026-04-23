@@ -25,6 +25,7 @@ import {
   LiveGameDownloadParams,
   PlayLiveGameParams,
 } from "@shared/types/game";
+import { log } from "electron-log";
 
 export function registerGamesHandlers(getWin: () => BrowserWindow | null) {
   ipcMain.handle(IPC.games.getServerVersion, () => getServerVersion());
@@ -37,7 +38,14 @@ export function registerGamesHandlers(getWin: () => BrowserWindow | null) {
     downloadAndExtractGame(params, getWin),
   );
 
-  ipcMain.handle(IPC.games.launch, () => launchGame());
+// In your IPC handler for launch:
+ipcMain.handle(IPC.games.launch, async (_e) => {
+  const result = launchGame();
+  if (!result.success && result.error?.includes("Studio")) {
+  
+  }
+  return result;
+});
   ipcMain.handle(IPC.games.getStatus, () => getGameStatus());
   ipcMain.handle(IPC.games.checkInstallation, (_e, gamePath: string) =>
     checkInstallationAt(gamePath),

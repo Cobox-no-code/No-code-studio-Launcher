@@ -58,22 +58,25 @@ export function markIntroCompleted() {
  * Downloads keep running in the background.
  */
 export function skipToLogin() {
-  // Only meaningful if we're on a phase that waits for user input.
-  // We don't actually "stop" anything — we just fast-forward the UI signal.
   const snap = bootstrapState.snapshot;
   if (snap.phase === "ready") return;
 
-  // If we have a game download active, let it keep going; mark UI as ready.
-  if (
-    snap.gameDownload.status === "downloading" ||
-    snap.gameDownload.status === "extracting" ||
-    snap.gameDownload.status === "installed" ||
-    snap.gameDownload.status === "idle" ||
-    snap.gameDownload.status === "checking"
-  ) {
-    bootstrapState.set({ phase: "ready" });
-    broadcast();
+  // Only skip if we already have a valid local install.
+  const config = workerStore.read();
+  const hasValidLocal =
+    !!config.gamePath &&
+    fs.existsSync(config.gamePath) &&
+    fs.statSync(config.gamePath).isFile();
+
+  if (!hasValidLocal) {
+    log.warn("skipToLogin refused — no valid Studio install");
+    return;
   }
+
+  // Valid install exists — download may still be running as an update.
+  // Let user proceed to login; background update continues.
+  bootstrapState.set({ phase: "ready" });
+  broadcast();
 }
 
 export async function retryBootstrap() {
@@ -94,13 +97,31 @@ async function runGameCheck() {
     bootstrapState.patchGameDownload({ status: "checking" });
     broadcast();
 
-    const server = await getServerVersion();
     const installed = workerStore.read();
+    const localVersion = installed.gameVersion ?? null;
+    const localPath = installed.gamePath ?? null;
+
+    // Is there a usable existing install?
+    const hasValidLocal =
+      !!localPath && fs.existsSync(localPath) && fs.statSync(localPath).isFile();
+
+    // If the stored path is invalid, wipe the stale pointer now.
+    if (localPath && !hasValidLocal) {
+      log.warn(`Bootstrap: stale gamePath at ${localPath} — clearing`);
+      workerStore.update({ gamePath: undefined, gameVersion: undefined });
+    }
+
+    // Try to hit the server
+    let server: Awaited<ReturnType<typeof getServerVersion>> = null;
+    try {
+      server = await getServerVersion();
+    } catch (err) {
+      log.warn("Bootstrap: server version check failed:", err);
+      // Fall through — we'll handle based on whether local install exists
+    }
 
     const serverVersion = server?.version ?? null;
     const serverLink = server?.link ?? null;
-    const localVersion = installed.gameVersion ?? null;
-    const localPath = installed.gamePath ?? null;
 
     bootstrapState.patchGameDownload({
       currentVersion: localVersion,
@@ -108,29 +129,43 @@ async function runGameCheck() {
     });
     broadcast();
 
-    // Already have this version and the binary is present — we're done.
+    // ── Case 1: valid local install AND up to date ────────────────────
     if (
+      hasValidLocal &&
       serverVersion &&
-      localVersion === serverVersion &&
-      localPath &&
-      fs.existsSync(localPath)
+      localVersion === serverVersion
     ) {
+      bootstrapState.patchGameDownload({ status: "installed", percent: 100 });
+      bootstrapState.set({ phase: "ready" });
+      broadcast();
+      log.info(`Bootstrap: local install ${localVersion} is current`);
+      return;
+    }
+
+    // ── Case 2: server unreachable but local install present ──────────
+    // Let offline users with an existing install through.
+    if (hasValidLocal && !serverVersion) {
+      log.warn("Bootstrap: offline, using existing local install");
       bootstrapState.patchGameDownload({ status: "installed", percent: 100 });
       bootstrapState.set({ phase: "ready" });
       broadcast();
       return;
     }
 
-    // Server didn't respond — not fatal, user may be offline. Let them through.
+    // ── Case 3: server unreachable AND no local install ───────────────
+    // This is the failure case. Don't let users proceed — they'll hit
+    // "Studio not installed" errors for every action.
     if (!serverVersion || !serverLink) {
-      log.warn("Bootstrap: no server version; skipping auto-download");
-      bootstrapState.patchGameDownload({ status: "idle" });
-      bootstrapState.set({ phase: "ready" });
+      const msg =
+        "Can't reach Cobox servers to download Studio. Check your internet connection.";
+      log.error(`Bootstrap: ${msg}`);
+      bootstrapState.patchGameDownload({ status: "error", error: msg });
+      bootstrapState.set({ phase: "error", error: msg });
       broadcast();
       return;
     }
 
-    // Download is needed — kick it off.
+    // ── Case 4: download required (first run OR update available) ─────
     await runGameDownload(serverLink, serverVersion);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Bootstrap check failed";
@@ -151,20 +186,23 @@ async function runGameDownload(url: string, targetVersion: string) {
   bootstrapState.set({ phase: "game-downloading" });
   broadcast();
 
-  // The download.service pushes progress via IPC.games.downloadProgress.
-  // We mirror it into bootstrap state by hooking the same window send —
-  // simplest approach: listen from here.
-  // For v1: just await the download; progress is shown by the download.service
-  // via the existing IPC.games.downloadProgress channel, which the renderer
-  // already knows how to read.
-  //
-  // To keep bootstrap state in sync, we also update it when the download
-  // completes. Fine-grained mirroring happens in step 1.6 below.
-
   try {
     const exePath = await downloadAndExtractGame({ url, targetDir }, _getWin);
 
-    // Persist version + path
+    // ── Final verification ─────────────────────────────────────────────
+    if (!exePath || !fs.existsSync(exePath)) {
+      throw new Error(
+        `Installation finished but Studio executable is missing: ${exePath}`,
+      );
+    }
+    const stat = fs.statSync(exePath);
+    if (!stat.isFile() || stat.size < 1024 * 1024) {
+      throw new Error(
+        `Studio executable invalid (${stat.size} bytes): ${exePath}`,
+      );
+    }
+
+    // Persist only after verification passes
     workerStore.update({ gameVersion: targetVersion, gamePath: exePath });
 
     bootstrapState.patchGameDownload({

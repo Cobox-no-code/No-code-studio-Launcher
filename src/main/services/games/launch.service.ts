@@ -15,15 +15,41 @@ let activeProcess: ChildProcess | null = null;
 export function launchGame(): LaunchResult {
   try {
     if (activeProcess && !activeProcess.killed) {
-      return { success: false, error: "Game is already running" };
+      return { success: false, error: "Studio is already running" };
     }
 
     const config = workerStore.read();
-    if (!config.gamePath) throw new Error("Game path not found");
 
-    const exePath = path.normalize(config.gamePath);
+    // gamePath here means the Studio executable path — your bootstrap
+    // writes the extracted .exe here after download.
+    const exePath = config.gamePath ? path.normalize(config.gamePath) : null;
+
+    log.info("[launchGame] pre-spawn check:", {
+      gamePath: config.gamePath,
+      exists: exePath ? fs.existsSync(exePath) : false,
+      platform: process.platform,
+    });
+
+    if (!exePath) {
+      return {
+        success: false,
+        error: "Studio is not installed. Please complete setup.",
+      };
+    }
+
     if (!fs.existsSync(exePath)) {
-      throw new Error(`Game file missing: ${exePath}`);
+      return {
+        success: false,
+        error: `Studio executable missing: ${exePath}`,
+      };
+    }
+
+    const stat = fs.statSync(exePath);
+    if (!stat.isFile()) {
+      return {
+        success: false,
+        error: `Studio path is not a file: ${exePath}`,
+      };
     }
 
     const child = spawn(exePath, [], {
@@ -31,20 +57,28 @@ export function launchGame(): LaunchResult {
       detached: true,
       stdio: "ignore",
       shell: false,
+      windowsHide: false,
     });
 
     activeProcess = child;
-    child.on("close", () => (activeProcess = null));
-    child.on("error", (err) => {
-      log.error("Game process error:", err);
+
+    child.on("spawn", () => {
+      log.info(`[launchGame] Studio spawned, pid=${child.pid}`);
+    });
+    child.on("close", (code, signal) => {
+      log.info(`[launchGame] Studio closed, code=${code} signal=${signal}`);
       activeProcess = null;
     });
-    child.unref();
+    child.on("error", (err) => {
+      log.error("[launchGame] process error:", err);
+      activeProcess = null;
+    });
 
+    child.unref();
     return { success: true };
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Launch failed";
-    log.error("launchGame error:", msg);
+    log.error("[launchGame] error:", msg);
     activeProcess = null;
     return { success: false, error: msg };
   }
@@ -54,51 +88,55 @@ export function isGameRunning(): boolean {
   return !!(activeProcess && !activeProcess.killed);
 }
 
-/**
- * Write intent to worker.json then spawn the studio.
- * The studio reads worker.json on startup to know which flow to show.
- */
 export function launchWithIntent(intent: StudioIntent): LaunchWithIntentResult {
   try {
     workerStore.update({
       intent,
       intentWrittenAt: new Date().toISOString(),
-    });
-
-    const result = launchGame();
-    if (!result.success) {
-      return { success: false, error: result.error };
-    }
-
-    return { success: true, intent };
-  } catch (error: unknown) {
-    const msg =
-      error instanceof Error ? error.message : "Launch with intent failed";
-    log.error("launchWithIntent error:", msg);
-    return { success: false, error: msg };
-  }
-}
-
-export function launchPlayGame(params: { gameId: string; savPath: string }): {
-  success: boolean;
-  error?: string;
-} {
-  try {
-    workerStore.update({
-      intent: "play",
-      gamePath: params.savPath, // studio reads this
-      intentWrittenAt: new Date().toISOString(),
-      // We don't set gameId in the official schema — keep it in a sidecar field
-      playingGameId: params.gameId,
+      playingGameId: undefined,
     });
 
     const result = launchGame();
     if (!result.success) return { success: false, error: result.error };
+    return { success: true, intent };
+  } catch (error: unknown) {
+    const msg =
+      error instanceof Error ? error.message : "Launch with intent failed";
+    log.error("[launchWithIntent] error:", msg);
+    return { success: false, error: msg };
+  }
+}
 
-    return { success: true };
+export function launchPlayGame(params: {
+  gameId: string;
+  savPath: string;
+}): LaunchResult {
+  try {
+    if (!params.savPath) {
+      return { success: false, error: "Save file path missing" };
+    }
+    if (!fs.existsSync(params.savPath)) {
+      return {
+        success: false,
+        error: `Save file not found: ${params.savPath}`,
+      };
+    }
+
+    workerStore.update({
+      intent: "play",
+      playingGameId: params.gameId,
+      intentWrittenAt: new Date().toISOString(),
+      // We do NOT overwrite gamePath here — gamePath is the Studio exe,
+      // and the play-mode save file goes somewhere Studio knows how to find.
+      // If your Studio reads the sav location from a different field,
+      // write that field here instead.
+      playSavPath: params.savPath,
+    });
+
+    return launchGame();
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Launch failed";
-    log.error("launchPlayGame error:", msg);
+    log.error("[launchPlayGame] error:", msg);
     return { success: false, error: msg };
   }
 }

@@ -21,7 +21,8 @@ function BootstrapRoute() {
   // When bootstrap reaches "ready", route forward based on auth state
   useEffect(() => {
     if (!boot || !auth) return;
-    if (boot.phase !== "ready") return;
+     if (boot?.phase !== "ready") return;
+    if (!auth) return;
     if (auth.status === "signed-in") navigate({ to: "/home" });
     else if (auth.status === "signed-out") navigate({ to: "/login" });
   }, [boot, auth, navigate]);
