@@ -22,6 +22,15 @@ export const IPC = {
     checkDownloadStatus: "games:check-download-status",
     deleteLive: "games:delete-live",
     getLocalLibrary: "games:get-local-library",
+    launchWithIntent: "games:launch-with-intent",
+
+    liveGameDownload: "games:live-download",
+    liveGameDownloadProgress: "games:live-download-progress", // push
+    liveGameCheckStatus: "games:live-check-status",
+    liveGameDelete: "games:live-delete",
+    playLiveGame: "games:play-live-game",
+
+    liveGameGetLibrary: "games:live-get-library",
   },
 
   auth: {
@@ -32,6 +41,7 @@ export const IPC = {
     refresh: "auth:refresh",
     logout: "auth:logout",
     openExternal: "auth:open-external", // util: opens system browser
+    getToken: "auth:get-token",
   },
 
   publish: {
@@ -45,6 +55,7 @@ export const IPC = {
     presign: "publish:presign",
     uploadToS3: "publish:upload-to-s3",
     publishPresigned: "publish:publish-presigned",
+    stageThumbnail: "publish:stage-thumbnail",
 
     // CRUD
     update: "publish:update",
@@ -63,5 +74,13 @@ export const IPC = {
     markIntroDone: "bootstrap:mark-intro-done",
     skipToLogin: "bootstrap:skip-to-login",
     retry: "bootstrap:retry",
+  },
+  app: {
+    getVersion: "app:get-version",
+    openDataFolder: "app:open-data-folder",
+    clearCache: "app:clear-cache",
+  },
+  profile: {
+    update: "profile:update",
   },
 } as const;

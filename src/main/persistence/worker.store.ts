@@ -6,6 +6,8 @@ export interface WorkerConfig {
   gameVersion?: string; // what's installed locally
   version?: string;
   firstRunCompleted?: boolean;
+  intent?: "world" | "game" | "play" | null;
+  intentWrittenAt?: string; // ← new
   lastBootstrapAt?: string;
   [key: string]: unknown;
 }

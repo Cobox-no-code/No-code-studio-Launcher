@@ -1,20 +1,21 @@
-import fs from "fs";
-import FormData from "form-data";
-import path from "path";
 import { BrowserWindow } from "electron";
+import FormData from "form-data";
+import fs from "fs";
+import path from "path";
 
-import { http } from "@main/http/client";
 import { authHeader } from "@main/http/auth-header";
-import { safeSend } from "@main/utils/safe-send";
+import { http } from "@main/http/client";
 import { log } from "@main/utils/logger";
+import { safeSend } from "@main/utils/safe-send";
 import { IPC } from "@shared/ipc-contract";
 import type {
   PublishedGame,
   PublishResult,
-  UpdatePublishedGameParams,
   PublishVersionParams,
+  UpdatePublishedGameParams,
   UploadProgressEvent,
 } from "@shared/types/publish";
+import { getPresignedUrl, uploadToS3 } from "./presigned.service";
 
 function broadcastProgress(
   getWin: () => BrowserWindow | null,
@@ -28,6 +29,7 @@ export async function listMyPublishedGames(): Promise<PublishedGame[]> {
     const res = await http.get("/published-games/my", {
       headers: authHeader(),
     });
+
     return (res.data as PublishedGame[]) ?? [];
   } catch (err) {
     log.error("listMyPublishedGames error:", err);
@@ -37,28 +39,68 @@ export async function listMyPublishedGames(): Promise<PublishedGame[]> {
 
 export async function updatePublishedGame(
   params: UpdatePublishedGameParams,
+  getWin: () => BrowserWindow | null,
 ): Promise<PublishResult> {
   try {
-    const form = new FormData();
     const { metadata, newThumbnailPath, gameId } = params;
 
-    if (metadata.title) form.append("title", metadata.title);
-    if (metadata.description) form.append("description", metadata.description);
-    if (metadata.genre) form.append("genre", metadata.genre);
-
+    // 1. If a new thumbnail was picked, presign + upload to S3 first
+    let thumbnailUrl: string | undefined;
     if (newThumbnailPath) {
       if (!fs.existsSync(newThumbnailPath)) {
         return { success: false, error: "New thumbnail not found" };
       }
-      form.append("thumbnail", fs.createReadStream(newThumbnailPath), {
+
+      const ext = path.extname(newThumbnailPath).toLowerCase();
+      const mimeType =
+        ext === ".jpg" || ext === ".jpeg"
+          ? "image/jpeg"
+          : ext === ".gif"
+            ? "image/gif"
+            : ext === ".webp"
+              ? "image/webp"
+              : "image/png";
+
+      const presign = await getPresignedUrl({
+        folder: "thumbnails",
         filename: path.basename(newThumbnailPath),
+        mime_type: mimeType,
       });
+      const upload = await uploadToS3(
+        {
+          uploadUrl: presign.upload_url,
+          filePath: newThumbnailPath,
+          mimeType,
+        },
+        "thumbnail",
+        // uploadToS3 needs getWin, so crud.service needs it too:
+        getWin,
+      );
+      if (!upload.success) {
+        return {
+          success: false,
+          error: upload.error ?? "Thumbnail upload failed",
+        };
+      }
+
+      thumbnailUrl = presign.public_url;
     }
 
-    const res = await http.put(`/published-games/${gameId}`, form, {
-      headers: { ...form.getHeaders(), ...authHeader() },
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
+    // 2. Build JSON body for PUT — no multipart, no binary
+    const body: Record<string, unknown> = {};
+    if (metadata.title !== undefined) body.title = metadata.title;
+    if (metadata.description !== undefined)
+      body.description = metadata.description;
+    if (metadata.genre !== undefined) body.genre = metadata.genre;
+    if (metadata.categoryId !== undefined)
+      body.category_id = metadata.categoryId;
+    if (thumbnailUrl) body.thumbnail_url = thumbnailUrl;
+
+    const res = await http.put(`/published-games/${gameId}`, body, {
+      headers: {
+        ...authHeader(),
+        "Content-Type": "application/json",
+      },
     });
     return { success: true, game: res.data?.game };
   } catch (err: unknown) {

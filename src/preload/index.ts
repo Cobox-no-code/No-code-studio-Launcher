@@ -1,4 +1,5 @@
 import { AuthState, StartLoginResult } from "@shared/types/auth";
+import { BootstrapState } from "@shared/types/bootstrap";
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
 import { IPC } from "../shared/ipc-contract";
 import type { CoboxAPI } from "../shared/types/cobox-api";
@@ -8,9 +9,16 @@ import type {
   DownloadLiveGameParams,
   GameStatus,
   LaunchResult,
+  LaunchWithIntentParams,
+  LaunchWithIntentResult,
+  LiveGameDownloadParams,
+  LiveGameDownloadProgress,
   LiveGameDownloadResult,
   LiveGameDownloadStatus,
+  LiveGameStatus,
   LocalLibraryGame,
+  PlayLiveGameParams,
+  PlayLiveGameResult,
   ServerVersionData,
 } from "../shared/types/game";
 import type { IpcResponse } from "../shared/types/ipc";
@@ -31,7 +39,11 @@ import type {
   UpdateCheckResult,
   UpdateStatePayload,
 } from "../shared/types/update";
-import { BootstrapState } from "@shared/types/bootstrap";
+import {
+  AppVersionInfo,
+  ProfileUpdateParams,
+  ProfileUpdateResult,
+} from "@shared/types/app";
 const _listenerMap = new Map<
   string,
   (event: IpcRendererEvent, ...args: unknown[]) => void
@@ -97,11 +109,38 @@ const api: CoboxAPI = {
       ipcRenderer.invoke(IPC.games.checkDownloadStatus, ids),
     deleteLive: (gameId: string): Promise<DeleteLiveGameResult> =>
       ipcRenderer.invoke(IPC.games.deleteLive, { gameId }),
-    getLocalLibrary: (): Promise<LocalLibraryGame[]> =>
-      ipcRenderer.invoke(IPC.games.getLocalLibrary),
+    getLibrary: (): Promise<LocalLibraryGame[]> =>
+      ipcRenderer.invoke(IPC.games.liveGameGetLibrary),
+    launchWithIntent: (
+      params: LaunchWithIntentParams,
+    ): Promise<LaunchWithIntentResult> =>
+      ipcRenderer.invoke(IPC.games.launchWithIntent, params),
+
+    liveGames: {
+      download: (
+        params: LiveGameDownloadParams,
+      ): Promise<LiveGameDownloadResult> =>
+        ipcRenderer.invoke(IPC.games.liveGameDownload, params),
+      checkStatus: (
+        gameIds: string[],
+      ): Promise<Record<string, LiveGameStatus>> =>
+        ipcRenderer.invoke(IPC.games.liveGameCheckStatus, gameIds),
+      delete: (gameId: string): Promise<{ success: boolean; error?: string }> =>
+        ipcRenderer.invoke(IPC.games.liveGameDelete, gameId),
+      play: (params: PlayLiveGameParams): Promise<PlayLiveGameResult> =>
+        ipcRenderer.invoke(IPC.games.playLiveGame, params),
+      onDownloadProgress: (
+        cb: (data: LiveGameDownloadProgress) => void,
+      ): (() => void) =>
+        subscribe(IPC.games.liveGameDownloadProgress, (d) =>
+          cb(d as LiveGameDownloadProgress),
+        ),
+    },
   },
 
   auth: {
+    getToken: (): Promise<string | null> =>
+      ipcRenderer.invoke(IPC.auth.getToken),
     getState: (): Promise<AuthState> => ipcRenderer.invoke(IPC.auth.getState),
     onStateChanged: (cb: (s: AuthState) => void): (() => void) =>
       subscribe(IPC.auth.stateChanged, (d) => cb(d as AuthState)),
@@ -150,6 +189,12 @@ const api: CoboxAPI = {
       subscribe(IPC.publish.uploadProgress, (d) =>
         cb(d as UploadProgressEvent),
       ),
+    stageThumbnail: (params: {
+      bytes: Uint8Array;
+      originalName: string;
+      mimeType: string;
+    }): Promise<{ filePath: string; mimeType: string; size: number }> =>
+      ipcRenderer.invoke(IPC.publish.stageThumbnail, params),
   },
   bootstrap: {
     getState: (): Promise<BootstrapState> =>
@@ -161,6 +206,19 @@ const api: CoboxAPI = {
     retry: () => ipcRenderer.invoke(IPC.bootstrap.retry),
     markFirstRunComplete: () =>
       ipcRenderer.invoke("bootstrap:mark-first-run-complete"),
+  },
+
+  app: {
+    getVersion: (): Promise<AppVersionInfo> =>
+      ipcRenderer.invoke(IPC.app.getVersion),
+    openDataFolder: (): Promise<IpcResponse> =>
+      ipcRenderer.invoke(IPC.app.openDataFolder),
+    clearCache: (): Promise<IpcResponse> =>
+      ipcRenderer.invoke(IPC.app.clearCache),
+  },
+  profile: {
+    update: (params: ProfileUpdateParams): Promise<ProfileUpdateResult> =>
+      ipcRenderer.invoke(IPC.profile.update, params),
   },
 };
 

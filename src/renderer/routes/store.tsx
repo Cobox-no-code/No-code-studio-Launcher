@@ -80,7 +80,10 @@ function StorePage() {
           }}
         />
 
-        <div className="relative z-10 overflow-auto h-full py-5">
+        <div
+          className="relative z-10 overflow-auto h-full py-5git status
+git branch --show-current"
+        >
           <div className="max-w-4xl px-10  flex flex-col items-start">
             {/* Badge */}
             <motion.div

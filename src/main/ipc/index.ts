@@ -1,9 +1,10 @@
 import { BrowserWindow } from "electron";
-import { registerGamesHandlers } from "./games.handlers";
-import { registerUpdaterHandlers } from "./updater.handlers";
 import { registerAuthHandlers } from "./auth.handlers";
-import { registerPublishHandlers } from "./publish.handlers";
 import { registerBootstrapHandlers } from "./bootstrap.handlers";
+import { registerGamesHandlers } from "./games.handlers";
+import { registerPublishHandlers } from "./publish.handlers";
+import { registerUpdaterHandlers } from "./updater.handlers";
+import { registerAppHandlers } from "./app.handlers";
 
 export function registerAllHandlers(getWin: () => BrowserWindow | null) {
   registerUpdaterHandlers();
@@ -11,5 +12,6 @@ export function registerAllHandlers(getWin: () => BrowserWindow | null) {
   registerAuthHandlers();
   registerPublishHandlers(getWin);
   registerBootstrapHandlers();
+  registerAppHandlers();
   // Future: auth, publish
 }

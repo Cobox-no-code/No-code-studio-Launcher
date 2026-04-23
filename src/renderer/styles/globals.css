@@ -141,23 +141,27 @@ pre,
   -webkit-app-region: no-drag;
 }
 
-/* Custom scrollbar — thin purple */
+/* Thin global scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-brand-700);
+  background: rgba(81, 17, 157, 0.5);
   border-radius: 999px;
-  opacity: 0.5;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-brand-500);
+  background: rgba(90, 19, 176, 0.8);
 }
 
+/* Firefox fallback (Electron is Chromium so rarely hit, but safe) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(81, 17, 157, 0.5) transparent;
+}
 /* ─────────────────────────────────────────────────────────────────────────
    Utilities — gradients
    ───────────────────────────────────────────────────────────────────────── */
@@ -170,4 +174,33 @@ pre,
 }
 @utility bg-layout-gradient {
   background: linear-gradient(109.12deg, #0f0116 24.6%, #300860 145.5%);
+}
+
+@utility bg-layout-shade {
+  /* Rectangle 3369 */
+
+  position: absolute;
+  width: 1633px;
+  height: 955px;
+
+  background: linear-gradient(
+    7.66deg,
+    #080609 32.73%,
+    rgba(4, 3, 4, 0.461538) 46.36%,
+    rgba(0, 0, 0, 0) 63.88%
+  );
+  backdrop-filter: blur(0.5px);
+  /* Note: backdrop-filter has minimal browser support */
+  border-radius: 17px;
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

@@ -1,12 +1,12 @@
-import fs from "fs";
-import FormData from "form-data";
-import { v4 as uuidv4 } from "uuid";
 import { BrowserWindow } from "electron";
+import FormData from "form-data";
+import fs from "fs";
+import path from "path";
 
-import { http } from "@main/http/client";
 import { authHeader } from "@main/http/auth-header";
-import { safeSend } from "@main/utils/safe-send";
+import { http } from "@main/http/client";
 import { log } from "@main/utils/logger";
+import { safeSend } from "@main/utils/safe-send";
 import { IPC } from "@shared/ipc-contract";
 import type {
   PublishDirectParams,
@@ -29,60 +29,90 @@ export async function publishDirect(
   params: PublishDirectParams,
   getWin: () => BrowserWindow | null,
 ): Promise<PublishResult> {
-  const { filePath, thumbnailBase64, metadata } = params;
-
   try {
-    if (!fs.existsSync(filePath)) {
+    if (!fs.existsSync(params.filePath)) {
       return { success: false, error: "Game file not found" };
     }
 
     const form = new FormData();
-    const gameId = uuidv4();
-    form.append("game_id", gameId);
-    form.append("display_name", metadata.title);
-    form.append("title", metadata.title);
-    if (metadata.description) form.append("description", metadata.description);
-    if (metadata.genre) form.append("genre", metadata.genre);
 
-    form.append("game_file", fs.createReadStream(filePath));
-
-    const b64 = thumbnailBase64.replace(/^data:image\/\w+;base64,/, "");
-    const thumbBuffer = Buffer.from(b64, "base64");
-    form.append("thumbnail", thumbBuffer, {
-      filename: `${metadata.title}.png`,
-      contentType: "image/png",
+    // ── Game file ─────────────────────────────────────────────────────
+    form.append("game_file", fs.createReadStream(params.filePath), {
+      filename: path.basename(params.filePath),
     });
 
-    const totalBytes = fs.statSync(filePath).size + thumbBuffer.byteLength;
-    let sentBytes = 0;
+    // ── Thumbnail — prefer path, fall back to base64 for legacy callers ───
+    if (params.thumbnailPath) {
+      if (!fs.existsSync(params.thumbnailPath)) {
+        return { success: false, error: "Thumbnail file not found" };
+      }
+      form.append("thumbnail", fs.createReadStream(params.thumbnailPath), {
+        filename: path.basename(params.thumbnailPath),
+      });
+    } else if (params.thumbnailBase64) {
+      const cleaned = params.thumbnailBase64.replace(
+        /^data:image\/\w+;base64,/,
+        "",
+      );
+      const buffer = Buffer.from(cleaned, "base64");
+      form.append("thumbnail", buffer, {
+        filename: `${params.metadata.title || "thumbnail"}.png`,
+        contentType: "image/png",
+      });
+    } else {
+      return { success: false, error: "Thumbnail required" };
+    }
 
+    // ── Text fields ───────────────────────────────────────────────────
+    form.append("title", params.metadata.title);
+    form.append("display_name", params.metadata.title);
+    if (params.metadata.description)
+      form.append("description", params.metadata.description);
+    if (params.metadata.genre) form.append("genre", params.metadata.genre);
+    if (params.metadata.categoryId)
+      form.append("category_id", params.metadata.categoryId);
+
+    // ── Total size for progress ───────────────────────────────────────
+    const gameSize = fs.statSync(params.filePath).size;
+    const thumbSize = params.thumbnailPath
+      ? fs.statSync(params.thumbnailPath).size
+      : 0;
+    const total = gameSize + thumbSize;
+
+    // ── POST ──────────────────────────────────────────────────────────
     const res = await http.post("/published-games", form, {
-      headers: {
-        ...form.getHeaders(),
-        ...authHeader(),
-      },
+      headers: { ...form.getHeaders(), ...authHeader() },
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
       onUploadProgress: (e) => {
-        sentBytes = e.loaded ?? sentBytes;
-        const percent =
-          totalBytes > 0 ? Math.min(100, (sentBytes / totalBytes) * 100) : 0;
-        broadcastProgress(getWin, {
+        const sent = e.loaded ?? 0;
+        const percent = total > 0 ? Math.min(100, (sent / total) * 100) : 0;
+        safeSend(getWin(), IPC.publish.uploadProgress, {
           kind: "game",
           percent,
-          bytesTransferred: sentBytes,
-          bytesTotal: totalBytes,
+          bytesTransferred: sent,
+          bytesTotal: total,
         });
       },
     });
-
-    log.info("publishDirect success:", res.data?.game?.game_id);
+    log.info("[publishDirect] file sizes:", {
+      gamePath: params.filePath,
+      gameExists: fs.existsSync(params.filePath),
+      gameSize: fs.existsSync(params.filePath)
+        ? fs.statSync(params.filePath).size
+        : -1,
+      thumbPath: params.thumbnailPath,
+      thumbSize:
+        params.thumbnailPath && fs.existsSync(params.thumbnailPath)
+          ? fs.statSync(params.thumbnailPath).size
+          : -1,
+    });
     return { success: true, game: res.data?.game };
   } catch (err: unknown) {
     const backend = (err as { response?: { data?: { message?: string } } })
       ?.response?.data?.message;
     const msg =
-      backend ?? (err instanceof Error ? err.message : "Publish failed");
+      backend ?? (err instanceof Error ? err.message : "Direct publish failed");
     log.error("publishDirect error:", msg);
     return { success: false, error: msg };
   }

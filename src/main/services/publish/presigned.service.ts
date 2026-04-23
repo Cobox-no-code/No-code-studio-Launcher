@@ -1,19 +1,19 @@
-import fs from "fs";
 import { BrowserWindow } from "electron";
+import fs from "fs";
 
-import { http } from "@main/http/client";
 import { authHeader } from "@main/http/auth-header";
-import { safeSend } from "@main/utils/safe-send";
+import { http } from "@main/http/client";
 import { log } from "@main/utils/logger";
+import { safeSend } from "@main/utils/safe-send";
 import { IPC } from "@shared/ipc-contract";
 import type {
   PresignParams,
   PresignResponse,
-  UploadToS3Params,
-  UploadToS3Result,
   PublishPresignedParams,
   PublishResult,
   UploadProgressEvent,
+  UploadToS3Params,
+  UploadToS3Result,
 } from "@shared/types/publish";
 import axios from "axios";
 
@@ -98,6 +98,7 @@ export async function publishPresigned(
         title: params.metadata.title,
         description: params.metadata.description,
         genre: params.metadata.genre,
+        category_id: params.metadata.categoryId, // ← add
         thumbnail_url: params.thumbnailUrl,
         file_url: params.fileUrl,
       },

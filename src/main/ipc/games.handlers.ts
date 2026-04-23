@@ -8,7 +8,11 @@ import {
   getDefaultInstallPath,
   getGameStatus,
 } from "@main/services/games/install.service";
-import { launchGame } from "@main/services/games/launch.service";
+import {
+  launchGame,
+  launchPlayGame,
+  launchWithIntent,
+} from "@main/services/games/launch.service";
 import {
   checkDownloadStatus,
   deleteLiveGame,
@@ -16,6 +20,11 @@ import {
   getLocalLibrary,
 } from "@main/services/games/live-games.service";
 import { getServerVersion } from "@main/services/games/version.service";
+import {
+  LaunchWithIntentParams,
+  LiveGameDownloadParams,
+  PlayLiveGameParams,
+} from "@shared/types/game";
 
 export function registerGamesHandlers(getWin: () => BrowserWindow | null) {
   ipcMain.handle(IPC.games.getServerVersion, () => getServerVersion());
@@ -34,8 +43,11 @@ export function registerGamesHandlers(getWin: () => BrowserWindow | null) {
     checkInstallationAt(gamePath),
   );
 
-  ipcMain.handle(IPC.games.downloadLive, (_e, params) =>
-    downloadLiveGame(params),
+  ipcMain.handle(
+    IPC.games.liveGameDownload,
+    (_e, params: LiveGameDownloadParams) => downloadLiveGame(params, getWin),
+    //                                                                 ^^^^^^
+    //                                      this second argument was missing
   );
   ipcMain.handle(IPC.games.checkDownloadStatus, (_e, ids: string[]) =>
     checkDownloadStatus(ids),
@@ -43,5 +55,23 @@ export function registerGamesHandlers(getWin: () => BrowserWindow | null) {
   ipcMain.handle(IPC.games.deleteLive, (_e, { gameId }: { gameId: string }) =>
     deleteLiveGame(gameId),
   );
-  ipcMain.handle(IPC.games.getLocalLibrary, () => getLocalLibrary());
+
+  // inside registerGamesHandlers:
+  ipcMain.handle(
+    IPC.games.launchWithIntent,
+    (_e, params: LaunchWithIntentParams) => launchWithIntent(params.intent),
+  );
+
+  ipcMain.handle(IPC.games.liveGameCheckStatus, (_e, gameIds: string[]) =>
+    checkDownloadStatus(gameIds ?? []),
+  );
+
+  ipcMain.handle(IPC.games.liveGameDelete, (_e, gameId: string) =>
+    deleteLiveGame(gameId),
+  );
+
+  ipcMain.handle(IPC.games.playLiveGame, (_e, params: PlayLiveGameParams) =>
+    launchPlayGame(params),
+  );
+  ipcMain.handle(IPC.games.liveGameGetLibrary, () => getLocalLibrary());
 }

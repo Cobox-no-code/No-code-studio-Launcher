@@ -1,14 +1,61 @@
+export interface PublishCategory {
+  category_id: string;
+  name: string;
+  slug: string;
+  game_count?: number;
+}
+
+export type PublishedStatus =
+  | "live"
+  | "pending"
+  | "rejected"
+  | "draft"
+  | "suspended";
+
 export interface PublishedGame {
   game_id: string;
   title: string;
+  description: string | null;
+  short_description: string | null;
+  thumbnail_url: string | null;
+  category_id: string | null;
+  category_name: string | null;
+  status: PublishedStatus;
+  is_featured: boolean;
+  is_reward_eligible: boolean;
+  install_count: number;
+  rating_avg: string | number;
+  created_at: string;
+  published_at: string | null;
+  current_version: string | null;
+  file_url?: string | null;
+}
+export interface PublishGamePayload {
+  sourceSavPath: string;
+  title: string;
+  description: string;
+  categoryId: string;
+  thumbnailBase64: string;
+  localGameId: string;
+}
+
+export interface UpdatePublishedGamePayload {
+  gameId: string;
+  title?: string;
   description?: string;
-  genre?: string;
-  status?: string;
-  thumbnail_url?: string;
-  file_url?: string;
-  version_count?: number;
-  install_count?: number;
-  created_at?: string;
+  categoryId?: string;
+  thumbnailBase64?: string | null;
+}
+
+export interface PublishResult {
+  success: boolean;
+  data?: PublishedGame;
+  error?: string;
+}
+
+export interface DeletePublishedResult {
+  success: boolean;
+  error?: string;
 }
 
 export interface PublishMetadata {
@@ -16,11 +63,13 @@ export interface PublishMetadata {
   description?: string;
   genre?: string;
   authorName?: string;
+  categoryId?: string;
 }
 
 export interface PublishDirectParams {
-  filePath: string; // absolute path to the game file
-  thumbnailBase64: string; // data-URL or raw base64
+  filePath: string;
+  thumbnailBase64?: string; // legacy — kept for backwards compat
+  thumbnailPath?: string; // preferred — absolute path to a staged thumbnail
   metadata: PublishMetadata;
 }
 
@@ -56,7 +105,6 @@ export interface PublishPresignedParams {
 export interface UpdatePublishedGameParams {
   gameId: string;
   metadata: Partial<PublishMetadata>;
-  // If user picked a new thumbnail, provide it as a local file path
   newThumbnailPath?: string;
 }
 

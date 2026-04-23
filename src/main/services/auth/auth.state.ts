@@ -38,6 +38,15 @@ class AuthStateContainer {
   setError(msg: string): AuthState {
     return this.set({ status: "error", error: msg });
   }
+  getCurrentSession(): { user: AuthUser; accessToken: string } | null {
+    if (
+      this._state.status !== "signed-in" ||
+      !this._state.user ||
+      !this._state.tokenId
+    )
+      return null;
+    return { user: this._state.user, accessToken: this._state.tokenId };
+  }
 }
 
 export const authState = new AuthStateContainer();

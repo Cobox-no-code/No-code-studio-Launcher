@@ -1,27 +1,28 @@
-import { ipcMain, BrowserWindow } from "electron";
 import { IPC } from "@shared/ipc-contract";
+import { BrowserWindow, ipcMain } from "electron";
 
+import {
+  createGameVersion,
+  deletePublishedGame,
+  listMyPublishedGames,
+  updatePublishedGame,
+} from "@main/services/publish/crud.service";
 import { publishDirect } from "@main/services/publish/direct.service";
 import {
   getPresignedUrl,
-  uploadToS3,
   publishPresigned,
+  uploadToS3,
 } from "@main/services/publish/presigned.service";
-import {
-  listMyPublishedGames,
-  updatePublishedGame,
-  deletePublishedGame,
-  createGameVersion,
-} from "@main/services/publish/crud.service";
 
+import { stageThumbnailBytes } from "@main/services/publish/staging";
 import type {
-  PublishDirectParams,
   PresignParams,
-  UploadToS3Params,
+  PublishDirectParams,
   PublishPresignedParams,
-  UpdatePublishedGameParams,
   PublishVersionParams,
+  UpdatePublishedGameParams,
   UploadProgressEvent,
+  UploadToS3Params,
 } from "@shared/types/publish";
 
 export function registerPublishHandlers(getWin: () => BrowserWindow | null) {
@@ -34,11 +35,12 @@ export function registerPublishHandlers(getWin: () => BrowserWindow | null) {
   ipcMain.handle(IPC.publish.presign, (_e, params: PresignParams) =>
     getPresignedUrl(params),
   );
-
   ipcMain.handle(
     IPC.publish.uploadToS3,
-    (_e, args: UploadToS3Params & { kind: UploadProgressEvent["kind"] }) =>
-      uploadToS3(args, args.kind, getWin),
+    (_e, args: UploadToS3Params & { kind: UploadProgressEvent["kind"] }) => {
+      const { kind, ...params } = args;
+      return uploadToS3(params, kind, getWin);
+    },
   );
 
   ipcMain.handle(
@@ -47,7 +49,7 @@ export function registerPublishHandlers(getWin: () => BrowserWindow | null) {
   );
 
   ipcMain.handle(IPC.publish.update, (_e, params: UpdatePublishedGameParams) =>
-    updatePublishedGame(params),
+    updatePublishedGame(params, getWin),
   );
 
   ipcMain.handle(IPC.publish.delete, (_e, gameId: string) =>
@@ -57,5 +59,16 @@ export function registerPublishHandlers(getWin: () => BrowserWindow | null) {
   ipcMain.handle(
     IPC.publish.createVersion,
     (_e, params: PublishVersionParams) => createGameVersion(params, getWin),
+  );
+  ipcMain.handle(
+    IPC.publish.stageThumbnail,
+    (
+      _e,
+      params: {
+        bytes: Uint8Array;
+        originalName: string;
+        mimeType: string;
+      },
+    ) => stageThumbnailBytes(params),
   );
 }

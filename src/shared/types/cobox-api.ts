@@ -1,31 +1,43 @@
-import type { UpdateStatePayload, UpdateCheckResult } from "./update";
-import type { IpcResponse } from "./ipc";
+import {
+  AppVersionInfo,
+  ProfileUpdateParams,
+  ProfileUpdateResult,
+} from "./app";
+import type { AuthState, StartLoginResult } from "./auth";
+import { BootstrapState } from "./bootstrap";
 import type {
-  GameStatus,
+  DeleteLiveGameResult,
   DownloadGameParams,
   DownloadLiveGameParams,
-  LiveGameDownloadStatus,
-  LiveGameDownloadResult,
-  DeleteLiveGameResult,
-  LocalLibraryGame,
+  GameStatus,
   LaunchResult,
+  LaunchWithIntentParams,
+  LaunchWithIntentResult,
+  LiveGameDownloadParams,
+  LiveGameDownloadProgress,
+  LiveGameDownloadResult,
+  LiveGameDownloadStatus,
+  LiveGameStatus,
+  LocalLibraryGame,
+  PlayLiveGameParams,
+  PlayLiveGameResult,
   ServerVersionData,
 } from "./game";
-import type { AuthState, StartLoginResult } from "./auth";
+import type { IpcResponse } from "./ipc";
 import type {
-  PublishedGame,
-  PublishDirectParams,
   PresignParams,
   PresignResponse,
+  PublishDirectParams,
+  PublishedGame,
+  PublishPresignedParams,
+  PublishResult,
+  PublishVersionParams,
+  UpdatePublishedGameParams,
+  UploadProgressEvent,
   UploadToS3Params,
   UploadToS3Result,
-  PublishPresignedParams,
-  UpdatePublishedGameParams,
-  PublishVersionParams,
-  PublishResult,
-  UploadProgressEvent,
 } from "./publish";
-import { BootstrapState } from "./bootstrap";
+import type { UpdateCheckResult, UpdateStatePayload } from "./update";
 
 /**
  * The full shape of `window.cobox` — the single source of truth for what
@@ -63,13 +75,26 @@ export interface CoboxAPI {
       ids: string[],
     ): Promise<Record<string, LiveGameDownloadStatus>>;
     deleteLive(gameId: string): Promise<DeleteLiveGameResult>;
-    getLocalLibrary(): Promise<LocalLibraryGame[]>;
+    getLibrary(): Promise<LocalLibraryGame[]>;
+    launchWithIntent(
+      params: LaunchWithIntentParams,
+    ): Promise<LaunchWithIntentResult>;
+    getLibrary(): Promise<LocalLibraryGame[]>;
+    liveGames: {
+      download(params: LiveGameDownloadParams): Promise<LiveGameDownloadResult>;
+      checkStatus(gameIds: string[]): Promise<Record<string, LiveGameStatus>>;
+      delete(gameId: string): Promise<{ success: boolean; error?: string }>;
+      play(params: PlayLiveGameParams): Promise<PlayLiveGameResult>;
+      onDownloadProgress(
+        cb: (data: LiveGameDownloadProgress) => void,
+      ): () => void;
+    };
   };
 
   auth: {
     getState(): Promise<AuthState>;
     onStateChanged(cb: (s: AuthState) => void): () => void;
-
+    getToken(): Promise<string | null>;
     startLogin(): Promise<StartLoginResult>;
     cancelLogin(): Promise<IpcResponse>;
     refresh(): Promise<IpcResponse>;
@@ -80,6 +105,11 @@ export interface CoboxAPI {
   publish: {
     listMine(): Promise<PublishedGame[]>;
     publishDirect(params: PublishDirectParams): Promise<PublishResult>;
+    stageThumbnail(params: {
+      bytes: Uint8Array;
+      originalName: string;
+      mimeType: string;
+    }): Promise<{ filePath: string; mimeType: string; size: number }>;
 
     presign(params: PresignParams): Promise<PresignResponse>;
     uploadToS3(
@@ -100,5 +130,13 @@ export interface CoboxAPI {
     skipToLogin(): Promise<IpcResponse>;
     retry(): Promise<IpcResponse>;
     markFirstRunComplete(): Promise<IpcResponse>;
+  };
+  app: {
+    getVersion(): Promise<AppVersionInfo>;
+    openDataFolder(): Promise<IpcResponse>;
+    clearCache(): Promise<IpcResponse>;
+  };
+  profile: {
+    update(params: ProfileUpdateParams): Promise<ProfileUpdateResult>;
   };
 }

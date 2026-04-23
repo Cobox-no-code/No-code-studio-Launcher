@@ -1,11 +1,18 @@
 import { FloatingDownload } from "@renderer/components/bootstrap/FloatingDownload";
+import { cn } from "@renderer/lib/cn";
 import { cobox } from "@renderer/lib/electron";
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 
-export function AuthedShell({ children }: { children: ReactNode }) {
+export function AuthedShell({
+  children,
+  bleed = false,
+}: {
+  children: ReactNode;
+  bleed?: boolean;
+}) {
   // Reaching an authed shell is our definition of "first run complete"
   useEffect(() => {
     void cobox.bootstrap.markFirstRunComplete();
@@ -16,8 +23,20 @@ export function AuthedShell({ children }: { children: ReactNode }) {
       <TopBar />
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-auto px-4 pt-1 pb-4">
-          <div className="h-full rounded-lg bg-surface-1 border border-border overflow-auto">
+        <main
+          className={cn(
+            "flex-1 ",
+            bleed ? "mt-2 mb-3 mr-3" : "mt-2 mb-3 mr-3 ",
+          )}
+        >
+          <div
+            className={cn(
+              "h-full w-full overflow-hidden",
+              bleed
+                ? "rounded bg-surface-1 border border-border"
+                : "rounded bg-surface-1 border border-border",
+            )}
+          >
             {children}
           </div>
         </main>
