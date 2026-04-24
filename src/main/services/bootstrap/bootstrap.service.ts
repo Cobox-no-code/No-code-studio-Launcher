@@ -1,14 +1,14 @@
-import { BrowserWindow } from "electron";
-import { IPC } from "@shared/ipc-contract";
-import { safeSend } from "@main/utils/safe-send";
-import { log } from "@main/utils/logger";
-import { workerStore } from "@main/persistence/worker.store";
 import { defaultGameInstallDir } from "@main/persistence/paths";
+import { workerStore } from "@main/persistence/worker.store";
+import { log } from "@main/utils/logger";
+import { safeSend } from "@main/utils/safe-send";
+import { IPC } from "@shared/ipc-contract";
+import { BrowserWindow } from "electron";
 
-import { bootstrapState } from "./bootstrap.state";
-import { getServerVersion } from "@main/services/games/version.service";
 import { downloadAndExtractGame } from "@main/services/games/download.service";
+import { getServerVersion } from "@main/services/games/version.service";
 import fs from "fs";
+import { bootstrapState } from "./bootstrap.state";
 
 let _getWin: () => BrowserWindow | null = () => null;
 
@@ -103,7 +103,9 @@ async function runGameCheck() {
 
     // Is there a usable existing install?
     const hasValidLocal =
-      !!localPath && fs.existsSync(localPath) && fs.statSync(localPath).isFile();
+      !!localPath &&
+      fs.existsSync(localPath) &&
+      fs.statSync(localPath).isFile();
 
     // If the stored path is invalid, wipe the stale pointer now.
     if (localPath && !hasValidLocal) {
@@ -130,11 +132,7 @@ async function runGameCheck() {
     broadcast();
 
     // ── Case 1: valid local install AND up to date ────────────────────
-    if (
-      hasValidLocal &&
-      serverVersion &&
-      localVersion === serverVersion
-    ) {
+    if (hasValidLocal && serverVersion && localVersion === serverVersion) {
       bootstrapState.patchGameDownload({ status: "installed", percent: 100 });
       bootstrapState.set({ phase: "ready" });
       broadcast();
@@ -187,7 +185,10 @@ async function runGameDownload(url: string, targetVersion: string) {
   broadcast();
 
   try {
-    const exePath = await downloadAndExtractGame({ url, targetDir }, _getWin);
+    const exePath = await downloadAndExtractGame(
+      { url, targetDir, targetVersion },
+      _getWin,
+    );
 
     // ── Final verification ─────────────────────────────────────────────
     if (!exePath || !fs.existsSync(exePath)) {

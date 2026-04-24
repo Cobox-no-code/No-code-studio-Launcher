@@ -31,10 +31,10 @@ function findExeRecursive(dir: string): string | null {
  * Pushes progress to renderer via IPC.games.downloadProgress channel.
  */
 export function downloadAndExtractGame(
-  params: { url: string; targetDir: string },
+  params: { url: string; targetDir: string; targetVersion: string },
   getWin: () => BrowserWindow | null,
 ): Promise<string> {
-  const { url, targetDir } = params;
+  const { url, targetDir, targetVersion } = params;
   if (!url || !targetDir) {
     return Promise.reject(new Error("download: missing url or targetDir"));
   }
@@ -91,11 +91,13 @@ export function downloadAndExtractGame(
             }
 
             const exePath = findExeRecursive(extractPath);
-            if (!exePath) {
-              throw new Error(`${EXE_NAME} not found after extraction`);
+            if (!exePath || !exePath.toLowerCase().endsWith(".exe")) {
+              throw new Error(`Invalid exe path from extraction: ${exePath}`);
             }
-
-            workerStore.update({ gamePath: exePath });
+            workerStore.update({
+              gameVersion: targetVersion,
+              gamePath: exePath,
+            });
             log.info("Game installed at:", exePath);
             resolve(exePath);
           } catch (err) {
