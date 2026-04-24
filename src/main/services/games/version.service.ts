@@ -13,11 +13,11 @@ export function getServerVersion(): Promise<ServerVersionData | null> {
         res.on("end", () => {
           try {
             const parsed = JSON.parse(data);
-            if (!parsed || typeof parsed.version !== "string") {
+            if (!parsed || typeof parsed.version.version !== "string") {
               resolve(null);
               return;
             }
-            resolve(parsed as ServerVersionData);
+            resolve(parsed.version as ServerVersionData);
           } catch (err) {
             log.error("getServerVersion parse error:", err);
             resolve(null);

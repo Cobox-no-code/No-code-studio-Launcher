@@ -39,8 +39,24 @@ export function liveGamesDir(): string {
   return dir;
 }
 
+/**
+ * Where Studio gets installed.
+ *
+ * Original launcher: ~/GameLauncher/CyberAdventure — hardcoded, Windows-centric.
+ * New launcher: use Electron's userData, which is per-OS and per-app correct.
+ *   - Windows: %APPDATA%\cobox-launcher\Studio
+ *   - macOS:   ~/Library/Application Support/cobox-launcher/Studio
+ *   - Linux:   ~/.config/cobox-launcher/Studio
+ *
+ * For backwards-compat with old installs, we still check the legacy path
+ * before downloading fresh.
+ */
 export function defaultGameInstallDir(): string {
-  return path.join(os.homedir(), "GameLauncher", "CyberAdventure");
+  return path.join(app.getPath("userData"), "Studio");
+}
+
+export function legacyGameInstallDir(): string {
+  return path.join(os.homedir(), "GameLauncher", "CyberAdventure", "GameFiles");
 }
 
 export function isPathSafe(p: string): boolean {

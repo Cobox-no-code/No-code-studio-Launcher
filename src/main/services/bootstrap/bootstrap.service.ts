@@ -1,4 +1,7 @@
-import { defaultGameInstallDir } from "@main/persistence/paths";
+import {
+  defaultGameInstallDir,
+  legacyGameInstallDir,
+} from "@main/persistence/paths";
 import { workerStore } from "@main/persistence/worker.store";
 import { log } from "@main/utils/logger";
 import { safeSend } from "@main/utils/safe-send";
@@ -8,6 +11,7 @@ import { BrowserWindow } from "electron";
 import { downloadAndExtractGame } from "@main/services/games/download.service";
 import { getServerVersion } from "@main/services/games/version.service";
 import fs from "fs";
+import path from "path";
 import { bootstrapState } from "./bootstrap.state";
 
 let _getWin: () => BrowserWindow | null = () => null;
@@ -54,27 +58,23 @@ export function markIntroCompleted() {
 }
 
 /**
- * Non-first-run users can skip the bootstrap screen to reach login faster.
- * Downloads keep running in the background.
+ * Skip bootstrap UI if (and only if) a verified Studio install already exists.
+ * This is an idempotent user-initiated action — calling it repeatedly without
+ * a valid install is safe but logs a warning once per attempt. The renderer
+ * must NOT poll this; attach it to an explicit user button only.
  */
-export function skipToLogin() {
+export async function skipToLogin() {
   const snap = bootstrapState.snapshot;
   if (snap.phase === "ready") return;
 
-  // Only skip if we already have a valid local install.
   const config = workerStore.read();
-  const hasValidLocal =
-    !!config.gamePath &&
-    fs.existsSync(config.gamePath) &&
-    fs.statSync(config.gamePath).isFile();
+  const hasValidLocal = await verifyInstall(config.gamePath);
 
   if (!hasValidLocal) {
     log.warn("skipToLogin refused — no valid Studio install");
     return;
   }
 
-  // Valid install exists — download may still be running as an update.
-  // Let user proceed to login; background update continues.
   bootstrapState.set({ phase: "ready" });
   broadcast();
 }
@@ -97,29 +97,42 @@ async function runGameCheck() {
     bootstrapState.patchGameDownload({ status: "checking" });
     broadcast();
 
+    // ── Platform gate ─────────────────────────────────────────────────
+    // Studio is a Windows-only binary. Block on macOS/Linux so devs
+    // don't end up with phantom installs that can never launch.
+    if (process.platform !== "win32") {
+      const msg =
+        "Studio requires Windows. You're on " +
+        process.platform +
+        ". Download the real launcher on Windows to test this flow.";
+      log.warn(`Bootstrap: ${msg}`);
+      bootstrapState.patchGameDownload({
+        status: "error",
+        error: msg,
+      });
+      bootstrapState.set({ phase: "error", error: msg });
+      broadcast();
+      return;
+    }
+
     const installed = workerStore.read();
     const localVersion = installed.gameVersion ?? null;
     const localPath = installed.gamePath ?? null;
 
-    // Is there a usable existing install?
-    const hasValidLocal =
-      !!localPath &&
-      fs.existsSync(localPath) &&
-      fs.statSync(localPath).isFile();
+    // Validate existing install
+    const hasValidLocal = await verifyInstall(localPath);
 
-    // If the stored path is invalid, wipe the stale pointer now.
     if (localPath && !hasValidLocal) {
-      log.warn(`Bootstrap: stale gamePath at ${localPath} — clearing`);
+      log.warn(`Bootstrap: stale/invalid gamePath at ${localPath} — clearing`);
       workerStore.update({ gamePath: undefined, gameVersion: undefined });
     }
 
-    // Try to hit the server
+    // Try to reach the server for the latest version
     let server: Awaited<ReturnType<typeof getServerVersion>> = null;
     try {
       server = await getServerVersion();
     } catch (err) {
       log.warn("Bootstrap: server version check failed:", err);
-      // Fall through — we'll handle based on whether local install exists
     }
 
     const serverVersion = server?.version ?? null;
@@ -131,7 +144,7 @@ async function runGameCheck() {
     });
     broadcast();
 
-    // ── Case 1: valid local install AND up to date ────────────────────
+    // Up-to-date and valid → ready
     if (hasValidLocal && serverVersion && localVersion === serverVersion) {
       bootstrapState.patchGameDownload({ status: "installed", percent: 100 });
       bootstrapState.set({ phase: "ready" });
@@ -140,8 +153,7 @@ async function runGameCheck() {
       return;
     }
 
-    // ── Case 2: server unreachable but local install present ──────────
-    // Let offline users with an existing install through.
+    // Offline but valid install → ready (user can use cached Studio)
     if (hasValidLocal && !serverVersion) {
       log.warn("Bootstrap: offline, using existing local install");
       bootstrapState.patchGameDownload({ status: "installed", percent: 100 });
@@ -150,9 +162,7 @@ async function runGameCheck() {
       return;
     }
 
-    // ── Case 3: server unreachable AND no local install ───────────────
-    // This is the failure case. Don't let users proceed — they'll hit
-    // "Studio not installed" errors for every action.
+    // No local install AND server unreachable → hard error
     if (!serverVersion || !serverLink) {
       const msg =
         "Can't reach Cobox servers to download Studio. Check your internet connection.";
@@ -163,7 +173,36 @@ async function runGameCheck() {
       return;
     }
 
-    // ── Case 4: download required (first run OR update available) ─────
+    // ── Legacy install migration ──────────────────────────────────────
+    // Users upgrading from the old launcher may still have NoCodeStudio.exe
+    // in ~/GameLauncher/CyberAdventure/GameFiles. Adopt that install
+    // instead of re-downloading.
+    if (!hasValidLocal) {
+      const legacyExe = path.join(legacyGameInstallDir(), "NoCodeStudio.exe");
+      if (fs.existsSync(legacyExe)) {
+        const legacyOk = await verifyInstall(legacyExe);
+        if (legacyOk) {
+          log.info(`Bootstrap: adopting legacy install at ${legacyExe}`);
+          workerStore.update({
+            gamePath: legacyExe,
+            gameVersion: serverVersion,
+          });
+          bootstrapState.patchGameDownload({
+            status: "installed",
+            percent: 100,
+            currentVersion: serverVersion,
+          });
+          bootstrapState.set({ phase: "ready" });
+          broadcast();
+          return;
+        }
+        log.warn(
+          `Bootstrap: legacy install at ${legacyExe} failed verification`,
+        );
+      }
+    }
+
+    // Download required
     await runGameDownload(serverLink, serverVersion);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Bootstrap check failed";
@@ -172,6 +211,76 @@ async function runGameCheck() {
     bootstrapState.set({ phase: "error", error: msg });
     broadcast();
   }
+}
+
+/**
+ * Verify a Studio install is real and usable.
+ * - File exists
+ * - Is a regular file
+ * - Must end with .exe (prevents stale .sav pointers slipping through)
+ * - Windows PE signature check (first bytes are "MZ")
+ * - Size in sane range (50MB – 10GB)
+ */
+async function verifyInstall(
+  exePath: string | null | undefined,
+): Promise<boolean> {
+  if (!exePath) return false;
+
+  const normalized = path.normalize(exePath);
+
+  // Pointer hygiene — .sav, .zip, etc. must never be treated as Studio
+  if (!normalized.toLowerCase().endsWith(".exe")) {
+    log.warn(`verifyInstall: not an .exe ${normalized}`);
+    return false;
+  }
+
+  if (!fs.existsSync(normalized)) {
+    log.warn(`verifyInstall: missing file ${normalized}`);
+    return false;
+  }
+
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(normalized);
+  } catch (err) {
+    log.warn("verifyInstall: stat failed", err);
+    return false;
+  }
+
+  if (!stat.isFile()) {
+    log.warn(`verifyInstall: not a file ${normalized}`);
+    return false;
+  }
+
+  // Studio's real exe on Windows is >50MB. A sub-MB file means
+  // extraction or download failed partway.
+  const MIN_SIZE = 50 * 1024 * 1024; // 50 MB
+  const MAX_SIZE = 10 * 1024 * 1024 * 1024; // 10 GB safety ceiling
+  if (stat.size < MIN_SIZE || stat.size > MAX_SIZE) {
+    log.warn(
+      `verifyInstall: size out of range (${stat.size} bytes) ${normalized}`,
+    );
+    return false;
+  }
+
+  // Check PE signature (first 2 bytes = "MZ" for Windows executables)
+  if (process.platform === "win32") {
+    try {
+      const fd = fs.openSync(normalized, "r");
+      const buf = Buffer.alloc(2);
+      fs.readSync(fd, buf, 0, 2, 0);
+      fs.closeSync(fd);
+      if (buf[0] !== 0x4d || buf[1] !== 0x5a) {
+        log.warn(`verifyInstall: not a PE executable ${normalized}`);
+        return false;
+      }
+    } catch (err) {
+      log.warn("verifyInstall: signature check failed", err);
+      return false;
+    }
+  }
+
+  return true;
 }
 
 async function runGameDownload(url: string, targetVersion: string) {
@@ -190,20 +299,14 @@ async function runGameDownload(url: string, targetVersion: string) {
       _getWin,
     );
 
-    // ── Final verification ─────────────────────────────────────────────
-    if (!exePath || !fs.existsSync(exePath)) {
+    // Rigorous post-install verification
+    const ok = await verifyInstall(exePath);
+    if (!ok) {
       throw new Error(
-        `Installation finished but Studio executable is missing: ${exePath}`,
-      );
-    }
-    const stat = fs.statSync(exePath);
-    if (!stat.isFile() || stat.size < 1024 * 1024) {
-      throw new Error(
-        `Studio executable invalid (${stat.size} bytes): ${exePath}`,
+        `Installation completed but Studio executable failed verification: ${exePath}`,
       );
     }
 
-    // Persist only after verification passes
     workerStore.update({ gameVersion: targetVersion, gamePath: exePath });
 
     bootstrapState.patchGameDownload({
@@ -225,7 +328,7 @@ async function runGameDownload(url: string, targetVersion: string) {
 
 /**
  * Hook for the game download.service progress — call from there to mirror
- * percent into bootstrap state. We'll wire it in step 1.6.
+ * percent into bootstrap state.
  */
 export function reportGameDownloadProgress(percent: number) {
   const snap = bootstrapState.snapshot;
