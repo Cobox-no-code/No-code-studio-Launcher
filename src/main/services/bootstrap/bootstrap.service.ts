@@ -254,7 +254,7 @@ async function verifyInstall(
 
   // Studio's real exe on Windows is >50MB. A sub-MB file means
   // extraction or download failed partway.
-  const MIN_SIZE = 50 * 1024 * 1024; // 50 MB
+  const MIN_SIZE = 64 * 1024; // 64 KB — catches empty/stub files
   const MAX_SIZE = 10 * 1024 * 1024 * 1024; // 10 GB safety ceiling
   if (stat.size < MIN_SIZE || stat.size > MAX_SIZE) {
     log.warn(
