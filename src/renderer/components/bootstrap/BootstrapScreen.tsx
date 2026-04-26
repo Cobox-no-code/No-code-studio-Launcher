@@ -4,19 +4,26 @@ import { cobox } from "@renderer/lib/electron";
 import { useEffect, useState } from "react";
 import type { BootstrapState } from "../../../shared/types/bootstrap";
 
-// Full-bleed background art — purple scene already baked in
 import charactersSrc from "@renderer/assets/images/boot-characters.png";
 
 const AUTO_ADVANCE_MS = 12_000;
+const MIN_DISPLAY_MS = 3_000;
 
 export function BootstrapScreen({ state }: { state: BootstrapState }) {
   const [elapsed, setElapsed] = useState(0);
+  const [minTimeReached, setMinTimeReached] = useState(false);
 
+  // Tick + AUTO_ADVANCE skip
   useEffect(() => {
     const start = Date.now();
     const id = setInterval(() => {
       const ms = Date.now() - start;
       setElapsed(ms);
+
+      if (ms >= MIN_DISPLAY_MS) {
+        setMinTimeReached((v) => v || true);
+      }
+
       if (ms >= AUTO_ADVANCE_MS) {
         clearInterval(id);
         void cobox.bootstrap.skipToLogin();
@@ -24,6 +31,13 @@ export function BootstrapScreen({ state }: { state: BootstrapState }) {
     }, 100);
     return () => clearInterval(id);
   }, []);
+
+  // 🆕 Agar already installed hai, toh min 3 sec ke baad hi skip karo
+  useEffect(() => {
+    if (state.gameDownload.status === "installed" && minTimeReached) {
+      void cobox.bootstrap.skipToLogin();
+    }
+  }, [state.gameDownload.status, minTimeReached]);
 
   const percent = Math.max(0, Math.min(100, state.gameDownload.percent ?? 0));
   const rounded = Math.round(percent);
@@ -41,7 +55,6 @@ export function BootstrapScreen({ state }: { state: BootstrapState }) {
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-[#0F0116]">
-      {/* Full-bleed background — PNG already has the purple scene */}
       <img
         src={charactersSrc}
         alt=""
@@ -49,9 +62,7 @@ export function BootstrapScreen({ state }: { state: BootstrapState }) {
         className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
       />
 
-      {/* Overlay content — positioned over the art */}
       <div className="relative z-10 h-full flex flex-col justify-end px-10 pb-10">
-        {/* Status + percent row */}
         <div className="flex items-end justify-between text-white mb-3">
           <span className="font-display font-bold text-sm tracking-wide drop-shadow-lg">
             {statusLine}
@@ -61,7 +72,6 @@ export function BootstrapScreen({ state }: { state: BootstrapState }) {
           </span>
         </div>
 
-        {/* Progress bar — hot pink, 2px, drop shadow per Figma */}
         <div
           className="relative h-[2px] w-full bg-white/5 rounded-full overflow-visible"
           style={{ filter: "drop-shadow(0 0 6px rgba(255, 92, 195, 0.55))" }}
@@ -76,7 +86,6 @@ export function BootstrapScreen({ state }: { state: BootstrapState }) {
           />
         </div>
 
-        {/* Footer — countdown + skip */}
         <div className="flex items-center justify-between pt-4">
           <span className="text-xs text-white/60 drop-shadow-md">
             {state.gameDownload.status === "error" ? (
