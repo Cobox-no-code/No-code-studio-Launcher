@@ -25,10 +25,18 @@ let activeProcess: ChildProcess | null = null;
  */
 export function launchGame(): LaunchResult {
   try {
+    // If Studio is already running, treat the launch as a success no-op.
+    // The new intent has already been written to worker.json (by the caller),
+    // so Studio will pick it up via its own mechanism.
     if (activeProcess && !activeProcess.killed) {
-      return { success: false, error: "Studio is already running" };
+      log.info(
+        `[launchGame] Studio already running (pid=${activeProcess.pid}), ` +
+          `intent written; treating as success`,
+      );
+      return { success: true, alreadyRunning: true };
     }
 
+    
     const config = workerStore.read();
     const exePath = config.gamePath ? path.normalize(config.gamePath) : null;
 
@@ -121,9 +129,9 @@ export function launchWithIntent(intent: StudioIntent): LaunchWithIntentResult {
       playSavPath: undefined,
     });
 
-    const result = launchGame();
-    if (!result.success) return { success: false, error: result.error };
-    return { success: true, intent };
+   const result = launchGame();
+if (!result.success) return { success: false, error: result.error };
+return { success: true, intent, alreadyRunning: result.alreadyRunning };
   } catch (error: unknown) {
     const msg =
       error instanceof Error ? error.message : "Launch with intent failed";

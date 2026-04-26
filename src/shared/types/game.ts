@@ -23,6 +23,7 @@ export interface LiveGameDownloadStatus {
 export interface LaunchResult {
   success: boolean;
   error?: string;
+  alreadyRunning?: boolean;
 }
 
 export interface LiveGameDownloadResult {
@@ -53,6 +54,8 @@ export interface LaunchWithIntentResult {
   success: boolean;
   intent?: StudioIntent;
   error?: string;
+  alreadyRunning?: boolean;   // ← add this line
+
 }
 
 export interface LiveGameDownloadParams {

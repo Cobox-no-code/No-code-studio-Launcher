@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "motion/react";
 import { Loader2, CheckCircle2, AlertCircle, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cobox } from "@renderer/lib/electron";
 import { Button } from "@renderer/components/ui/Button";
 import type { StudioIntent } from "../../../shared/types/game";
@@ -20,18 +20,26 @@ interface Props {
 export function LauncherHandoff({ open, intent, onClose }: Props) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [alreadyRunning, setAlreadyRunning] = useState(false);
+  const didLaunchRef = useRef(false);
 
-  useEffect(() => {
+useEffect(() => {
     if (!open || !intent) {
       setPhase("idle");
       setError(null);
+      setAlreadyRunning(false);
+      didLaunchRef.current = false;
       return;
     }
+
+    if (didLaunchRef.current) return;
+    didLaunchRef.current = true;
 
     let mounted = true;
     const run = async () => {
       setPhase("launching");
       setError(null);
+      setAlreadyRunning(false);
 
       // Tiny delay so the modal is visible even if launch is instant
       await new Promise((r) => setTimeout(r, 400));
@@ -40,9 +48,12 @@ export function LauncherHandoff({ open, intent, onClose }: Props) {
       if (!mounted) return;
 
       if (res.success) {
+        setAlreadyRunning(!!res.alreadyRunning);
         setPhase("launched");
-        // Auto-dismiss after 2s — studio has focus by now
-        setTimeout(() => mounted && onClose(), 2_000);
+        setTimeout(
+          () => mounted && onClose(),
+          res.alreadyRunning ? 1500 : 2000,
+        );
       } else {
         setPhase("error");
         setError(res.error ?? "Could not launch No Code Studio");
@@ -53,8 +64,7 @@ export function LauncherHandoff({ open, intent, onClose }: Props) {
     return () => {
       mounted = false;
     };
-  }, [open, intent, onClose]);
-
+  }, [open, intent]);
   const title =
     intent === "world"
       ? "Opening World Builder"
@@ -117,14 +127,18 @@ export function LauncherHandoff({ open, intent, onClose }: Props) {
               <div>
                 <h2 className="font-display font-bold text-lg tracking-wide">
                   {phase === "launched"
-                    ? "No Code Studio opened"
+                    ? alreadyRunning
+                      ? "Studio is already open"
+                      : "No Code Studio opened"
                     : phase === "error"
                       ? "Couldn't open the studio"
                       : title}
                 </h2>
                 <p className="mt-1 text-sm text-text-muted">
                   {phase === "launched" &&
-                    "You can close this and continue in the studio."}
+                    (alreadyRunning
+                      ? "Switch to the Studio window to continue."
+                      : "You can close this and continue in the studio.")}
                   {phase === "error" && (error ?? "Unknown error")}
                   {phase === "launching" &&
                     "Preparing your workspace and launching…"}
@@ -142,13 +156,18 @@ export function LauncherHandoff({ open, intent, onClose }: Props) {
                     onClick={() => {
                       setPhase("launching");
                       setError(null);
+                      setAlreadyRunning(false);
                       if (intent) {
                         void cobox.games
                           .launchWithIntent({ intent })
                           .then((r) => {
                             if (r.success) {
+                              setAlreadyRunning(!!r.alreadyRunning);
                               setPhase("launched");
-                              setTimeout(onClose, 2_000);
+                              setTimeout(
+                                onClose,
+                                r.alreadyRunning ? 1500 : 2000,
+                              );
                             } else {
                               setPhase("error");
                               setError(r.error ?? "Launch failed");
