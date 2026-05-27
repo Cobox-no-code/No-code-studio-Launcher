@@ -130,7 +130,7 @@ function LoginPage() {
               To become a creative wizard{" "}
               <button
                 onClick={() =>
-                  cobox.auth.openExternal("https://cobox.games/signup")
+                  cobox.auth.openExternal("https://cobox.games/auth/login")
                 }
                 data-no-drag
                 className="underline text-text hover:text-white transition"

@@ -1,5 +1,5 @@
-import { v4 as uuidv4 } from "uuid";
 import { shell } from "electron";
+import { v4 as uuidv4 } from "uuid";
 
 import { http } from "@main/http/client";
 import { log } from "@main/utils/logger";
@@ -16,7 +16,7 @@ const POLL_INTERVAL_MS = 3_000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1_000; // 5 minutes, then auto-cancel
 
 // Where the web login lives. If you move it behind an env var later, swap here.
-const WEB_LOGIN_BASE = "https://cobox.games/login";
+const WEB_LOGIN_BASE = "https://cobox.games/auth/login";
 
 let activePoll: {
   tokenId: string;
