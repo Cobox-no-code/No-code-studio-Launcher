@@ -97,20 +97,22 @@ async function runGameCheck() {
     bootstrapState.patchGameDownload({ status: "checking" });
     broadcast();
 
-    // ── Platform gate ─────────────────────────────────────────────────
-    // Studio is a Windows-only binary. Block on macOS/Linux so devs
-    // don't end up with phantom installs that can never launch.
+    // ── Non-Windows: skip Studio install entirely ─────────────────────
+    // Studio's binary is Windows-only. On macOS/Linux we let users open
+    // the launcher and browse normally, but skip the download step —
+    // launchGame() will surface a "not supported" error if they try to
+    // actually open Studio. This keeps the UI accessible cross-platform.
     if (process.platform !== "win32") {
-      const msg =
-        "Studio requires Windows. You're on " +
-        process.platform +
-        ". Download the real launcher on Windows to test this flow.";
-      log.warn(`Bootstrap: ${msg}`);
+      log.warn(
+        `Bootstrap: skipping Studio install on ${process.platform} ` +
+          `(launcher UI is cross-platform, Studio launch will be blocked)`,
+      );
       bootstrapState.patchGameDownload({
-        status: "error",
-        error: msg,
+        status: "installed",
+        percent: 100,
+        error: null,
       });
-      bootstrapState.set({ phase: "error", error: msg });
+      bootstrapState.set({ phase: "ready", error: null });
       broadcast();
       return;
     }

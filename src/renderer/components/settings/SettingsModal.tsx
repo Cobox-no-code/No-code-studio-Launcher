@@ -1,14 +1,18 @@
 import { useToast } from "@renderer/components/ui/Toaster";
+import { UsernamePickerModal } from "@renderer/components/username/UsernamePickerModal";
 import { useAuthState } from "@renderer/hooks/useAuthState";
 import { cn } from "@renderer/lib/cn";
 import { cobox } from "@renderer/lib/electron";
+import { getMyIdentity } from "@renderer/lib/username-api";
 import {
+  AtSign,
   Check,
   ChevronRight,
   ExternalLink,
   FileText,
   Folder,
   Loader2,
+  Lock,
   LogOut,
   Pencil,
   RefreshCw,
@@ -18,6 +22,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import type { AppVersionInfo } from "../../../shared/types/app";
+import type { UserIdentityStatus } from "../../../shared/types/username";
 import { WhatsNewModal } from "./WhatsNewModal";
 
 interface Props {
@@ -44,6 +49,11 @@ export function SettingsModal({ open, onClose }: Props) {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
 
+  // ── Username / identity state ──────────────────────────────────────
+  const [identity, setIdentity] = useState<UserIdentityStatus | null>(null);
+  const [identityLoading, setIdentityLoading] = useState(false);
+  const [showUsernamePicker, setShowUsernamePicker] = useState(false);
+
   // Sync local state with auth
   useEffect(() => {
     setDisplayName(user?.name ?? "");
@@ -53,6 +63,23 @@ export function SettingsModal({ open, onClose }: Props) {
   useEffect(() => {
     if (!open) return;
     void cobox.app.getVersion().then(setAppInfo);
+  }, [open]);
+
+  // Fetch identity (username + mint status) when modal opens.
+  // Refetches every open so Settings always shows fresh data even if the
+  // user changed their handle from the home prompt earlier.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setIdentityLoading(true);
+    void getMyIdentity().then((res) => {
+      if (cancelled) return;
+      setIdentity(res);
+      setIdentityLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   // Close on Escape
@@ -78,7 +105,6 @@ export function SettingsModal({ open, onClose }: Props) {
     if (res.success) {
       toast({ kind: "success", title: "Display name updated" });
       setEditingName(false);
-      // Optimistic — auth state should refresh via your auth hook
     } else {
       toast({ kind: "error", title: "Update failed", body: res.error });
     }
@@ -88,7 +114,6 @@ export function SettingsModal({ open, onClose }: Props) {
     await cobox.auth.logout();
     setShowSignOutConfirm(false);
     onClose();
-    // Route change happens via auth state listener in your app root
   };
 
   const handleOpenDataFolder = async () => {
@@ -120,6 +145,21 @@ export function SettingsModal({ open, onClose }: Props) {
     } else {
       toast({ kind: "info", title: "You're up to date" });
     }
+  };
+
+  const handleUsernamePicked = (username: string) => {
+    // Optimistic update of the displayed handle, plus background refresh
+    // to pull any other identity fields the server may have changed
+    // (canChangeUsername, identityStatus).
+    setIdentity((prev) =>
+      prev
+        ? { ...prev, username }
+        : ({ ...prev, username } as UserIdentityStatus),
+    );
+    setShowUsernamePicker(false);
+    void getMyIdentity().then((fresh) => {
+      if (fresh) setIdentity(fresh);
+    });
   };
 
   const memberSince = user?.created_at
@@ -251,6 +291,38 @@ export function SettingsModal({ open, onClose }: Props) {
                 </div>
               </Section>
 
+              {/* ── Identity ──────────────────────────────────────────── */}
+              <Section title="Identity">
+                <Row
+                  label="Username"
+                  description={identityDescription(identity)}
+                  action={
+                    <UsernameAction
+                      identity={identity}
+                      loading={identityLoading}
+                      onEdit={() => setShowUsernamePicker(true)}
+                    />
+                  }
+                />
+                {identity?.identityStatus === "minted" && (
+                  <Row
+                    label="Identity NFT"
+                    description={
+                      identity.identityMintedAt
+                        ? `Minted on ${new Date(identity.identityMintedAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}`
+                        : "Your identity is minted on-chain."
+                    }
+                    action={
+                      identity.identityTokenId ? (
+                        <span className="text-[11px] font-mono text-text-muted">
+                          #{identity.identityTokenId}
+                        </span>
+                      ) : null
+                    }
+                  />
+                )}
+              </Section>
+
               {/* ── Account ───────────────────────────────────────────── */}
               <Section title="Account">
                 <Row
@@ -376,6 +448,14 @@ export function SettingsModal({ open, onClose }: Props) {
             open={showWhatsNew}
             onClose={() => setShowWhatsNew(false)}
           />
+
+          {/* Username picker — nested above settings; always dismissable here */}
+          <UsernamePickerModal
+            open={showUsernamePicker}
+            onClose={() => setShowUsernamePicker(false)}
+            onSuccess={handleUsernamePicked}
+            dismissable
+          />
         </motion.div>
       )}
     </AnimatePresence>
@@ -383,7 +463,84 @@ export function SettingsModal({ open, onClose }: Props) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helpers
+// Identity row helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function identityDescription(identity: UserIdentityStatus | null): string {
+  if (!identity) {
+    return "Your handle on Cobox. Used in your profile URL and @mentions.";
+  }
+  if (identity.identityStatus === "minted") {
+    return "Your identity NFT is minted. Username is permanent and locked on-chain.";
+  }
+  if (identity.identityStatus === "minting") {
+    return "Mint in progress — username can't be changed until it completes.";
+  }
+  if (identity.identityStatus === "failed") {
+    return "Last mint attempt failed. You can keep using your username; try again later.";
+  }
+  // unminted
+  if (identity.username === null) {
+    return "Pick a handle for your profile URL (username.cobox.games) and @mentions.";
+  }
+  return "Your handle on Cobox. You can change it any time before minting your identity NFT.";
+}
+
+function UsernameAction({
+  identity,
+  loading,
+  onEdit,
+}: {
+  identity: UserIdentityStatus | null;
+  loading: boolean;
+  onEdit: () => void;
+}) {
+  if (loading && !identity) {
+    return <Loader2 size={12} className="animate-spin text-text-muted" />;
+  }
+
+  // No username yet → primary CTA
+  if (!identity?.username) {
+    return (
+      <button
+        onClick={onEdit}
+        data-no-drag
+        className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-cta hover:bg-cta-hover text-white text-[11px] font-bold transition"
+      >
+        <AtSign size={11} />
+        Pick username
+      </button>
+    );
+  }
+
+  // Has username
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[13px] font-medium text-white">
+        @{identity.username}
+      </span>
+      {identity.canChangeUsername ? (
+        <IconButton onClick={onEdit}>
+          <Pencil size={12} />
+        </IconButton>
+      ) : (
+        <span
+          className="size-7 flex items-center justify-center rounded-md border border-border-strong text-text-muted"
+          title={
+            identity.identityStatus === "minted"
+              ? "Username is locked — your identity NFT is minted"
+              : "Username is locked while minting is in progress"
+          }
+        >
+          <Lock size={11} />
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Generic helpers
 // ─────────────────────────────────────────────────────────────────────────────
 function Section({
   title,

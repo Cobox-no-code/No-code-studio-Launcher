@@ -25,6 +25,18 @@ let activeProcess: ChildProcess | null = null;
  */
 export function launchGame(): LaunchResult {
   try {
+    // ── Platform guard ─────────────────────────────────────────────────
+    // Studio is a Windows-only binary. On macOS/Linux the launcher UI
+    // is browsable, but we cannot spawn the .exe — return a friendly
+    // error that the renderer surfaces in the handoff modal / toast.
+    if (process.platform !== "win32") {
+      const platformName =
+        process.platform === "darwin" ? "macOS" : process.platform;
+      const error = `No Code Studio is only supported on Windows. ${platformName} support is not yet available.`;
+      log.warn(`[launchGame] blocked on ${process.platform}: ${error}`);
+      return { success: false, error };
+    }
+
     // If Studio is already running, treat the launch as a success no-op.
     // The new intent has already been written to worker.json (by the caller),
     // so Studio will pick it up via its own mechanism.
@@ -36,7 +48,6 @@ export function launchGame(): LaunchResult {
       return { success: true, alreadyRunning: true };
     }
 
-    
     const config = workerStore.read();
     const exePath = config.gamePath ? path.normalize(config.gamePath) : null;
 
@@ -129,9 +140,9 @@ export function launchWithIntent(intent: StudioIntent): LaunchWithIntentResult {
       playSavPath: undefined,
     });
 
-   const result = launchGame();
-if (!result.success) return { success: false, error: result.error };
-return { success: true, intent, alreadyRunning: result.alreadyRunning };
+    const result = launchGame();
+    if (!result.success) return { success: false, error: result.error };
+    return { success: true, intent, alreadyRunning: result.alreadyRunning };
   } catch (error: unknown) {
     const msg =
       error instanceof Error ? error.message : "Launch with intent failed";

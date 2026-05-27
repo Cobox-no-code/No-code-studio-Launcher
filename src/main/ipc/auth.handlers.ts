@@ -6,6 +6,7 @@ import { http } from "@main/http/client";
 import { broadcastAuth, logout } from "@main/services/auth/auth.service";
 import { authState } from "@main/services/auth/auth.state";
 import { refreshAccessToken } from "@main/services/auth/refresh.service";
+import { getStoredTokens } from "@main/services/auth/token.service";
 import {
   cancelLogin,
   openExternal,
@@ -15,7 +16,6 @@ import type {
   ProfileUpdateParams,
   ProfileUpdateResult,
 } from "@shared/types/app";
-import { log } from "three/src/nodes/tsl/TSLBase.js";
 
 export function registerAuthHandlers() {
   ipcMain.handle(IPC.auth.getState, () => authState.snapshot);
@@ -41,8 +41,12 @@ export function registerAuthHandlers() {
     const ok = await openExternal(url);
     return { success: ok };
   });
+
+  // Read JWT from secret store (where saveSession() puts it) — NOT from
+  // authState.tokenId, which is reserved for the one-time launcher
+  // verification token and is set to null after sign-in.
   ipcMain.handle(IPC.auth.getToken, () => {
-    return authState.getCurrentSession()?.accessToken ?? null;
+    return getStoredTokens()?.accessToken ?? null;
   });
 
   ipcMain.handle(
