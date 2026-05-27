@@ -34,27 +34,27 @@ export async function initBootstrapService(
   _getWin = getWin;
 
   const firstRun = workerStore.isFirstRun();
+  log.info(`Bootstrap: init (firstRun=${firstRun}) — starting game check now`);
+
+  // 🆕 Download/check ALWAYS runs immediately now (loading screen first).
+  // Intro videos play AFTER download is ready (handled by renderer).
   bootstrapState.set({
     firstRun,
-    phase: firstRun ? "intro-videos" : "checking",
+    phase: "checking",
   });
   broadcast();
 
-  // On subsequent runs, start checking immediately.
-  // On first run, wait for renderer to signal intros finished.
-  if (!firstRun) {
-    void runGameCheck();
-  }
+  void runGameCheck();
 }
 
 /**
- * Called by renderer when intro videos have completed (first run only).
+ * Called by renderer AFTER intro videos finish (first run only).
+ * Download already happened — this just records that intros are done.
  */
 export function markIntroCompleted() {
   if (bootstrapState.snapshot.introCompleted) return;
-  bootstrapState.set({ introCompleted: true, phase: "checking" });
+  bootstrapState.set({ introCompleted: true });
   broadcast();
-  void runGameCheck();
 }
 
 /**
