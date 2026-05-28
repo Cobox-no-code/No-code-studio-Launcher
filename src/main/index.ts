@@ -17,6 +17,7 @@ function createWindow() {
     resizable: false,
     fullscreenable: false,
     maximizable: false,
+    autoHideMenuBar: true, 
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       nodeIntegration: false,

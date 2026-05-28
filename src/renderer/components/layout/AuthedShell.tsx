@@ -19,13 +19,13 @@ export function AuthedShell({
   }, []);
 
   return (
-    <div className="flex flex-col h-screen  bg-layout-gradient">
+    <div className="flex flex-col h-screen overflow-hidden bg-layout-gradient">
       <TopBar />
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />
         <main
           className={cn(
-            "flex-1 ",
+            "flex-1 overflow-hidden",
             bleed ? "mt-2 mb-3 mr-3" : "mt-2 mb-3 mr-3 ",
           )}
         >

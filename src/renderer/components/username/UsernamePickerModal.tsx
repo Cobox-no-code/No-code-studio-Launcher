@@ -220,7 +220,7 @@ export function UsernamePickerModal({
                 </div>
               </div>
 
-              {/* Guide / value prop */}
+              {/* Guide / value prop
               <div className="space-y-2.5 mb-6">
                 <GuideRow
                   icon={<Globe size={14} />}
@@ -234,7 +234,7 @@ export function UsernamePickerModal({
                   icon={<Pencil size={14} />}
                   text="You can change it any time before minting your Identity NFT"
                 />
-              </div>
+              </div> */}
 
               {/* Input */}
               <div className="mb-2">
@@ -330,13 +330,14 @@ export function UsernamePickerModal({
                 </Button>
                 {dismissable && (
                   <Button
-                    variant="ghost"
-                    size="md"
-                    onClick={onClose}
-                    disabled={submitting}
-                  >
-                    Skip for now
-                  </Button>
+                  variant="ghost"
+                  size="md"
+                  onClick={onClose}
+                  disabled={submitting}
+                  className="text-white/30 hover:text-white/60"
+                >
+               Skip for now
+              </Button>
                 )}
               </div>
             </div>

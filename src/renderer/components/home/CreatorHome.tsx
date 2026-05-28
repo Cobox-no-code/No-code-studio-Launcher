@@ -5,7 +5,8 @@ import { SceneBoundary } from "./SceneBoundary";
 
 export function CreatorHome() {
   return (
-    <div className="relative h-full overflow-hidden">
+    <div className="relative h-full overflow-hidden" style={{ maxHeight: "100vh" }}>
+
       {/* ─── 3D background ─────────────────────────────────────────────── */}
       <SceneBoundary>
         <CreatorHomeScene />

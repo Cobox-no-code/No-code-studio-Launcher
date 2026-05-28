@@ -15,6 +15,7 @@ export const Route = createFileRoute("/")({
 
 function BootstrapPage() {
   const boot = useBootstrapState();
+  
   const auth = useAuthState();
   const navigate = useNavigate();
   const didRouteRef = useRef(false);

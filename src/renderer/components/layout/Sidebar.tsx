@@ -26,7 +26,6 @@ const CREATOR_NAV: NavItem[] = [
 
 const PLAYER_NAV: NavItem[] = [
   { label: "HOME", to: "/home" },
-  { label: "LIBRARY", to: "/library" },
   { label: "STORE", to: "/store" },
 ];
 
@@ -89,9 +88,6 @@ export function Sidebar() {
           />
         ))}
 
-        <div className="pt-4 pr-4">
-          <DashboardButton mode={mode} />
-        </div>
 
         <div className="pt-4 pl-1">
           <ModeToggle />

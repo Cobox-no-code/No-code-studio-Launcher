@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { BootstrapState } from "@shared/types/bootstrap";
 
-import charactersSrc from "@renderer/assets/images/boot-characters.png";
+import charactersSrc from "@renderer/assets/images/group1.png";
 
 const MIN_FILL_MS = 3000; // bar 0→100 kam se kam itne time mein bhare
 
@@ -58,32 +58,37 @@ export function BootstrapProgressScreen({
         className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
       />
 
-      <div className="absolute bottom-8 left-8 right-8 flex items-end justify-between z-10">
-        <div className="flex-1">
-          <div className="font-display font-black text-2xl text-white drop-shadow-lg">
-            {label}
-          </div>
+     // Ab karo:
+<div className="absolute bottom-10 left-10 right-10 z-10">
+  {/* Label + percentage same line */}
+  <div className="flex items-center justify-between mb-2">
+    <span
+      className="text-sm font-semibold tracking-wide text-white/70"
+      style={{ letterSpacing: "0.08em" }}
+    >
+      {label}
+    </span>
+    <span className="text-sm font-bold text-white/90 tabular-nums">
+      {rounded}%
+    </span>
+  </div>
 
-          <div
-            className="mt-3 h-[2px] w-full max-w-[calc(100%-120px)] bg-white/10 rounded-full overflow-visible"
-            style={{ filter: "drop-shadow(0 0 6px rgba(255,92,195,0.55))" }}
-          >
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: `${displayPercent}%`,
-                background: "#FF5CC3",
-                boxShadow: "0 0 8px 2px rgba(255,92,195,0.55)",
-                transition: "width 120ms linear",
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="font-display font-black text-4xl text-white drop-shadow-lg ml-6">
-          {rounded}%
-        </div>
-      </div>
+  {/* Progress bar */}
+  <div
+    className="h-[2px] w-full bg-white/10 rounded-full overflow-hidden"
+    style={{ filter: "drop-shadow(0 0 4px rgba(255,92,195,0.4))" }}
+  >
+    <div
+      className="h-full rounded-full"
+      style={{
+        width: `${displayPercent}%`,
+        background: "linear-gradient(90deg, #c084fc, #FF5CC3)",
+        boxShadow: "0 0 6px rgba(255,92,195,0.5)",
+        transition: "width 120ms linear",
+      }}
+    />
+  </div>
+</div>
     </div>
   );
 }
