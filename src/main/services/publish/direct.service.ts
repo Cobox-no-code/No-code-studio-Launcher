@@ -71,6 +71,8 @@ export async function publishDirect(
     if (params.metadata.genre) form.append("genre", params.metadata.genre);
     if (params.metadata.categoryId)
       form.append("category_id", params.metadata.categoryId);
+    // 'game' | 'environment' — single games table differentiates by this field
+    form.append("type", params.metadata.type ?? "game");
 
     // ── Total size for progress ───────────────────────────────────────
     const gameSize = fs.statSync(params.filePath).size;

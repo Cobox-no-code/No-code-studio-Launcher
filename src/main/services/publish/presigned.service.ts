@@ -99,6 +99,7 @@ export async function publishPresigned(
         description: params.metadata.description,
         genre: params.metadata.genre,
         category_id: params.metadata.categoryId, // ← add
+        type: params.metadata.type ?? "game", // 'game' | 'environment'
         thumbnail_url: params.thumbnailUrl,
         file_url: params.fileUrl,
       },

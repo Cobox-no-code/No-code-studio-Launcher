@@ -94,6 +94,7 @@ export async function updatePublishedGame(
     if (metadata.genre !== undefined) body.genre = metadata.genre;
     if (metadata.categoryId !== undefined)
       body.category_id = metadata.categoryId;
+    if (metadata.type !== undefined) body.type = metadata.type;
     if (thumbnailUrl) body.thumbnail_url = thumbnailUrl;
 
     const res = await http.put(`/published-games/${gameId}`, body, {

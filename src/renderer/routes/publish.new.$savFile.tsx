@@ -71,6 +71,7 @@ function PublishNewPage() {
           title: values.title,
           description: values.description,
           categoryId: values.categoryId,
+          type: values.type,
         },
       });
       if (!res.success) throw new Error(res.error ?? "Publish failed");
@@ -118,7 +119,7 @@ function PublishNewPage() {
             <ArrowLeft size={25} />
           </button>
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-h-0">
           <PublishForm
             mode="new"
             submitting={submitting}

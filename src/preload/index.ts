@@ -1,3 +1,8 @@
+import {
+  AppVersionInfo,
+  ProfileUpdateParams,
+  ProfileUpdateResult,
+} from "@shared/types/app";
 import { AuthState, StartLoginResult } from "@shared/types/auth";
 import { BootstrapState } from "@shared/types/bootstrap";
 import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron";
@@ -39,11 +44,6 @@ import type {
   UpdateCheckResult,
   UpdateStatePayload,
 } from "../shared/types/update";
-import {
-  AppVersionInfo,
-  ProfileUpdateParams,
-  ProfileUpdateResult,
-} from "@shared/types/app";
 const _listenerMap = new Map<
   string,
   (event: IpcRendererEvent, ...args: unknown[]) => void
@@ -219,6 +219,10 @@ const api: CoboxAPI = {
   profile: {
     update: (params: ProfileUpdateParams): Promise<ProfileUpdateResult> =>
       ipcRenderer.invoke(IPC.profile.update, params),
+  },
+  tracker: {
+    view: (gameId: string): Promise<IpcResponse> =>
+      ipcRenderer.invoke(IPC.tracker.view, gameId),
   },
 };
 

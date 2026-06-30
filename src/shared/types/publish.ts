@@ -12,6 +12,8 @@ export type PublishedStatus =
   | "draft"
   | "suspended";
 
+export type GameType = "game" | "environment";
+
 export interface PublishedGame {
   game_id: string;
   title: string;
@@ -20,6 +22,7 @@ export interface PublishedGame {
   thumbnail_url: string | null;
   category_id: string | null;
   category_name: string | null;
+  type?: GameType;
   status: PublishedStatus;
   is_featured: boolean;
   is_reward_eligible: boolean;
@@ -64,6 +67,7 @@ export interface PublishMetadata {
   genre?: string;
   authorName?: string;
   categoryId?: string;
+  type?: GameType; // 'game' | 'environment'
 }
 
 export interface PublishDirectParams {

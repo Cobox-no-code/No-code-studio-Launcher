@@ -1,3 +1,7 @@
+import {
+  trackInstall,
+  trackUninstall,
+} from "@main/services/games/session-tracker.service";
 import { log } from "@main/utils/logger";
 import { safeSend } from "@main/utils/safe-send";
 import { IPC } from "@shared/ipc-contract";
@@ -87,6 +91,8 @@ export async function downloadLiveGame(
     });
 
     log.info(`Downloaded live game ${gameId} -> ${targetPath}`);
+    // Engagement: count this as an install (fire-and-forget, never blocks).
+    void trackInstall(gameId);
     return { success: true, path: targetPath };
   } catch (err) {
     // Cleanup the .part file on failure
@@ -139,6 +145,7 @@ export function deleteLiveGame(gameId: string): {
     const files = fs.readdirSync(dir);
     const match = files.find((f) => f.startsWith(`${gameId}_`));
     if (match) fs.unlinkSync(path.join(dir, match));
+    void trackUninstall(gameId); // POST /games/:id/uninstall
     return { success: true };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Delete failed";

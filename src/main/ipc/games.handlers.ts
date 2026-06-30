@@ -19,13 +19,13 @@ import {
   downloadLiveGame,
   getLocalLibrary,
 } from "@main/services/games/live-games.service";
+import { trackView } from "@main/services/games/session-tracker.service";
 import { getServerVersion } from "@main/services/games/version.service";
 import {
   LaunchWithIntentParams,
   LiveGameDownloadParams,
   PlayLiveGameParams,
 } from "@shared/types/game";
-import { log } from "electron-log";
 
 export function registerGamesHandlers(getWin: () => BrowserWindow | null) {
   ipcMain.handle(IPC.games.getServerVersion, () => getServerVersion());
@@ -38,14 +38,13 @@ export function registerGamesHandlers(getWin: () => BrowserWindow | null) {
     downloadAndExtractGame(params, getWin),
   );
 
-// In your IPC handler for launch:
-ipcMain.handle(IPC.games.launch, async (_e) => {
-  const result = launchGame();
-  if (!result.success && result.error?.includes("Studio")) {
-  
-  }
-  return result;
-});
+  // In your IPC handler for launch:
+  ipcMain.handle(IPC.games.launch, async (_e) => {
+    const result = launchGame();
+    if (!result.success && result.error?.includes("Studio")) {
+    }
+    return result;
+  });
   ipcMain.handle(IPC.games.getStatus, () => getGameStatus());
   ipcMain.handle(IPC.games.checkInstallation, (_e, gamePath: string) =>
     checkInstallationAt(gamePath),
@@ -82,4 +81,10 @@ ipcMain.handle(IPC.games.launch, async (_e) => {
     launchPlayGame(params),
   );
   ipcMain.handle(IPC.games.liveGameGetLibrary, () => getLocalLibrary());
+
+  // Engagement: game detail opened (no auth). Fire-and-forget.
+  ipcMain.handle(IPC.tracker.view, (_e, gameId: string) => {
+    void trackView(gameId);
+    return { success: true };
+  });
 }

@@ -83,4 +83,7 @@ export const IPC = {
   profile: {
     update: "profile:update",
   },
+  tracker: {
+    view: "tracker:view", // POST /games/:id/view (no auth)
+  },
 } as const;

@@ -139,4 +139,7 @@ export interface CoboxAPI {
   profile: {
     update(params: ProfileUpdateParams): Promise<ProfileUpdateResult>;
   };
+  tracker: {
+    view(gameId: string): Promise<IpcResponse>;
+  };
 }

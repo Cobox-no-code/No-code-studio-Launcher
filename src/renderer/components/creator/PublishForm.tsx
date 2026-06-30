@@ -11,12 +11,13 @@ import { cn } from "@renderer/lib/cn";
 import { fetchCategories } from "@renderer/lib/published-api";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { PublishCategory } from "../../../shared/types/publish";
+import type { GameType, PublishCategory } from "../../../shared/types/publish";
 
 export interface PublishFormValues {
   title: string;
   description: string;
   categoryId: string;
+  type: GameType;
   thumbnailFile: File | null;
 }
 
@@ -53,6 +54,7 @@ export function PublishForm({
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
+  const [type, setType] = useState<GameType>(initial?.type ?? "game");
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(
     initial?.thumbnailUrl ?? null,
@@ -97,12 +99,16 @@ export function PublishForm({
       title: title.trim(),
       description: description.trim(),
       categoryId,
+      type,
       thumbnailFile,
     });
   };
 
   return (
-    <form onSubmit={submit} className="h-full flex flex-col relative">
+    <form
+      onSubmit={submit}
+      className="h-full flex flex-col relative overflow-y-scroll!"
+    >
       {/* Header */}
       <div className="flex items-start justify-between px-10 pt-8 pb-4">
         {mode === "edit" && projectId && (
@@ -263,6 +269,45 @@ export function PublishForm({
               )}
             </DropdownContent>
           </DropdownRoot>
+
+          {/* Type — Game vs Environment radio (single games table differentiates by this) */}
+          <div className="flex items-center gap-2">
+            {(
+              [
+                { value: "game", label: "Game" },
+                { value: "environment", label: "Environment" },
+              ] as { value: GameType; label: string }[]
+            ).map((opt) => {
+              const activeOpt = type === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  data-no-drag
+                  onClick={() => setType(opt.value)}
+                  className={cn(
+                    "flex-1 h-11 rounded-md text-sm font-semibold transition-colors border",
+                    "flex items-center justify-center gap-2",
+                    activeOpt
+                      ? "bg-brand-700 border-brand-700 text-white"
+                      : "bg-[#D9D9D9] border-transparent text-[#555] hover:border-brand-700/60",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "inline-flex size-4 items-center justify-center rounded-full border-2",
+                      activeOpt ? "border-white" : "border-[#868686]",
+                    )}
+                  >
+                    {activeOpt && (
+                      <span className="size-2 rounded-full bg-white" />
+                    )}
+                  </span>
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
 
           {/* Description — tall white panel */}
           <div

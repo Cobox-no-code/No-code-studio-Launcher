@@ -292,6 +292,8 @@ export function PlayerHome() {
                 state={getState(game.game_id)}
                 onShare={setShareGame}
                 onOpen={() => {
+                  // Engagement: game detail opened (no auth needed).
+                  void cobox.tracker.view(game.game_id);
                   // TODO: navigate to game detail page
                 }}
                 onInstall={handleInstall}

@@ -3,6 +3,11 @@ import fs from "fs";
 import path from "path";
 
 import { workerStore } from "@main/persistence/worker.store";
+import {
+  beginPlaySession,
+  endActivePlaySession,
+  trackLaunch,
+} from "@main/services/games/session-tracker.service";
 import { log } from "@main/utils/logger";
 import type {
   LaunchResult,
@@ -104,10 +109,13 @@ export function launchGame(): LaunchResult {
     child.on("close", (code, signal) => {
       log.info(`[launchGame] Studio closed, code=${code} signal=${signal}`);
       activeProcess = null;
+      // Studio process gone → any in-flight play session is over.
+      void endActivePlaySession("process-exit");
     });
     child.on("error", (err) => {
       log.error("[launchGame] process error:", err);
       activeProcess = null;
+      void endActivePlaySession("process-error");
     });
 
     child.unref();
@@ -142,6 +150,10 @@ export function launchWithIntent(intent: StudioIntent): LaunchWithIntentResult {
 
     const result = launchGame();
     if (!result.success) return { success: false, error: result.error };
+
+    // User went into creator mode — stop counting any active play session.
+    void endActivePlaySession("switched-to-creator");
+
     return { success: true, intent, alreadyRunning: result.alreadyRunning };
   } catch (error: unknown) {
     const msg =
@@ -184,7 +196,16 @@ export function launchPlayGame(params: {
       intentWrittenAt: new Date().toISOString(),
     });
 
-    return launchGame();
+    const result = launchGame();
+
+    // Only start tracking once the launch itself succeeded (covers both a
+    // fresh spawn and the "already running, new intent" case).
+    if (result.success) {
+      void trackLaunch(params.gameId); // POST /games/:id/launch
+      void beginPlaySession(params.gameId); // POST /sessions/start
+    }
+
+    return result;
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Launch failed";
     log.error("[launchPlayGame] error:", msg);

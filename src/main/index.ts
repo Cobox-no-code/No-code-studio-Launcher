@@ -4,9 +4,14 @@ import { join } from "path";
 import { registerAllHandlers } from "@main/ipc";
 import { getAppDataPath } from "@main/persistence/paths";
 import { initAuthService } from "@main/services/auth/auth.service";
+import { initBootstrapService } from "@main/services/bootstrap/bootstrap.service";
+import {
+  flushOnQuit,
+  recoverAbandonedSession,
+} from "@main/services/games/session-tracker.service";
 import { initUpdaterService } from "@main/services/updater/updater.service";
 import { initLogger, log } from "@main/utils/logger";
-import { initBootstrapService } from "@main/services/bootstrap/bootstrap.service";
+
 let mainWindow: BrowserWindow | null = null;
 export const getMainWindow = () => mainWindow;
 
@@ -17,7 +22,7 @@ function createWindow() {
     resizable: false,
     fullscreenable: false,
     maximizable: false,
-    autoHideMenuBar: true, 
+    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       nodeIntegration: false,
@@ -43,11 +48,22 @@ app.whenReady().then(async () => {
   createWindow();
 
   await initAuthService(getMainWindow);
+
+  // If the launcher crashed mid-session last time, close that session out now.
+  // Runs after auth init so a valid JWT is available for the end call.
+  void recoverAbandonedSession();
+
   log.info(`Launcher v${app.getVersion()} started`);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+// Best-effort: stop counting any active play session when the launcher quits.
+// (Network may not finish before exit — recoverAbandonedSession() is the safety net.)
+app.on("before-quit", () => {
+  flushOnQuit();
 });
 
 app.on("window-all-closed", () => {

@@ -72,6 +72,7 @@ function EditPublishedPage() {
           title: values.title,
           description: values.description,
           categoryId: values.categoryId,
+          type: values.type,
         },
         newThumbnailPath,
       });
@@ -98,7 +99,7 @@ function EditPublishedPage() {
           </button>
         </div>
 
-        <div className="flex-1">
+        <div className="flex-1 min-h-0">
           {loading ? (
             <div className="h-full flex items-center justify-center text-sm text-text-muted">
               Loading…
@@ -116,6 +117,7 @@ function EditPublishedPage() {
                 title: game.title,
                 description: game.description ?? "",
                 categoryId: game.category_id ?? "",
+                type: game.type ?? "game",
                 thumbnailUrl: game.thumbnail_url,
               }}
               onSubmit={handleSubmit}
