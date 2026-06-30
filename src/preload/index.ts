@@ -159,6 +159,8 @@ const api: CoboxAPI = {
   publish: {
     listMine: (): Promise<PublishedGame[]> =>
       ipcRenderer.invoke(IPC.publish.listMine),
+    getOne: (gameId: string): Promise<PublishedGame | null> =>
+      ipcRenderer.invoke(IPC.publish.getOne, gameId),
 
     publishDirect: (params: PublishDirectParams): Promise<PublishResult> =>
       ipcRenderer.invoke(IPC.publish.publishDirect, params),
@@ -223,6 +225,11 @@ const api: CoboxAPI = {
   tracker: {
     view: (gameId: string): Promise<IpcResponse> =>
       ipcRenderer.invoke(IPC.tracker.view, gameId),
+    rate: (
+      gameId: string,
+      rating: number,
+    ): Promise<{ success: boolean; new_avg?: number; rating_count?: number }> =>
+      ipcRenderer.invoke(IPC.tracker.rate, gameId, rating),
   },
 };
 

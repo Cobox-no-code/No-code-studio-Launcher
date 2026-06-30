@@ -24,6 +24,27 @@ function broadcastProgress(
   safeSend(getWin(), IPC.publish.uploadProgress, event);
 }
 
+export async function getPublishedGame(
+  gameId: string,
+): Promise<PublishedGame | null> {
+  try {
+    // Routed through main (Node) — avoids the renderer CORS preflight that
+    // blocks GET /published-games/:id from http://localhost:5173 in dev.
+    const res = await http.get(`/published-games/${gameId}`, {
+      headers: authHeader(),
+    });
+    const data = res.data as { data?: PublishedGame } | PublishedGame;
+    return (
+      (data as { data?: PublishedGame })?.data ??
+      (data as PublishedGame) ??
+      null
+    );
+  } catch (err) {
+    log.error("getPublishedGame error:", err);
+    return null;
+  }
+}
+
 export async function listMyPublishedGames(): Promise<PublishedGame[]> {
   try {
     const res = await http.get("/published-games/my", {

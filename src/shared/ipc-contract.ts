@@ -47,6 +47,7 @@ export const IPC = {
   publish: {
     // Listing
     listMine: "publish:list-mine",
+    getOne: "publish:get-one",
 
     // Direct (small files)
     publishDirect: "publish:publish-direct",
@@ -85,5 +86,6 @@ export const IPC = {
   },
   tracker: {
     view: "tracker:view", // POST /games/:id/view (no auth)
+    rate: "tracker:rate", // POST /player/me/games/:id/rate (Bearer)
   },
 } as const;

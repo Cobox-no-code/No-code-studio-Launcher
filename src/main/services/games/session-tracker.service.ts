@@ -1,5 +1,5 @@
-import { app } from "electron";
 import { randomUUID } from "crypto";
+import { app } from "electron";
 
 import { http } from "@main/http/client";
 import { workerStore } from "@main/persistence/worker.store";
@@ -173,6 +173,41 @@ export async function trackUninstall(gameId: string): Promise<void> {
     log.info(`[tracker] uninstall ${gameId} ok`);
   } catch (err) {
     logFail(`uninstall ${gameId}`, err);
+  }
+}
+
+// ── Rate (Bearer) ───────────────────────────────────────────────────────────
+export interface RateResult {
+  success: boolean;
+  new_avg?: number;
+  rating_count?: number;
+}
+
+export async function trackRate(
+  gameId: string,
+  rating: number,
+): Promise<RateResult> {
+  const headers = bearer();
+  if (!headers) {
+    log.info(`[tracker] rate ${gameId} skipped — not authenticated`);
+    return { success: false };
+  }
+  try {
+    // POST /api/player/me/games/:gameId/rate  body { rating: 1–5 }
+    const res = await http.post(
+      `/player/me/games/${gameId}/rate`,
+      { rating },
+      { headers },
+    );
+    log.info(`[tracker] rate ${gameId} = ${rating} ok`);
+    return {
+      success: true,
+      new_avg: res.data?.new_avg,
+      rating_count: res.data?.rating_count,
+    };
+  } catch (err) {
+    logFail(`rate ${gameId}`, err);
+    return { success: false };
   }
 }
 

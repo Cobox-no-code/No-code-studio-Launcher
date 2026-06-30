@@ -18,6 +18,7 @@ import { ChevronDown, Filter, Gamepad2, Search, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { LauncherHandoff } from "../studio/LauncherHandoff";
 import { GameCard } from "./GameCard";
+import { PlayerGameModal } from "./PlayerGameModal";
 import { ShareModal } from "./ShareModal";
 
 const LIMIT = 12;
@@ -43,6 +44,7 @@ export function PlayerHome() {
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
   const [shareGame, setShareGame] = useState<PlayerGame | null>(null);
+  const [detailGame, setDetailGame] = useState<PlayerGame | null>(null);
   const gameIds = useMemo(() => games.map((g) => g.game_id), [games]);
   const { getState, setState, refresh } = usePlayerGames(gameIds);
   const [playingNow, setPlayingNow] = useState(false);
@@ -291,11 +293,7 @@ export function PlayerHome() {
                 game={game}
                 state={getState(game.game_id)}
                 onShare={setShareGame}
-                onOpen={() => {
-                  // Engagement: game detail opened (no auth needed).
-                  void cobox.tracker.view(game.game_id);
-                  // TODO: navigate to game detail page
-                }}
+                onOpen={() => setDetailGame(game)}
                 onInstall={handleInstall}
                 onPlay={handlePlay}
                 onRetry={handleRetry}
@@ -345,6 +343,21 @@ export function PlayerHome() {
         intent={playingNow ? "game" : null}
         onClose={() => setPlayingNow(false)}
       />
+      {detailGame && (
+        <PlayerGameModal
+          game={detailGame}
+          state={getState(detailGame.game_id)}
+          onClose={() => setDetailGame(null)}
+          onShare={(g) => {
+            setDetailGame(null);
+            setShareGame(g);
+          }}
+          onInstall={handleInstall}
+          onPlay={handlePlay}
+          onRetry={handleRetry}
+        />
+      )}
+
       {shareGame && (
         <ShareModal game={shareGame} onClose={() => setShareGame(null)} />
       )}

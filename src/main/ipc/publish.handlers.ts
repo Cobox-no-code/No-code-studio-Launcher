@@ -4,6 +4,7 @@ import { BrowserWindow, ipcMain } from "electron";
 import {
   createGameVersion,
   deletePublishedGame,
+  getPublishedGame,
   listMyPublishedGames,
   updatePublishedGame,
 } from "@main/services/publish/crud.service";
@@ -27,6 +28,10 @@ import type {
 
 export function registerPublishHandlers(getWin: () => BrowserWindow | null) {
   ipcMain.handle(IPC.publish.listMine, () => listMyPublishedGames());
+
+  ipcMain.handle(IPC.publish.getOne, (_e, gameId: string) =>
+    getPublishedGame(gameId),
+  );
 
   ipcMain.handle(IPC.publish.publishDirect, (_e, params: PublishDirectParams) =>
     publishDirect(params, getWin),

@@ -13,7 +13,6 @@ import {
 import { AuthedShell } from "@renderer/components/layout/AuthedShell";
 import { useAuthState } from "@renderer/hooks/useAuthState";
 import { cobox } from "@renderer/lib/electron";
-import { fetchPublishedGame } from "@renderer/lib/published-api";
 import type { PublishedGame } from "../../shared/types/publish";
 
 export const Route = createFileRoute("/published-edit/$gameId")({
@@ -38,7 +37,8 @@ function EditPublishedPage() {
     if (auth?.status !== "signed-in") return;
     void (async () => {
       try {
-        const g = await fetchPublishedGame(gameId);
+        const g = await cobox.publish.getOne(gameId);
+        if (!g) throw new Error("Game not found");
         setGame(g);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load");

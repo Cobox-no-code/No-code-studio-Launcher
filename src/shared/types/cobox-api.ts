@@ -104,6 +104,7 @@ export interface CoboxAPI {
 
   publish: {
     listMine(): Promise<PublishedGame[]>;
+    getOne(gameId: string): Promise<PublishedGame | null>;
     publishDirect(params: PublishDirectParams): Promise<PublishResult>;
     stageThumbnail(params: {
       bytes: Uint8Array;
@@ -141,5 +142,9 @@ export interface CoboxAPI {
   };
   tracker: {
     view(gameId: string): Promise<IpcResponse>;
+    rate(
+      gameId: string,
+      rating: number,
+    ): Promise<{ success: boolean; new_avg?: number; rating_count?: number }>;
   };
 }

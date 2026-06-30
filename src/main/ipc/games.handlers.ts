@@ -19,7 +19,10 @@ import {
   downloadLiveGame,
   getLocalLibrary,
 } from "@main/services/games/live-games.service";
-import { trackView } from "@main/services/games/session-tracker.service";
+import {
+  trackRate,
+  trackView,
+} from "@main/services/games/session-tracker.service";
 import { getServerVersion } from "@main/services/games/version.service";
 import {
   LaunchWithIntentParams,
@@ -87,4 +90,8 @@ export function registerGamesHandlers(getWin: () => BrowserWindow | null) {
     void trackView(gameId);
     return { success: true };
   });
+
+  ipcMain.handle(IPC.tracker.rate, (_e, gameId: string, rating: number) =>
+    trackRate(gameId, rating),
+  );
 }
